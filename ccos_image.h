@@ -4,11 +4,11 @@
 #define BLOCK_SIZE 512
 
 /**
- * Those are typical superblock values observed from the real CCOS floppy images. 0x121 is usual for 360kb images, 0x6E
+ * Those are typical superblock values observed from the real CCOS floppy images. 0x121 is usual for 360kb images, 0x6
  * - for the 720kb ones.
  */
 #define TYPICAL_SUPERBLOCK_1 0x121
-#define TYPICAL_SUPERBLOCK_2 0x6E
+#define TYPICAL_SUPERBLOCK_2 0x06
 
 typedef struct {
   uint8_t major;
