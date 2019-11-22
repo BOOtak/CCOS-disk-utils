@@ -7,6 +7,8 @@
 
 #define VERSION_MAX_SIZE 12  // "255.255.255"
 #define FAT_MBR_END_OF_SECTOR_MARKER 0xAA55
+#define OPCODE_NOP 0x90
+#define OPCODE_JMP 0xEB
 
 static char* format_version(version_t* version) {
   char* version_string = (char*)calloc(VERSION_MAX_SIZE, sizeof(char));
@@ -98,7 +100,8 @@ static void print_frame(int length) {
 }
 
 static int is_fat_image(const uint8_t* data) {
-  return (*(uint16_t*)&(data[0x1FE]) == FAT_MBR_END_OF_SECTOR_MARKER);
+  return ((data[0] == OPCODE_JMP) && (data[2] == OPCODE_NOP) &&
+          (*(uint16_t*)&(data[0x1FE]) == FAT_MBR_END_OF_SECTOR_MARKER));
 }
 
 int print_image_info(const char* path, const uint8_t* data) {
