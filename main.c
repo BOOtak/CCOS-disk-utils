@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -96,8 +97,16 @@ static void print_frame(int length) {
   printf("\n");
 }
 
+const char* trim_string(const char* src, char symbol) {
+  int i = 0;
+  for (; i < strlen(src), isspace(src[i]); ++i)
+    ;
+  return &(src[i]);
+}
+
 int print_image_info(const char* path, const uint16_t superblock, const uint8_t* data) {
   char* floppy_name = ccos_short_string_to_string(ccos_get_file_name(superblock, data));
+  const char* name_trimmed = trim_string(floppy_name, ' ');
 
   char* basename = strrchr(path, '/');
   if (basename == NULL) {
@@ -108,7 +117,11 @@ int print_image_info(const char* path, const uint16_t superblock, const uint8_t*
 
   print_frame(strlen(basename) + 2);
   printf("|%s| - ", basename);
-  printf("%s\n", floppy_name);
+  if (strlen(name_trimmed) == 0) {
+    printf("No description\n");
+  } else {
+    printf("%s\n", floppy_name);
+  }
   print_frame(strlen(basename) + 2);
   printf("\n");
 
