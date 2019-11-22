@@ -20,49 +20,36 @@ static char* format_version(version_t* version) {
 
 int print_file_info(uint16_t file_block, const uint8_t* data, int level) {
   const short_string_t* name = ccos_get_file_name(file_block, data);
-  char* c_name = ccos_short_string_to_string(name);
   uint32_t file_size = ccos_get_file_size(file_block, data);
 
-  char* basename = strchr(c_name, '~');
-  if (basename == NULL) {
-    fprintf(stderr, "Invalid name \"%s\": no file type found!\n", c_name);
-    free(c_name);
+  char basename[CCOS_MAX_FILE_NAME];
+  char type[CCOS_MAX_FILE_NAME];
+  memset(basename, 0, CCOS_MAX_FILE_NAME);
+  memset(type, 0, CCOS_MAX_FILE_NAME);
+
+  int res = ccos_parse_file_name(name, basename, type);
+  if (res == -1) {
+    fprintf(stderr, "Invalid file name!\n");
     return -1;
   }
 
-  char* last_char = strrchr(c_name, '~');
-  if ((last_char - c_name) != strlen(c_name) - 1) {
-    fprintf(stderr, "Invalid name \"%s\": invalid file type format!\n", c_name);
-    free(c_name);
+  int formatted_name_length = strlen(basename) + 2 * level;
+  char* formatted_name = calloc(formatted_name_length + 1, sizeof(char));
+  if (formatted_name == NULL) {
+    fprintf(stderr, "Error: unable to allocate memory for formatted name!\n");
     return -1;
   }
 
-  last_char[0] = '\0';
-
-  int basename_length = basename - c_name + 1;
-  char* type = basename + 1;
+  snprintf(formatted_name, formatted_name_length + 1, "%*s", formatted_name_length, basename);
 
   version_t version = ccos_get_file_version(file_block, data);
   char* version_string = format_version(&version);
   if (version_string == NULL) {
     fprintf(stderr, "Error: invalid file version string!\n");
-    free(c_name);
     return -1;
   }
-
-  int formatted_name_length = basename_length + 2 * level;
-  char* formatted_name = calloc(formatted_name_length + 1, sizeof(char));
-  if (formatted_name == NULL) {
-    fprintf(stderr, "Error: unable to allocate memory for formatted name!\n");
-    free(version_string);
-    free(c_name);
-    return -1;
-  }
-
-  snprintf(formatted_name, formatted_name_length, "%*.*s", formatted_name_length, basename_length, c_name);
 
   printf("%-*s%-*s%-*d%s\n", 32, formatted_name, 24, type, 16, file_size, version_string);
-  free(c_name);
   free(version_string);
   free(formatted_name);
   return 0;

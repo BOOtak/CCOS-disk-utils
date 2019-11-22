@@ -3,6 +3,8 @@
 
 #define BLOCK_SIZE 512
 
+#define CCOS_MAX_FILE_NAME 80
+
 typedef struct {
   uint8_t major;
   uint8_t minor;
@@ -41,3 +43,14 @@ int ccos_is_dir(uint16_t inode, const uint8_t* data);
 int ccos_get_block_data(uint16_t block, const uint8_t* data, const uint8_t** start, size_t* size);
 
 uint32_t ccos_get_file_size(uint16_t inode, const uint8_t* data);
+
+/**
+ * @brief      Perse CCOS file name and return it's basename and it's type
+ *
+ * @param[in]  file_name  The file name
+ * @param      basename   The basename
+ * @param      type       The file type
+ *
+ * @return     0 on success, -1 otherwise
+ */
+int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* type);

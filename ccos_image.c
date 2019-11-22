@@ -305,18 +305,37 @@ int ccos_get_dir_contents(uint16_t inode, const uint8_t* data, uint16_t* entry_c
 }
 
 int ccos_is_dir(uint16_t inode, const uint8_t* data) {
-  char* filename = ccos_short_string_to_string(ccos_get_file_name(inode, data));
-  if (filename == NULL) {
+  char type[CCOS_MAX_FILE_NAME];
+  memset(type, 0, CCOS_MAX_FILE_NAME);
+
+  int res = ccos_parse_file_name(ccos_get_file_name(inode, data), NULL, type);
+  if (res == -1) {
     return 0;
   }
 
-  char* type_index = strchr(filename, '~');
-  if (type_index == NULL) {
-    free(filename);
-    return 0;
+  return strncasecmp(type, CCOS_DIR_TYPE, strlen(CCOS_DIR_TYPE)) == 0;
+}
+
+int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* type) {
+  char* delim = strchr(file_name->data, '~');
+  if (delim == NULL) {
+    fprintf(stderr, "Invalid name \"%.s\": no file type found!\n", file_name->length, file_name->data);
+    return -1;
   }
 
-  int res = strncasecmp(type_index + 1, CCOS_DIR_TYPE, strlen(CCOS_DIR_TYPE)) == 0;
-  free(filename);
-  return res;
+  char* last_char = strchr(delim + 1, '~');
+  if ((last_char + 1 - file_name->data) != file_name->length) {
+    fprintf(stderr, "Invalid name \"%.*s\": invalid file type format!\n", file_name->length, file_name->data);
+    return -1;
+  }
+
+  if (basename != NULL) {
+    strncpy(basename, file_name->data, (delim - file_name->data));
+  }
+
+  if (type != NULL) {
+    strncpy(type, delim + 1, strlen(delim + 1) - 1);
+  }
+
+  return 0;
 }
