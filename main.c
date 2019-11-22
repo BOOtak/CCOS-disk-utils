@@ -6,9 +6,6 @@
 #include <ccos_image.h>
 
 #define VERSION_MAX_SIZE 12  // "255.255.255"
-#define FAT_MBR_END_OF_SECTOR_MARKER 0xAA55
-#define OPCODE_NOP 0x90
-#define OPCODE_JMP 0xEB
 
 static char* format_version(version_t* version) {
   char* version_string = (char*)calloc(VERSION_MAX_SIZE, sizeof(char));
@@ -99,24 +96,8 @@ static void print_frame(int length) {
   printf("\n");
 }
 
-static int is_fat_image(const uint8_t* data) {
-  return ((data[0] == OPCODE_JMP) && (data[2] == OPCODE_NOP) &&
-          (*(uint16_t*)&(data[0x1FE]) == FAT_MBR_END_OF_SECTOR_MARKER));
-}
-
-int print_image_info(const char* path, const uint8_t* data) {
-  if (is_fat_image(data)) {
-    fprintf(stderr, "FAT floppy image is found; return.\n");
-    return 0;
-  }
-
-  uint16_t superblock = ccos_get_superblock(data);
-  if (superblock == 0) {
-    fprintf(stderr, "Error: invalid superblock value 0x%lx!\n", superblock);
-    return -1;
-  } else if (superblock != TYPICAL_SUPERBLOCK_1 && superblock != TYPICAL_SUPERBLOCK_2) {
-    fprintf(stderr, "Warn: Unusual superblock value 0x%x\n", superblock);
-  }
+int print_image_info(const char* path, const uint16_t superblock, const uint8_t* data) {
+  char* floppy_name = ccos_short_string_to_string(ccos_get_file_name(superblock, data));
 
   char* basename = strrchr(path, '/');
   if (basename == NULL) {
@@ -124,8 +105,6 @@ int print_image_info(const char* path, const uint8_t* data) {
   } else {
     basename = basename + 1;
   }
-
-  char* floppy_name = ccos_short_string_to_string(ccos_get_file_name(superblock, data));
 
   print_frame(strlen(basename) + 2);
   printf("|%s| - ", basename);
@@ -173,7 +152,14 @@ int main(int argc, char const* argv[]) {
     return -1;
   }
 
-  int res = print_image_info(path, file_contents);
+  uint16_t superblock = 0;
+  if (ccos_get_superblock(file_contents, file_size, &superblock) == -1) {
+    fprintf(stderr, "Unable to get superblock: invalid image format!\n");
+    free(file_contents);
+    return -1;
+  }
+
+  int res = print_image_info(path, superblock, file_contents);
 
   free(file_contents);
   return res;

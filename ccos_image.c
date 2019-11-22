@@ -4,12 +4,23 @@
 
 #include <ccos_image.h>
 
+#define FAT_MBR_END_OF_SECTOR_MARKER 0xAA55
+#define OPCODE_NOP 0x90
+#define OPCODE_JMP 0xEB
+
 /**
  * Superblock is a block which contains root directory description. Usually CCOS disc image contains superblock number
  * at the offset 0x20. Sometimes though, it doesn't. In such cases we assume that superblock is # 0x121.
  */
 #define CCOS_SUPERBLOCK_ADDR_OFFSET 0x20
 #define CCOS_DEFAULT_SUPERBLOCK 0x121
+
+/**
+ * Those are typical superblock values observed from the real CCOS floppy images. 0x121 is usual for 360kb images, 0x6
+ * - for the 720kb ones.
+ */
+#define TYPICAL_SUPERBLOCK_1 0x121
+#define TYPICAL_SUPERBLOCK_2 0x06
 
 #define CCOS_VERSION_MAJOR_OFFSET 0x96
 #define CCOS_VERSION_MINOR_OFFSET 0x97
@@ -52,13 +63,42 @@ typedef struct {
 
 typedef enum { CONTENT_END_MARKER, BLOCK_END_MARKER, END_OF_BLOCK } read_block_status_t;
 
-uint16_t ccos_get_superblock(const uint8_t* data) {
-  uint16_t superblock = *((uint16_t*)&(data[CCOS_SUPERBLOCK_ADDR_OFFSET]));
-  if (superblock == 0) {
-    return CCOS_DEFAULT_SUPERBLOCK;
-  } else {
-    return superblock;
+static int is_fat_image(const uint8_t* data) {
+  return ((data[0] == OPCODE_JMP) && (data[2] == OPCODE_NOP) &&
+          (*(uint16_t*)&(data[0x1FE]) == FAT_MBR_END_OF_SECTOR_MARKER));
+}
+
+int ccos_get_superblock(const uint8_t* data, size_t image_size, uint16_t* superblock) {
+  if (is_fat_image(data)) {
+    fprintf(stderr, "FAT floppy image is found; return.\n");
+    return -1;
   }
+
+  uint16_t res = *((uint16_t*)&(data[CCOS_SUPERBLOCK_ADDR_OFFSET]));
+  if (res == 0) {
+    res = CCOS_DEFAULT_SUPERBLOCK;
+  }
+
+  if (res != TYPICAL_SUPERBLOCK_1 && res != TYPICAL_SUPERBLOCK_2) {
+    fprintf(stderr, "Warn: Unusual superblock value 0x%x\n", res);
+  }
+
+  uint32_t blocks_in_image = image_size / BLOCK_SIZE;
+  if (res > BLOCK_SIZE) {
+    fprintf(stderr, "Invalid superblock! (Superblock: 0x%x, but only 0x%x blocks in the image).\n", res,
+            blocks_in_image);
+    return -1;
+  }
+
+  uint32_t addr = res * BLOCK_SIZE;
+  uint16_t block_header = *(uint16_t*)&(data[addr]);
+  if (block_header != res) {
+    fprintf(stderr, "Invalid image: Block header 0x%x mismatches superblock 0x%lx!\n", block_header, res);
+    return -1;
+  }
+
+  *superblock = res;
+  return 0;
 }
 
 version_t ccos_get_file_version(uint16_t block, const uint8_t* data) {

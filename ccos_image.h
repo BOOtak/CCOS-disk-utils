@@ -3,13 +3,6 @@
 
 #define BLOCK_SIZE 512
 
-/**
- * Those are typical superblock values observed from the real CCOS floppy images. 0x121 is usual for 360kb images, 0x6
- * - for the 720kb ones.
- */
-#define TYPICAL_SUPERBLOCK_1 0x121
-#define TYPICAL_SUPERBLOCK_2 0x06
-
 typedef struct {
   uint8_t major;
   uint8_t minor;
@@ -21,7 +14,7 @@ typedef struct short_string_t_ short_string_t;
 
 typedef void (*on_block_read_callback_t)(const uint8_t* start, size_t offset);
 
-uint16_t ccos_get_superblock(const uint8_t* data);
+int ccos_get_superblock(const uint8_t* data, size_t image_size, uint16_t* superblock);
 
 version_t ccos_get_file_version(uint16_t block, const uint8_t* data);
 
