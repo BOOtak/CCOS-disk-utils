@@ -291,6 +291,7 @@ int ccos_get_dir_contents(uint16_t inode, const uint8_t* data, uint16_t* entry_c
     const uint8_t* start = NULL;
     size_t data_size = 0;
     if (ccos_get_block_data(dir_blocks[i], data, &start, &data_size) == -1) {
+      free(dir_blocks);
       free(dir_contents);
       return -1;
     }
@@ -301,6 +302,7 @@ int ccos_get_dir_contents(uint16_t inode, const uint8_t* data, uint16_t* entry_c
 
   int res = parse_directory_contents(dir_contents, dir_size, entry_count, entries_blocks);
   free(dir_contents);
+  free(dir_blocks);
   return res;
 }
 

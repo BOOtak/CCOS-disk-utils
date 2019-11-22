@@ -46,6 +46,7 @@ int print_file_info(uint16_t file_block, const uint8_t* data, int level) {
   char* version_string = format_version(&version);
   if (version_string == NULL) {
     fprintf(stderr, "Error: invalid file version string!\n");
+    free(formatted_name);
     return -1;
   }
 
@@ -74,6 +75,7 @@ int print_dir_tree(uint16_t block, const uint8_t* data, int level) {
     }
   }
 
+  free(root_dir_files);
   return 0;
 }
 
