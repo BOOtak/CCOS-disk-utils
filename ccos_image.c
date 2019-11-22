@@ -30,7 +30,7 @@
 
 #define CCOS_FILE_BLOCKS_OFFSET 0xD2
 #define CCOS_BLOCK_1_OFFSET 0xD8
-#define CCOS_BLOCK_N_OFFSET 0x12
+#define CCOS_BLOCK_N_OFFSET 0x0C
 
 #define CCOS_CONTENT_BLOCKS_END_MARKER 0xFFFF
 #define CCOS_BLOCK_END_MARKER 0x0000
@@ -157,16 +157,35 @@ char* ccos_short_string_to_string(const short_string_t* short_string) {
  * - BLOCK_END_MARKER - special CCOS_BLOCK_END_MARKER value was encountered. This value indicates the end of the current
  * block. It means that another inode block contains subsequent file content blocks.
  * - END_OF_BLOCK - this status usually indicates that we reached out of the current block bounds without encountering
- * CCOS_CONTENT_BLOCKS_END_MARKER or CCOS_BLOCK_END_MARKER, which, in general, is an error.
+ * CCOS_CONTENT_BLOCKS_END_MARKER or CCOS_BLOCK_END_MARKER, which, in general, should be considered as an error.
+ * However, some images may actually be like this and still work fine, usually when data blocks end near block end, take
+ * this GRIDOS31 image from rou021:
+ *
+ * d752d11890432c66b4201427096c7412f72cc2a4  GRIDOS31.IMD
+ * e1e29435ba51b7bcc1281a928eac65970a959d3b  GRIDOS31.IMG
+ *
+ * 000849E0:  AA 04 AB 04-AC 04 AD 04-AE 04 AF 04-B0 04 B1 04
+ * 000849F0:  B2 04 B3 04-B4 04 B5 04-B6 04 B7 04-03 14 54 79
+ *                                                ^
+ *                                                end of block, should be all zeroes
+ *
+ * So, as this happens, and system works fine in such conditions, we should not treat this as an error.
  */
 static read_block_status_t read_blocks(const uint8_t* data, uint32_t offset, size_t* blocks_count, uint16_t* blocks) {
   int i = 0;
+  uint32_t start_addr = (offset / BLOCK_SIZE) * BLOCK_SIZE;
+  uint32_t end_addr = start_addr + BLOCK_SIZE;
+  uint32_t end_of_block_addr = end_addr - 4;
   while (offset % BLOCK_SIZE != 0) {
     uint16_t block = *((uint16_t*)&(data[offset]));
     if (block == CCOS_CONTENT_BLOCKS_END_MARKER) {
       return CONTENT_END_MARKER;
     } else if (block == CCOS_BLOCK_END_MARKER) {
       return BLOCK_END_MARKER;
+    }
+
+    if (offset >= end_of_block_addr) {
+      return END_OF_BLOCK;
     }
 
     offset += sizeof(uint16_t);
@@ -191,8 +210,7 @@ int ccos_get_file_blocks(uint16_t block, const uint8_t* data, size_t* blocks_cou
 
   size_t real_blocks_count = 0;
   if (read_blocks(data, content1_addr, &real_blocks_count, *blocks) == END_OF_BLOCK) {
-    free(*blocks);
-    return -1;
+    fprintf(stderr, "Warn: Unexpected END_OF_BLOCK encountered while reading file block list at block 0x%lx!\n", block);
   }
 
   *blocks_count = real_blocks_count;
@@ -216,11 +234,10 @@ int ccos_get_file_blocks(uint16_t block, const uint8_t* data, size_t* blocks_cou
 
     size_t content2_blocks_count = 0;
     read_block_status_t status =
-        read_blocks(data, content2_addr, &content2_blocks_count, &(*blocks[real_blocks_count]));
+        read_blocks(data, content2_addr, &content2_blocks_count, &((*blocks)[real_blocks_count]));
     if (status == END_OF_BLOCK) {
-      fprintf(stderr, "End of block encountered in read_blocks!\n");
-      free(*blocks);
-      return -1;
+      fprintf(stderr, "Warn: Unexpected END_OF_BLOCK encountered while reading file block list at block 0x%lx!\n",
+              block);
     } else if (status == BLOCK_END_MARKER) {
       fprintf(stderr,
               "BLOCK_END_MARKER encountered in read_blocks of the second inode "

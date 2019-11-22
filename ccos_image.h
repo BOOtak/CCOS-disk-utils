@@ -1,3 +1,6 @@
+#ifndef CCOS_IMAGE_H
+#define CCOS_IMAGE_H
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -54,3 +57,5 @@ uint32_t ccos_get_file_size(uint16_t inode, const uint8_t* data);
  * @return     0 on success, -1 otherwise
  */
 int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* type);
+
+#endif // CCOS_IMAGE_H

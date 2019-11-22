@@ -1,133 +1,70 @@
-#include <ctype.h>
 #include <errno.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <ccos_image.h>
+#include <dumper.h>
 
-#define VERSION_MAX_SIZE 12  // "255.255.255"
+typedef enum { MODE_DUMP = 1, MODE_PRINT } op_mode_t;
 
-static char* format_version(version_t* version) {
-  char* version_string = (char*)calloc(VERSION_MAX_SIZE, sizeof(char));
-  if (version_string == NULL) {
-    return NULL;
-  }
+static const struct option long_options[] = {{"dump-dir", required_argument, NULL, 'd'},
+                                             {"print-dir", required_argument, NULL, 'p'},
+                                             {"help", no_argument, NULL, 'h'},
+                                             {NULL, no_argument, NULL, 0}};
 
-  snprintf(version_string, VERSION_MAX_SIZE, "%u.%u.%u", version->major, version->minor, version->patch);
-  return version_string;
+static const char* opt_string = "d:p:h";
+
+static void print_usage() {
+  fprintf(stderr,
+          "This is a tool for manipulating GRiD OS floppy images.\n"
+          "Usage: ccos_disk_tool { -p | -d } <path to GRiD OS floppy RAW image>\n"
+          "Options are:\n"
+          "\t-p,--print-dir <path> - Open image and print its contents\n"
+          "\t-d,--dump-dir <path> - Dump image contents into the current directory\n"
+          "\t-h,--help - Show this message\n");
 }
 
-int print_file_info(uint16_t file_block, const uint8_t* data, int level) {
-  const short_string_t* name = ccos_get_file_name(file_block, data);
-  uint32_t file_size = ccos_get_file_size(file_block, data);
-
-  char basename[CCOS_MAX_FILE_NAME];
-  char type[CCOS_MAX_FILE_NAME];
-  memset(basename, 0, CCOS_MAX_FILE_NAME);
-  memset(type, 0, CCOS_MAX_FILE_NAME);
-
-  int res = ccos_parse_file_name(name, basename, type);
-  if (res == -1) {
-    fprintf(stderr, "Invalid file name!\n");
-    return -1;
-  }
-
-  int formatted_name_length = strlen(basename) + 2 * level;
-  char* formatted_name = calloc(formatted_name_length + 1, sizeof(char));
-  if (formatted_name == NULL) {
-    fprintf(stderr, "Error: unable to allocate memory for formatted name!\n");
-    return -1;
-  }
-
-  snprintf(formatted_name, formatted_name_length + 1, "%*s", formatted_name_length, basename);
-
-  version_t version = ccos_get_file_version(file_block, data);
-  char* version_string = format_version(&version);
-  if (version_string == NULL) {
-    fprintf(stderr, "Error: invalid file version string!\n");
-    free(formatted_name);
-    return -1;
-  }
-
-  printf("%-*s%-*s%-*d%s\n", 32, formatted_name, 24, type, 16, file_size, version_string);
-  free(version_string);
-  free(formatted_name);
-  return 0;
-}
-
-int print_dir_tree(uint16_t block, const uint8_t* data, int level) {
-  uint16_t files_count = 0;
-  uint16_t* root_dir_files = NULL;
-  if (ccos_get_dir_contents(block, data, &files_count, &root_dir_files) == -1) {
-    fprintf(stderr, "Unable to get root dir contents!\n");
-    return -1;
-  }
-
-  for (int i = 0; i < files_count; ++i) {
-    if (print_file_info(root_dir_files[i], data, level) == -1) {
-      fprintf(stderr, "An error occured, skipping the rest of the image!\n");
-      return -1;
+int main(int argc, char** argv) {
+  op_mode_t mode = 0;
+  char* path = NULL;
+  int opt = 0;
+  while (1) {
+    int option_index = 0;
+    opt = getopt_long(argc, argv, opt_string, long_options, &option_index);
+    if (opt == -1) {
+      break;
     }
 
-    if (ccos_is_dir(root_dir_files[i], data)) {
-      print_dir_tree(root_dir_files[i], data, level + 1);
+    switch (opt) {
+      case 'd': {
+        mode = MODE_DUMP;
+        path = optarg;
+        printf("mode  = dump, path = %s\n", optarg);
+        break;
+      }
+      case 'p': {
+        mode = MODE_PRINT;
+        printf("mode  = print, path = %s\n", optarg);
+        path = optarg;
+
+        break;
+      }
+      case 'h': {
+        print_usage();
+        return 0;
+      }
     }
   }
 
-  free(root_dir_files);
-  return 0;
-}
-
-static void print_frame(int length) {
-  for (int i = 0; i < length; ++i) {
-    printf("-");
-  }
-  printf("\n");
-}
-
-const char* trim_string(const char* src, char symbol) {
-  int i = 0;
-  for (; i < strlen(src), isspace(src[i]); ++i)
-    ;
-  return &(src[i]);
-}
-
-int print_image_info(const char* path, const uint16_t superblock, const uint8_t* data) {
-  char* floppy_name = ccos_short_string_to_string(ccos_get_file_name(superblock, data));
-  const char* name_trimmed = trim_string(floppy_name, ' ');
-
-  char* basename = strrchr(path, '/');
-  if (basename == NULL) {
-    basename = (char*)path;
-  } else {
-    basename = basename + 1;
-  }
-
-  print_frame(strlen(basename) + 2);
-  printf("|%s| - ", basename);
-  if (strlen(name_trimmed) == 0) {
-    printf("No description\n");
-  } else {
-    printf("%s\n", floppy_name);
-  }
-  print_frame(strlen(basename) + 2);
-  printf("\n");
-
-  free(floppy_name);
-
-  printf("%-*s%-*s%-*s%s\n", 32, "File name", 24, "File type", 16, "File size", "Version");
-  print_frame(80);
-  return print_dir_tree(superblock, data, 0);
-}
-
-int main(int argc, char const* argv[]) {
-  if (argc != 2) {
-    printf("Usage: ccos_disk_tool <path to GRiD OS floppy RAW image>\n");
+  if (path == NULL) {
+    fprintf(stderr, "Error: no path to disk image was passed!\n\n");
+    print_usage();
     return -1;
   }
 
-  const char* path = argv[1];
   FILE* f = fopen(path, "rb");
   if (f == NULL) {
     fprintf(stderr, "Unable to open %s: %s!\n", path, strerror(errno));
@@ -161,7 +98,22 @@ int main(int argc, char const* argv[]) {
     return -1;
   }
 
-  int res = print_image_info(path, superblock, file_contents);
+  int res = -1;
+  switch (mode) {
+    case MODE_PRINT: {
+      res = print_image_info(path, superblock, file_contents);
+      break;
+    }
+    case MODE_DUMP: {
+      res = dump_dir(path, superblock, file_contents);
+      break;
+    }
+    default: {
+      fprintf(stderr, "Error: no mode selected from { -p | -d }! \n\n");
+      print_usage();
+      res = -1;
+    }
+  }
 
   free(file_contents);
   return res;
