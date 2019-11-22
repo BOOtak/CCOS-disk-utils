@@ -68,9 +68,22 @@ static int is_fat_image(const uint8_t* data) {
           (*(uint16_t*)&(data[0x1FE]) == FAT_MBR_END_OF_SECTOR_MARKER));
 }
 
+static int is_imd_image(const uint8_t* data) {
+  return data[0] == 'I' && data[1] == 'M' && data[2] == 'D' && data[3] == ' ';
+}
+
 int ccos_get_superblock(const uint8_t* data, size_t image_size, uint16_t* superblock) {
   if (is_fat_image(data)) {
     fprintf(stderr, "FAT floppy image is found; return.\n");
+    return -1;
+  }
+
+  if (is_imd_image(data)) {
+    fprintf(stderr,
+            "Provided image is in ImageDisk format, please convert it into the raw disk\n"
+            "image (.img) before using.\n"
+            "\n"
+            "(You can use Disk-Utilities from here: https://github.com/keirf/Disk-Utilities)\n");
     return -1;
   }
 
