@@ -6,10 +6,11 @@
 #include <ccos_image.h>
 
 #define VERSION_MAX_SIZE 12  // "255.255.255"
+#define FAT_MBR_END_OF_SECTOR_MARKER 0xAA55
+
 static char* format_version(version_t* version) {
-  char* version_string = (char*) calloc(VERSION_MAX_SIZE, sizeof(char));
-  if (version_string == NULL)
-  {
+  char* version_string = (char*)calloc(VERSION_MAX_SIZE, sizeof(char));
+  if (version_string == NULL) {
     return NULL;
   }
 
@@ -23,8 +24,7 @@ int print_file_info(uint16_t file_block, const uint8_t* data, int level) {
   uint32_t file_size = ccos_get_file_size(file_block, data);
 
   char* basename = strchr(c_name, '~');
-  if (basename == NULL)
-  {
+  if (basename == NULL) {
     fprintf(stderr, "Invalid name \"%s\": no file type found!\n", c_name);
     free(c_name);
     return -1;
@@ -44,8 +44,7 @@ int print_file_info(uint16_t file_block, const uint8_t* data, int level) {
 
   version_t version = ccos_get_file_version(file_block, data);
   char* version_string = format_version(&version);
-  if (version_string == NULL)
-  {
+  if (version_string == NULL) {
     fprintf(stderr, "Error: invalid file version string!\n");
     free(c_name);
     return -1;
@@ -98,7 +97,16 @@ static void print_frame(int length) {
   printf("\n");
 }
 
+static int is_fat_image(const uint8_t* data) {
+  return (*(uint16_t*)&(data[0x1FE]) == FAT_MBR_END_OF_SECTOR_MARKER);
+}
+
 int print_image_info(const char* path, const uint8_t* data) {
+  if (is_fat_image(data)) {
+    fprintf(stderr, "FAT floppy image is found; return.\n");
+    return 0;
+  }
+
   uint16_t superblock = ccos_get_superblock(data);
   if (superblock == 0) {
     fprintf(stderr, "Error: invalid superblock value 0x%lx!\n", superblock);
@@ -109,7 +117,7 @@ int print_image_info(const char* path, const uint8_t* data) {
 
   char* basename = strrchr(path, '/');
   if (basename == NULL) {
-    basename = (char*) path;
+    basename = (char*)path;
   } else {
     basename = basename + 1;
   }
