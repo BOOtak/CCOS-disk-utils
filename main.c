@@ -42,12 +42,10 @@ int main(int argc, char** argv) {
       case 'd': {
         mode = MODE_DUMP;
         path = optarg;
-        printf("mode  = dump, path = %s\n", optarg);
         break;
       }
       case 'p': {
         mode = MODE_PRINT;
-        printf("mode  = print, path = %s\n", optarg);
         path = optarg;
 
         break;
