@@ -243,6 +243,7 @@ int dump_dir(const char* path, const uint16_t superblock, const uint8_t* data) {
   char* dirname = (char*)calloc(sizeof(char), PATH_MAX);
   if (dirname == NULL) {
     fprintf(stderr, "Unable to allocate memory for directory name!\n");
+    free(floppy_name);
     return -1;
   }
 
@@ -256,6 +257,8 @@ int dump_dir(const char* path, const uint16_t superblock, const uint8_t* data) {
       strncpy(dirname, name_trimmed, idx - name_trimmed);
     }
   }
+
+  free(floppy_name);
 
   if (mkdir(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
     fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dirname, strerror(errno));
