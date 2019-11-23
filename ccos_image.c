@@ -106,7 +106,7 @@ int ccos_get_superblock(const uint8_t* data, size_t image_size, uint16_t* superb
   uint32_t addr = res * BLOCK_SIZE;
   uint16_t block_header = *(uint16_t*)&(data[addr]);
   if (block_header != res) {
-    fprintf(stderr, "Invalid image: Block header 0x%x mismatches superblock 0x%lx!\n", block_header, res);
+    fprintf(stderr, "Invalid image: Block header 0x%x mismatches superblock 0x%x!\n", block_header, res);
     return -1;
   }
 
@@ -210,7 +210,7 @@ int ccos_get_file_blocks(uint16_t block, const uint8_t* data, size_t* blocks_cou
 
   size_t real_blocks_count = 0;
   if (read_blocks(data, content1_addr, &real_blocks_count, *blocks) == END_OF_BLOCK) {
-    fprintf(stderr, "Warn: Unexpected END_OF_BLOCK encountered while reading file block list at block 0x%lx!\n", block);
+    fprintf(stderr, "Warn: Unexpected END_OF_BLOCK encountered while reading file block list at block 0x%x!\n", block);
   }
 
   *blocks_count = real_blocks_count;
@@ -236,7 +236,7 @@ int ccos_get_file_blocks(uint16_t block, const uint8_t* data, size_t* blocks_cou
     read_block_status_t status =
         read_blocks(data, content2_addr, &content2_blocks_count, &((*blocks)[real_blocks_count]));
     if (status == END_OF_BLOCK) {
-      fprintf(stderr, "Warn: Unexpected END_OF_BLOCK encountered while reading file block list at block 0x%lx!\n",
+      fprintf(stderr, "Warn: Unexpected END_OF_BLOCK encountered while reading file block list at block 0x%x!\n",
               block);
     } else if (status == BLOCK_END_MARKER) {
       fprintf(stderr,
@@ -338,7 +338,7 @@ int ccos_is_dir(uint16_t inode, const uint8_t* data) {
 int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* type) {
   char* delim = strchr(file_name->data, '~');
   if (delim == NULL) {
-    fprintf(stderr, "Invalid name \"%.s\": no file type found!\n", file_name->length, file_name->data);
+    fprintf(stderr, "Invalid name \"%.*s\": no file type found!\n", file_name->length, file_name->data);
     return -1;
   }
 

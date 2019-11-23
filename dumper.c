@@ -123,7 +123,7 @@ static int dump_file(uint16_t block, const uint8_t* data, const char* dirname) {
 
   char* file_name = ccos_short_string_to_string(ccos_get_file_name(block, data));
   if (file_name == NULL) {
-    fprintf(stderr, "Unable to get filename at block 0x%lx\n", block);
+    fprintf(stderr, "Unable to get filename at block 0x%x\n", block);
     free(abspath);
     return -1;
   }
@@ -137,7 +137,7 @@ static int dump_file(uint16_t block, const uint8_t* data, const char* dirname) {
   uint16_t* blocks = NULL;
 
   if (ccos_get_file_blocks(block, data, &blocks_count, &blocks) == -1) {
-    fprintf(stderr, "Unable to get file blocks for file %s at block 0x%lx!\n", abspath, block);
+    fprintf(stderr, "Unable to get file blocks for file %s at block 0x%x!\n", abspath, block);
     free(abspath);
     return -1;
   }
@@ -157,7 +157,7 @@ static int dump_file(uint16_t block, const uint8_t* data, const char* dirname) {
     const uint8_t* data_start = NULL;
     size_t data_size = 0;
     if (ccos_get_block_data(blocks[i], data, &data_start, &data_size) == -1) {
-      fprintf(stderr, "Unable to get data for data block 0x%lx, file block 0x%lx\n", blocks[i], block);
+      fprintf(stderr, "Unable to get data for data block 0x%x, file block 0x%x\n", blocks[i], block);
       fclose(f);
       free(abspath);
       free(blocks);
