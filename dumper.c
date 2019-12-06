@@ -229,8 +229,8 @@ static int dump_dir_tree(const uint16_t block, const uint8_t* data, const char* 
   return 0;
 }
 
-int dump_dir(const char* path, const uint16_t superblock, const uint8_t* data) {
-  char* floppy_name = ccos_short_string_to_string(ccos_get_file_name(superblock, data));
+int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data) {
+  char* floppy_name = ccos_short_string_to_string(ccos_get_file_name(dir_inode, data));
   const char* name_trimmed = trim_string(floppy_name, ' ');
 
   char* basename = strrchr(path, '/');
@@ -266,7 +266,7 @@ int dump_dir(const char* path, const uint16_t superblock, const uint8_t* data) {
     return -1;
   }
 
-  int res = dump_dir_tree(superblock, data, dirname);
+  int res = dump_dir_tree(dir_inode, data, dirname);
   free(dirname);
   return res;
 }

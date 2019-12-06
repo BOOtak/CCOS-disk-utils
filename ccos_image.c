@@ -114,8 +114,8 @@ int ccos_get_superblock(const uint8_t* data, size_t image_size, uint16_t* superb
   return 0;
 }
 
-version_t ccos_get_file_version(uint16_t block, const uint8_t* data) {
-  uint32_t addr = block * BLOCK_SIZE;
+version_t ccos_get_file_version(uint16_t inode, const uint8_t* data) {
+  uint32_t addr = inode * BLOCK_SIZE;
   uint8_t major = data[addr + CCOS_VERSION_MAJOR_OFFSET];
   uint8_t minor = data[addr + CCOS_VERSION_MINOR_OFFSET];
   uint8_t patch = data[addr + CCOS_VERSION_PATCH_OFFSET];
@@ -146,10 +146,10 @@ char* ccos_short_string_to_string(const short_string_t* short_string) {
 /**
  * @brief      Reads file content block numbers from the inode block.
  *
- * @param[in]  data          The CCOS image data
- * @param[in]  offset        The CCOS image offset of the content blocks
- * @param      blocks_count  The blocks count
- * @param      blocks        The block numbers
+ * @param[in]  data          The CCOS image data.
+ * @param[in]  offset        The CCOS image offset of the content blocks.
+ * @param      blocks_count  The blocks count.
+ * @param      blocks        The block numbers.
  *
  * @return     One of three values:
  * - CONTENT_END_MARKER - special CCOS_CONTENT_BLOCKS_END_MARKER value was encountered during the read. It means that
@@ -288,7 +288,7 @@ static int parse_directory_contents(const uint8_t* data, size_t data_size, uint1
   return 0;
 }
 
-int ccos_get_dir_contents(uint16_t inode, const uint8_t* data, uint16_t* entry_count, uint16_t** entries_blocks) {
+int ccos_get_dir_contents(uint16_t inode, const uint8_t* data, uint16_t* entry_count, uint16_t** entries_inodes) {
   uint16_t* dir_blocks = NULL;
   size_t blocks_count = 0;
 
@@ -317,7 +317,7 @@ int ccos_get_dir_contents(uint16_t inode, const uint8_t* data, uint16_t* entry_c
     offset += data_size;
   }
 
-  int res = parse_directory_contents(dir_contents, dir_size, entry_count, entries_blocks);
+  int res = parse_directory_contents(dir_contents, dir_size, entry_count, entries_inodes);
   free(dir_contents);
   free(dir_blocks);
   return res;
