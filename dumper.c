@@ -15,6 +15,10 @@
 
 #define MIN(A, B) A < B ? A : B
 
+typedef int (*on_file_t)(uint16_t block, const uint8_t* data, const char* dirname, int level);
+
+typedef int (*on_dir_t)(uint16_t block, const uint8_t* data, const char* dirname, int level);
+
 static char* format_version(version_t* version) {
   char* version_string = (char*)calloc(VERSION_MAX_SIZE, sizeof(char));
   if (version_string == NULL) {
@@ -25,7 +29,65 @@ static char* format_version(version_t* version) {
   return version_string;
 }
 
-static int print_file_info(uint16_t file_block, const uint8_t* data, int level) {
+static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* dirname, int level, on_file_t on_file,
+                               on_dir_t on_dir) {
+  uint16_t files_count = 0;
+  uint16_t* root_dir_files = NULL;
+  if (ccos_get_dir_contents(block, data, &files_count, &root_dir_files) == -1) {
+    fprintf(stderr, "Unable to get root dir contents!\n");
+    return -1;
+  }
+
+  for (int i = 0; i < files_count; ++i) {
+    if (ccos_is_dir(root_dir_files[i], data)) {
+      char subdir_name[CCOS_MAX_FILE_NAME];
+      memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
+      if (ccos_parse_file_name(ccos_get_file_name(root_dir_files[i], data), subdir_name, NULL) == -1) {
+        free(root_dir_files);
+        return -1;
+      }
+
+      char* subdir = (char*)calloc(sizeof(char), PATH_MAX);
+      if (subdir == NULL) {
+        fprintf(stderr, "Unable to allocate memory for subdir!\n");
+        free(root_dir_files);
+        return -1;
+      }
+
+      snprintf(subdir, PATH_MAX, "%s/%s", dirname, subdir_name);
+
+      if (on_dir != NULL) {
+        if (on_dir(root_dir_files[i], data, dirname, level) == -1) {
+          fprintf(stderr, "An error occured, skipping the rest of the image!\n");
+          free(root_dir_files);
+          free(subdir);
+          return -1;
+        }
+      }
+
+      int res = traverse_ccos_image(root_dir_files[i], data, subdir, level + 1, on_file, on_dir);
+      free(subdir);
+
+      if (res == -1) {
+        fprintf(stderr, "An error occured, skipping the rest of the image!\n");
+        return -1;
+      }
+    } else {
+      if (on_file != NULL) {
+        if (on_file(root_dir_files[i], data, dirname, level) == -1) {
+          fprintf(stderr, "An error occured, skipping the rest of the image!\n");
+          free(root_dir_files);
+          return -1;
+        }
+      }
+    }
+  }
+
+  free(root_dir_files);
+  return 0;
+}
+
+static int print_file_info(uint16_t file_block, const uint8_t* data, const char* dirname, int level) {
   const short_string_t* name = ccos_get_file_name(file_block, data);
   uint32_t file_size = ccos_get_file_size(file_block, data);
 
@@ -63,29 +125,6 @@ static int print_file_info(uint16_t file_block, const uint8_t* data, int level) 
   return 0;
 }
 
-static int print_dir_tree(uint16_t block, const uint8_t* data, int level) {
-  uint16_t files_count = 0;
-  uint16_t* root_dir_files = NULL;
-  if (ccos_get_dir_contents(block, data, &files_count, &root_dir_files) == -1) {
-    fprintf(stderr, "Unable to get root dir contents!\n");
-    return -1;
-  }
-
-  for (int i = 0; i < files_count; ++i) {
-    if (print_file_info(root_dir_files[i], data, level) == -1) {
-      fprintf(stderr, "An error occured, skipping the rest of the image!\n");
-      return -1;
-    }
-
-    if (ccos_is_dir(root_dir_files[i], data)) {
-      print_dir_tree(root_dir_files[i], data, level + 1);
-    }
-  }
-
-  free(root_dir_files);
-  return 0;
-}
-
 int print_image_info(const char* path, const uint16_t superblock, const uint8_t* data) {
   char* floppy_name = ccos_short_string_to_string(ccos_get_file_name(superblock, data));
   const char* name_trimmed = trim_string(floppy_name, ' ');
@@ -111,10 +150,11 @@ int print_image_info(const char* path, const uint16_t superblock, const uint8_t*
 
   printf("%-*s%-*s%-*s%s\n", 32, "File name", 24, "File type", 16, "File size", "Version");
   print_frame(80);
-  return print_dir_tree(superblock, data, 0);
+  int level = 0;
+  return traverse_ccos_image(superblock, data, "", 0, print_file_info, print_file_info);
 }
 
-static int dump_file(uint16_t block, const uint8_t* data, const char* dirname) {
+static int dump_dir_tree_on_file(uint16_t block, const uint8_t* data, const char* dirname, int level) {
   char* abspath = (char*)calloc(sizeof(char), PATH_MAX);
   if (abspath == NULL) {
     fprintf(stderr, "Unable to allocate memory for the filename!\n");
@@ -183,50 +223,28 @@ static int dump_file(uint16_t block, const uint8_t* data, const char* dirname) {
   return 0;
 }
 
-static int dump_dir_tree(const uint16_t block, const uint8_t* data, const char* dirname) {
-  uint16_t files_count = 0;
-  uint16_t* root_dir_files = NULL;
-
-  if (ccos_get_dir_contents(block, data, &files_count, &root_dir_files) == -1) {
-    fprintf(stderr, "Unable to get root dir contents!\n");
+static int dump_dir_tree_on_dir(uint16_t block, const uint8_t* data, const char* dirname, int level) {
+  char subdir_name[CCOS_MAX_FILE_NAME];
+  memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
+  if (ccos_parse_file_name(ccos_get_file_name(block, data), subdir_name, NULL) == -1) {
     return -1;
   }
 
-  for (int i = 0; i < files_count; ++i) {
-    if (ccos_is_dir(root_dir_files[i], data)) {
-      char subdir_name[CCOS_MAX_FILE_NAME];
-      memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
-      if (ccos_parse_file_name(ccos_get_file_name(root_dir_files[i], data), subdir_name, NULL) == -1) {
-        free(root_dir_files);
-        return -1;
-      }
-
-      char* subdir = (char*)calloc(sizeof(char), PATH_MAX);
-      if (subdir == NULL) {
-        fprintf(stderr, "Unable to allocate memory for subdir!\n");
-        free(root_dir_files);
-        return -1;
-      }
-
-      snprintf(subdir, PATH_MAX, "%s/%s", dirname, subdir_name);
-
-      if (mkdir(subdir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
-        fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dirname, strerror(errno));
-        free(subdir);
-        free(root_dir_files);
-        return -1;
-      }
-
-      dump_dir_tree(root_dir_files[i], data, subdir);
-      free(subdir);
-    } else if (dump_file(root_dir_files[i], data, dirname) == -1) {
-      fprintf(stderr, "An error occured, skipping the rest of the image!\n");
-      return -1;
-    }
+  char* subdir = (char*)calloc(sizeof(char), PATH_MAX);
+  if (subdir == NULL) {
+    fprintf(stderr, "Unable to allocate memory for subdir!\n");
+    return -1;
   }
 
-  free(root_dir_files);
-  return 0;
+  snprintf(subdir, PATH_MAX, "%s/%s", dirname, subdir_name);
+
+  int res = mkdir(subdir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+  free(subdir);
+
+  if (res == -1) {
+    fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dirname, strerror(errno));
+    return -1;
+  }
 }
 
 int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data) {
@@ -266,7 +284,7 @@ int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data) {
     return -1;
   }
 
-  int res = dump_dir_tree(dir_inode, data, dirname);
+  int res = traverse_ccos_image(dir_inode, data, dirname, 0, dump_dir_tree_on_file, dump_dir_tree_on_dir);
   free(dirname);
   return res;
 }

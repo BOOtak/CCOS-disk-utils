@@ -17,8 +17,6 @@ typedef struct {
 struct short_string_t_;
 typedef struct short_string_t_ short_string_t;
 
-typedef void (*on_block_read_callback_t)(const uint8_t* start, size_t offset);
-
 /**
  * @brief      Find a superblock (i.e. the inode with the root directory description) in a CCOS filesystem image.
  *
