@@ -25,4 +25,7 @@ int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data);
  */
 int print_image_info(const char* path, const uint16_t superblock, const uint8_t* data);
 
-#endif // DUMPER_H
+int replace_file(const char* path, const char* filename, const char* target_name, const uint16_t superblock,
+                 uint8_t* data, size_t data_size, int in_place);
+
+#endif  // DUMPER_H

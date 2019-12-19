@@ -8,28 +8,46 @@
 #include <ccos_image.h>
 #include <dumper.h>
 
-typedef enum { MODE_DUMP = 1, MODE_PRINT } op_mode_t;
+typedef enum { MODE_DUMP = 1, MODE_PRINT, MODE_REPLACE_FILE } op_mode_t;
 
-static const struct option long_options[] = {{"dump-dir", required_argument, NULL, 'd'},
-                                             {"print-dir", required_argument, NULL, 'p'},
+static const struct option long_options[] = {{"image", required_argument, NULL, 'i'},
+                                             {"replace-file", required_argument, NULL, 'r'},
+                                             {"target-name", required_argument, NULL, 'n'},
+                                             {"in-place", no_argument, NULL, 'l'},
+                                             {"dump-dir", no_argument, NULL, 'd'},
+                                             {"print-contents", no_argument, NULL, 'p'},
                                              {"help", no_argument, NULL, 'h'},
                                              {NULL, no_argument, NULL, 0}};
 
-static const char* opt_string = "d:p:h";
+static const char* opt_string = "i:f:r:n:ldph";
 
 static void print_usage() {
   fprintf(stderr,
           "This is a tool for manipulating GRiD OS floppy images.\n"
-          "Usage: ccos_disk_tool { -p | -d } <path to GRiD OS floppy RAW image>\n"
+          "Usage:\n"
+          "ccos_disk_tool { -i <image> | -h } [OPTIONS]\n"
+          "\n"
           "Options are:\n"
-          "\t-p,--print-dir <path> - Open image and print its contents\n"
-          "\t-d,--dump-dir <path> - Dump image contents into the current directory\n"
-          "\t-h,--help - Show this message\n");
+          "{ -f <filename> | -r <file> [-n <name>] [-l] | -d | -p }\n"
+          "\n"
+          "-i, --image <path>\t\tPath to GRiD OS floppy RAW image\n"
+          "-p, --print-contents\t\tPrint image contents\n"
+          "-d, --dump-dir\t\t\tDump image contents into the current directory\n"
+          "-r, --replace-file <filename>\tReplace file in the image with the given\n"
+          "\t\t\t\tfile, save changes to <path>.new\n"
+          "-n, --target-name <name>\tOptionally, replace file <name> in the image\n"
+          "\t\t\t\tinstead of basename of file passed with\n"
+          "\t\t\t\t--replace-file\n"
+          "-l, --in-place\t\t\tWrite changes in the original image\n"
+          "-h, --help\t\t\tShow this message\n");
 }
 
 int main(int argc, char** argv) {
   op_mode_t mode = 0;
   char* path = NULL;
+  char* filename = NULL;
+  char* target_name = NULL;
+  int in_place = 0;
   int opt = 0;
   while (1) {
     int option_index = 0;
@@ -39,15 +57,34 @@ int main(int argc, char** argv) {
     }
 
     switch (opt) {
+      case 'i': {
+        path = optarg;
+        break;
+      }
+      case 'l': {
+        in_place = 1;
+        break;
+      }
+      case 'n': {
+        target_name = optarg;
+        break;
+      }
       case 'd': {
         mode = MODE_DUMP;
-        path = optarg;
         break;
       }
       case 'p': {
         mode = MODE_PRINT;
-        path = optarg;
-
+        break;
+      }
+      case 'f': {
+        mode = MODE_DUMP_FILE;
+        filename = optarg;
+        break;
+      }
+      case 'r': {
+        mode = MODE_REPLACE_FILE;
+        filename = optarg;
         break;
       }
       case 'h': {
@@ -104,6 +141,10 @@ int main(int argc, char** argv) {
     }
     case MODE_DUMP: {
       res = dump_dir(path, superblock, file_contents);
+      break;
+    }
+    case MODE_REPLACE_FILE: {
+      res = replace_file(path, filename, target_name, superblock, file_contents, (size_t)file_size, in_place);
       break;
     }
     default: {

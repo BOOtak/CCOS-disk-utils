@@ -358,3 +358,40 @@ int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* 
 
   return 0;
 }
+
+int ccos_replace_file(uint16_t inode, const uint8_t* file_data, uint32_t file_size, uint8_t* image_data) {
+  uint32_t inode_file_size = ccos_get_file_size(inode, image_data);
+  if (inode_file_size != file_size) {
+    fprintf(stderr,
+            "Unable to write file: File size mismatch!\n"
+            "(size from the inode: %d bytes; actual size: %d bytes\n",
+            inode_file_size, file_size);
+    return -1;
+  }
+
+  size_t block_count = 0;
+  uint16_t* blocks = NULL;
+  if (ccos_get_file_blocks(inode, image_data, &block_count, &blocks) != 0) {
+    fprintf(stderr, "Unable to write file to image: Unable to get file blocks from the inode!\n");
+    return -1;
+  }
+
+  const uint8_t* image_data_part = file_data;
+  size_t written_size = 0;
+  for (size_t i = 0; i < block_count; ++i) {
+    const uint8_t* start = NULL;
+    size_t data_size = 0;
+    if (ccos_get_block_data(blocks[i], image_data, &start, &data_size) != 0) {
+      fprintf(stderr, "Unable to write data: Unable to get target block address!\n");
+      free(blocks);
+      return -1;
+    }
+
+    memcpy((uint8_t*)start, image_data_part, MIN(data_size, file_size - written_size));
+    image_data_part += data_size;
+    written_size += data_size;
+  }
+
+  free(blocks);
+  return 0;
+}

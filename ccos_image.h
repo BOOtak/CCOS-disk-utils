@@ -126,4 +126,16 @@ uint32_t ccos_get_file_size(uint16_t inode, const uint8_t* data);
  */
 int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* type);
 
+/**
+ * @brief      Replace file in the CCOS image data.
+ *
+ * @param[in]  inode       The inode of the file to replace.
+ * @param[in]  file_data   The new file contents.
+ * @param[in]  file_size   The new file size (it should match old file size).
+ * @param      image_data  CCOS image data.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_replace_file(uint16_t inode, const uint8_t* file_data, uint32_t file_size, uint8_t* image_data);
+
 #endif  // CCOS_IMAGE_H
