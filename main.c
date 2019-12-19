@@ -77,11 +77,6 @@ int main(int argc, char** argv) {
         mode = MODE_PRINT;
         break;
       }
-      case 'f': {
-        mode = MODE_DUMP_FILE;
-        filename = optarg;
-        break;
-      }
       case 'r': {
         mode = MODE_REPLACE_FILE;
         filename = optarg;
