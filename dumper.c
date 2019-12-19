@@ -252,6 +252,9 @@ static traverse_callback_result_t dump_dir_tree_on_dir(uint16_t block, const uin
     return -1;
   }
 
+  // some directories have '/' in their names, e.g. "GRiD-OS/Windows 113x, 114x v3.1.5D"
+  replace_char_in_place(subdir_name, '/', '_');
+
   char* subdir = (char*)calloc(sizeof(char), PATH_MAX);
   if (subdir == NULL) {
     fprintf(stderr, "Unable to allocate memory for subdir!\n");
@@ -301,6 +304,9 @@ int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data) {
   }
 
   free(floppy_name);
+
+  // some directories have '/' in their names, e.g. "GRiD-OS/Windows 113x, 114x v3.1.5D"
+  replace_char_in_place(dirname, '/', '_');
 
   if (mkdir(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
     fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dirname, strerror(errno));
