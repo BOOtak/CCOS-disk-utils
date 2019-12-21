@@ -16,10 +16,11 @@ static const struct option long_options[] = {{"image", required_argument, NULL, 
                                              {"in-place", no_argument, NULL, 'l'},
                                              {"dump-dir", no_argument, NULL, 'd'},
                                              {"print-contents", no_argument, NULL, 'p'},
+                                             {"verbose", no_argument, NULL, 'v'},
                                              {"help", no_argument, NULL, 'h'},
                                              {NULL, no_argument, NULL, 0}};
 
-static const char* opt_string = "i:f:r:n:ldph";
+static const char* opt_string = "i:f:r:n:ldpvh";
 
 static void print_usage() {
   fprintf(stderr,
@@ -39,6 +40,7 @@ static void print_usage() {
           "\t\t\t\tinstead of basename of file passed with\n"
           "\t\t\t\t--replace-file\n"
           "-l, --in-place\t\t\tWrite changes in the original image\n"
+          "-v, --verbose\t\t\tVerbose output\n"
           "-h, --help\t\t\tShow this message\n");
 }
 
@@ -48,6 +50,7 @@ int main(int argc, char** argv) {
   char* filename = NULL;
   char* target_name = NULL;
   int in_place = 0;
+  int verbose = 0;
   int opt = 0;
   while (1) {
     int option_index = 0;
@@ -80,6 +83,10 @@ int main(int argc, char** argv) {
       case 'r': {
         mode = MODE_REPLACE_FILE;
         filename = optarg;
+        break;
+      }
+      case 'v': {
+        verbose = 1;
         break;
       }
       case 'h': {
@@ -135,7 +142,7 @@ int main(int argc, char** argv) {
       break;
     }
     case MODE_DUMP: {
-      res = dump_dir(path, superblock, file_contents);
+      res = dump_dir(path, superblock, file_contents, verbose);
       break;
     }
     case MODE_REPLACE_FILE: {
@@ -143,7 +150,7 @@ int main(int argc, char** argv) {
       break;
     }
     default: {
-      fprintf(stderr, "Error: no mode selected from { -p | -d }! \n\n");
+      fprintf(stderr, "Error: no mode selected! \n\n");
       print_usage();
       res = -1;
     }
