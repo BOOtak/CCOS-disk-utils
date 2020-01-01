@@ -17,6 +17,20 @@ typedef struct {
 struct short_string_t_;
 typedef struct short_string_t_ short_string_t;
 
+#pragma pack(push, 1)
+typedef struct {
+  uint16_t year;
+  uint8_t month;
+  uint8_t day;
+  uint8_t hour;
+  uint8_t minute;
+  uint8_t second;
+  uint8_t tenthOfSec;
+  uint8_t dayOfWeek;
+  uint16_t dayOfYear;
+} ccos_date_t;
+#pragma pack(pop)
+
 /**
  * @brief      Find a superblock (i.e. the inode with the root directory description) in a CCOS filesystem image.
  *
@@ -114,6 +128,36 @@ int ccos_get_block_data(uint16_t block, const uint8_t* data, const uint8_t** sta
  * @return     The size of a file at a given inode.
  */
 uint32_t ccos_get_file_size(uint16_t inode, const uint8_t* data);
+
+/**
+ * @brief      Get the creation date of a file at a given inode.
+ *
+ * @param[in]  inode  The inode.
+ * @param[in]  data   CCOS image data.
+ *
+ * @return     The creation date of a file at a given inode.
+ */
+ccos_date_t ccos_get_creation_date(uint16_t inode, const uint8_t* data);
+
+/**
+ * @brief      Get the modification date of a file at a given inode.
+ *
+ * @param[in]  inode  The inode.
+ * @param[in]  data   CCOS image data.
+ *
+ * @return     The modification date of a file at a given inode.
+ */
+ccos_date_t ccos_get_mod_date(uint16_t inode, const uint8_t* data);
+
+/**
+ * @brief      Get the expiry date of a file at a given inode.
+ *
+ * @param[in]  inode  The inode.
+ * @param[in]  data   CCOS image data.
+ *
+ * @return     The expiry date of a file at a given inode.
+ */
+ccos_date_t ccos_get_exp_date(uint16_t inode, const uint8_t* data);
 
 /**
  * @brief      Perse CCOS file name and return it's basename and it's type.
