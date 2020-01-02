@@ -44,6 +44,9 @@
 #define CCOS_DIR_TYPE "subject"
 
 #define CCOS_INODE_FILE_SIZE_OFFSET 0x4
+#define CCOS_INODE_CREATION_DATE_OFFSET 0x59
+#define CCOS_INODE_MOD_DATE_OFFSET 0x66
+#define CCOS_INODE_EXPIRY_DATE_OFFSET 0x71
 
 #define MIN(A, B) A < B ? A : B
 
@@ -131,6 +134,21 @@ const short_string_t* ccos_get_file_name(uint16_t inode, const uint8_t* data) {
 uint32_t ccos_get_file_size(uint16_t inode, const uint8_t* data) {
   size_t addr = inode * BLOCK_SIZE;
   return *(uint32_t*)&(data[addr + CCOS_INODE_FILE_SIZE_OFFSET]);
+}
+
+ccos_date_t ccos_get_creation_date(uint16_t inode, const uint8_t* data) {
+  size_t addr = inode * BLOCK_SIZE;
+  return *(ccos_date_t*)&(data[addr + CCOS_INODE_CREATION_DATE_OFFSET]);
+}
+
+ccos_date_t ccos_get_mod_date(uint16_t inode, const uint8_t* data) {
+  size_t addr = inode * BLOCK_SIZE;
+  return *(ccos_date_t*)&(data[addr + CCOS_INODE_MOD_DATE_OFFSET]);
+}
+
+ccos_date_t ccos_get_exp_date(uint16_t inode, const uint8_t* data) {
+  size_t addr = inode * BLOCK_SIZE;
+  return *(ccos_date_t*)&(data[addr + CCOS_INODE_EXPIRY_DATE_OFFSET]);
 }
 
 char* ccos_short_string_to_string(const short_string_t* short_string) {
