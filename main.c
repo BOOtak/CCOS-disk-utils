@@ -5,6 +5,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <sys/stat.h>
+
 #include <ccos_image.h>
 #include <dumper.h>
 
@@ -108,9 +110,18 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  fseek(f, 0, SEEK_END);
-  long file_size = ftell(f);
-  fseek(f, 0, SEEK_SET);
+  struct stat st = {};
+  if (stat(path, &st) == -1) {
+    fprintf(stderr, "Unable to stat %s: %s!\n", path, strerror(errno));
+    return -1;
+  }
+
+  if (!S_ISREG(st.st_mode)) {
+    fprintf(stderr, "Unable to open \"%s\": not a file!\n", path);
+    return -1;
+  }
+
+  long file_size = st.st_size;
 
   uint8_t* file_contents = (uint8_t*)calloc(file_size, sizeof(uint8_t));
   if (file_contents == NULL) {
