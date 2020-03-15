@@ -170,7 +170,8 @@ static traverse_callback_result_t print_file_info(uint16_t file_block, const uin
   char exp_date_string[16];
   snprintf(exp_date_string, 16, "%04d/%02d/%02d", exp_date.year, exp_date.month, exp_date.day);
 
-  printf("%-*s%-*s%-*d%-*s%-*s%-*s%-*s\n", 32, formatted_name, 24, type, 16, file_size, 8, version_string, 16, creation_date_string, 16, mod_date_string, 16, exp_date_string);
+  printf("%-*s%-*s%-*d%-*s%-*s%-*s%-*s\n", 32, formatted_name, 24, type, 16, file_size, 8, version_string, 16,
+         creation_date_string, 16, mod_date_string, 16, exp_date_string);
   free(version_string);
   free(formatted_name);
   return RESULT_OK;
@@ -199,7 +200,8 @@ int print_image_info(const char* path, const uint16_t superblock, const uint8_t*
 
   free(floppy_name);
 
-  printf("%-*s%-*s%-*s%-*s%-*s%-*s%-*s\n", 32, "File name", 24, "File type", 16, "File size", 8, "Version", 16, "Creation date", 16, "Mod. date", 16, "Exp. date");
+  printf("%-*s%-*s%-*s%-*s%-*s%-*s%-*s\n", 32, "File name", 24, "File type", 16, "File size", 8, "Version", 16,
+         "Creation date", 16, "Mod. date", 16, "Exp. date");
   print_frame(128);
   int level = 0;
   return traverse_ccos_image(superblock, data, "", 0, print_file_info, print_file_info, NULL, 0);
