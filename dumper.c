@@ -8,19 +8,9 @@
 #include <sys/types.h>
 
 #include <ccos_image.h>
+#include <common.h>
 #include <dumper.h>
 #include <string_utils.h>
-
-#define VERSION_MAX_SIZE 12  // "255.255.255"
-
-#define MIN(A, B) A < B ? A : B
-
-#define TRACE(verbose, format, ...)                                                   \
-  {                                                                                   \
-    if (verbose) {                                                                    \
-      fprintf(stderr, "%s:%d:\t" format "\n", __FUNCTION__, __LINE__, ##__VA_ARGS__); \
-    }                                                                                 \
-  }
 
 typedef struct {
   const char* target_name;
@@ -30,10 +20,10 @@ typedef struct {
 typedef enum { RESULT_OK = 1, RESULT_ERROR, RESULT_BREAK } traverse_callback_result_t;
 
 typedef traverse_callback_result_t (*on_file_t)(uint16_t block, const uint8_t* data, const char* dirname, int level,
-                                                void* arg, int verbose);
+                                                void* arg);
 
 typedef traverse_callback_result_t (*on_dir_t)(uint16_t block, const uint8_t* data, const char* dirname, int level,
-                                               void* arg, int verbose);
+                                               void* arg);
 
 static char* format_version(version_t* version) {
   char* version_string = (char*)calloc(VERSION_MAX_SIZE, sizeof(char));
@@ -46,7 +36,7 @@ static char* format_version(version_t* version) {
 }
 
 static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* dirname, int level, on_file_t on_file,
-                               on_dir_t on_dir, void* arg, int verbose) {
+                               on_dir_t on_dir, void* arg) {
   uint16_t files_count = 0;
   uint16_t* root_dir_files = NULL;
   if (ccos_get_dir_contents(block, data, &files_count, &root_dir_files) == -1) {
@@ -54,13 +44,13 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
     return -1;
   }
 
-  TRACE(verbose, "Processing %d entries in \"%s\"...", files_count, dirname);
+  TRACE("Processing %d entries in \"%s\"...", files_count, dirname);
 
   for (int i = 0; i < files_count; ++i) {
-    TRACE(verbose, "Processing %d/%d...", i + 1, files_count);
+    TRACE("Processing %d/%d...", i + 1, files_count);
 
     if (ccos_is_dir(root_dir_files[i], data)) {
-      TRACE(verbose, "%d: directory", i + 1);
+      TRACE("%d: directory", i + 1);
       char subdir_name[CCOS_MAX_FILE_NAME];
       memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
       if (ccos_parse_file_name(ccos_get_file_name(root_dir_files[i], data), subdir_name, NULL) == -1) {
@@ -68,7 +58,7 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
         return -1;
       }
 
-      TRACE(verbose, "%d: Processing directory \"%s\"...", i + 1, subdir_name);
+      TRACE("%d: Processing directory \"%s\"...", i + 1, subdir_name);
 
       char* subdir = (char*)calloc(sizeof(char), PATH_MAX);
       if (subdir == NULL) {
@@ -81,8 +71,8 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
 
       if (on_dir != NULL) {
         traverse_callback_result_t res;
-        if ((res = on_dir(root_dir_files[i], data, dirname, level, arg, verbose)) != RESULT_OK) {
-          TRACE(verbose, "on_dir returned %d", res);
+        if ((res = on_dir(root_dir_files[i], data, dirname, level, arg)) != RESULT_OK) {
+          TRACE("on_dir returned %d", res);
           free(root_dir_files);
           free(subdir);
           if (res == RESULT_ERROR) {
@@ -94,7 +84,7 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
         }
       }
 
-      int res = traverse_ccos_image(root_dir_files[i], data, subdir, level + 1, on_file, on_dir, arg, verbose);
+      int res = traverse_ccos_image(root_dir_files[i], data, subdir, level + 1, on_file, on_dir, arg);
       free(subdir);
 
       if (res == -1) {
@@ -102,12 +92,12 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
         return -1;
       }
     } else {
-      TRACE(verbose, "%d: file", i + 1);
+      TRACE("%d: file", i + 1);
 
       if (on_file != NULL) {
         traverse_callback_result_t res;
-        if ((res = on_file(root_dir_files[i], data, dirname, level, arg, verbose)) != RESULT_OK) {
-          TRACE(verbose, "on_file returned %d", res);
+        if ((res = on_file(root_dir_files[i], data, dirname, level, arg)) != RESULT_OK) {
+          TRACE("on_file returned %d", res);
           free(root_dir_files);
           if (res == RESULT_ERROR) {
             fprintf(stderr, "An error occured, skipping the rest of the image!\n");
@@ -121,12 +111,12 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
   }
 
   free(root_dir_files);
-  TRACE(verbose, "\"%s\" traverse complete!", dirname);
+  TRACE("\"%s\" traverse complete!", dirname);
   return 0;
 }
 
 static traverse_callback_result_t print_file_info(uint16_t file_block, const uint8_t* data, const char* dirname,
-                                                  int level, void* arg, int verbose) {
+                                                  int level, void* arg) {
   const short_string_t* name = ccos_get_file_name(file_block, data);
   uint32_t file_size = ccos_get_file_size(file_block, data);
 
@@ -204,11 +194,11 @@ int print_image_info(const char* path, const uint16_t superblock, const uint8_t*
          "Creation date", 16, "Mod. date", 16, "Exp. date");
   print_frame(128);
   int level = 0;
-  return traverse_ccos_image(superblock, data, "", 0, print_file_info, print_file_info, NULL, 0);
+  return traverse_ccos_image(superblock, data, "", 0, print_file_info, print_file_info, NULL);
 }
 
 static traverse_callback_result_t dump_dir_tree_on_file(uint16_t block, const uint8_t* data, const char* dirname,
-                                                        int level, void* arg, int verbose) {
+                                                        int level, void* arg) {
   char* abspath = (char*)calloc(sizeof(char), PATH_MAX);
   if (abspath == NULL) {
     fprintf(stderr, "Unable to allocate memory for the filename!\n");
@@ -236,7 +226,7 @@ static traverse_callback_result_t dump_dir_tree_on_file(uint16_t block, const ui
     return RESULT_ERROR;
   }
 
-  TRACE(verbose, "Writing to \"%s\"...", abspath);
+  TRACE("Writing to \"%s\"...", abspath);
 
   FILE* f = fopen(abspath, "wb");
   if (f == NULL) {
@@ -273,7 +263,7 @@ static traverse_callback_result_t dump_dir_tree_on_file(uint16_t block, const ui
     current_size += write_size;
 
     if ((i + 1) % 10 == 0) {
-      TRACE(verbose, "Writing block %d/%ld: %d/%d bytes written", i + 1, blocks_count, current_size, file_size);
+      TRACE("Writing block %d/%ld: %d/%d bytes written", i + 1, blocks_count, current_size, file_size);
     }
   }
 
@@ -281,13 +271,13 @@ static traverse_callback_result_t dump_dir_tree_on_file(uint16_t block, const ui
   free(blocks);
   free(abspath);
 
-  TRACE(verbose, "Done! %d/%d bytes writtem", current_size, file_size);
+  TRACE("Done! %d/%d bytes writtem", current_size, file_size);
 
   return RESULT_OK;
 }
 
 static traverse_callback_result_t dump_dir_tree_on_dir(uint16_t block, const uint8_t* data, const char* dirname,
-                                                       int level, void* arg, int verbose) {
+                                                       int level, void* arg) {
   char subdir_name[CCOS_MAX_FILE_NAME];
   memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
   if (ccos_parse_file_name(ccos_get_file_name(block, data), subdir_name, NULL) == -1) {
@@ -316,7 +306,7 @@ static traverse_callback_result_t dump_dir_tree_on_dir(uint16_t block, const uin
   return RESULT_OK;
 }
 
-int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data, int verbose) {
+int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data) {
   char* floppy_name = ccos_short_string_to_string(ccos_get_file_name(dir_inode, data));
   const char* name_trimmed = trim_string(floppy_name, ' ');
 
@@ -356,15 +346,14 @@ int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data, in
     return -1;
   }
 
-  int res =
-      traverse_ccos_image(dir_inode, data, dirname, 0, dump_dir_tree_on_file, dump_dir_tree_on_dir, NULL, verbose);
+  int res = traverse_ccos_image(dir_inode, data, dirname, 0, dump_dir_tree_on_file, dump_dir_tree_on_dir, NULL);
   free(dirname);
-  TRACE(verbose, "Image dump complete!");
+  TRACE("Image dump complete!");
   return res;
 }
 
 static traverse_callback_result_t find_file_on_file(uint16_t block, const uint8_t* data, const char* dirname, int level,
-                                                    void* arg, int verbose) {
+                                                    void* arg) {
   char* file_name = ccos_short_string_to_string(ccos_get_file_name(block, data));
   if (file_name == NULL) {
     fprintf(stderr, "Unable to get filename at block 0x%x\n", block);
@@ -386,7 +375,7 @@ static traverse_callback_result_t find_file_on_file(uint16_t block, const uint8_
 static int find_filename(const uint16_t superblock, const uint8_t* data, const char* filename, uint16_t* inode) {
   find_file_data_t find_file_data = {.target_name = filename, .target_inode = 0};
 
-  if (traverse_ccos_image(superblock, data, "", 0, find_file_on_file, NULL, &find_file_data, 0) == -1) {
+  if (traverse_ccos_image(superblock, data, "", 0, find_file_on_file, NULL, &find_file_data) == -1) {
     fprintf(stderr, "Unable to find file in image due to the error!\n");
     return -1;
   }

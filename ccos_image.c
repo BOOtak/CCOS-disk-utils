@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include <ccos_image.h>
+#include <common.h>
 
 #define FAT_MBR_END_OF_SECTOR_MARKER 0xAA55
 #define OPCODE_NOP 0x90
@@ -47,10 +48,6 @@
 #define CCOS_INODE_CREATION_DATE_OFFSET 0x59
 #define CCOS_INODE_MOD_DATE_OFFSET 0x66
 #define CCOS_INODE_EXPIRY_DATE_OFFSET 0x71
-
-#define MIN(A, B) A < B ? A : B
-
-#define TR fprintf(stderr, "%s:%d\n", __FUNCTION__, __LINE__)
 
 struct short_string_t_ {
   uint8_t length;

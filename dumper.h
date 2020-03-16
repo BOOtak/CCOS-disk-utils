@@ -9,11 +9,10 @@
  * @param[in]  path       The path to CCOS image.
  * @param[in]  dir_inode  The directory inode.
  * @param[in]  data       CCOS image data.
- * @param[in]  verbose    Verbose log output.
  *
  * @return     0 on success, -1 otherwise.
  */
-int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data, int verbose);
+int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data);
 
 /**
  * @brief      Prints a CCOS image contents.

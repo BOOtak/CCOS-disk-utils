@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 
 #include <ccos_image.h>
+#include <common.h>
 #include <dumper.h>
 
 typedef enum { MODE_DUMP = 1, MODE_PRINT, MODE_REPLACE_FILE } op_mode_t;
@@ -52,7 +53,6 @@ int main(int argc, char** argv) {
   char* filename = NULL;
   char* target_name = NULL;
   int in_place = 0;
-  int verbose = 0;
   int opt = 0;
   while (1) {
     int option_index = 0;
@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
         break;
       }
       case 'v': {
-        verbose = 1;
+        trace_init(1);
         break;
       }
       case 'h': {
@@ -146,6 +146,8 @@ int main(int argc, char** argv) {
     return -1;
   }
 
+  TRACE("superblock: 0x%x", superblock);
+
   int res = -1;
   switch (mode) {
     case MODE_PRINT: {
@@ -153,7 +155,7 @@ int main(int argc, char** argv) {
       break;
     }
     case MODE_DUMP: {
-      res = dump_dir(path, superblock, file_contents, verbose);
+      res = dump_dir(path, superblock, file_contents);
       break;
     }
     case MODE_REPLACE_FILE: {
