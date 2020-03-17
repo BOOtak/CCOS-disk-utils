@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,6 +32,7 @@
 
 #define CCOS_CONTENT_BLOCKS_END_MARKER 0xFFFF
 #define CCOS_BLOCK_END_MARKER 0x0000
+#define CCOS_INVALID_BLOCK 0xFFFF
 
 #define CCOS_DATA_OFFSET 0x4
 #define CCOS_BLOCK_SUFFIX_LENGTH 0x4
@@ -110,6 +112,11 @@ const ccos_inode_t* ccos_get_inode(uint16_t block, const uint8_t* data) {
   return (const ccos_inode_t*)&(data[addr]);
 }
 
+const ccos_content_inode_t* ccos_get_content_inode(uint16_t block, const uint8_t* data) {
+  uint32_t addr = block * BLOCK_SIZE;
+  return (const ccos_content_inode_t*)&(data[addr]);
+}
+
 version_t ccos_get_file_version(uint16_t block, const uint8_t* data) {
   const ccos_inode_t* inode = ccos_get_inode(block, data);
   uint8_t major = inode->version_major;
@@ -154,112 +161,68 @@ char* ccos_short_string_to_string(const short_string_t* short_string) {
   return result;
 }
 
-/**
- * @brief      Reads file content block numbers from the inode block.
- *
- * @param[in]  data          The CCOS image data.
- * @param[in]  offset        The CCOS image offset of the content blocks.
- * @param      blocks_count  The blocks count.
- * @param      blocks        The block numbers.
- *
- * @return     One of three values:
- * - CONTENT_END_MARKER - special CCOS_CONTENT_BLOCKS_END_MARKER value was encountered during the read. It means that
- * this inode block was the last one.
- * - BLOCK_END_MARKER - special CCOS_BLOCK_END_MARKER value was encountered. This value indicates the end of the current
- * block. It means that another inode block contains subsequent file content blocks.
- * - END_OF_BLOCK - this status usually indicates that we reached out of the current block bounds without encountering
- * CCOS_CONTENT_BLOCKS_END_MARKER or CCOS_BLOCK_END_MARKER, which, in general, should be considered as an error.
- * However, some images may actually be like this and still work fine, usually when data blocks end near block end, take
- * this GRIDOS31 image from rou021:
- *
- * d752d11890432c66b4201427096c7412f72cc2a4  GRIDOS31.IMD
- * e1e29435ba51b7bcc1281a928eac65970a959d3b  GRIDOS31.IMG
- *
- * 000849E0:  AA 04 AB 04-AC 04 AD 04-AE 04 AF 04-B0 04 B1 04
- * 000849F0:  B2 04 B3 04-B4 04 B5 04-B6 04 B7 04-03 14 54 79
- *                                                ^
- *                                                end of block, should be all zeroes
- *
- * So, as this happens, and system works fine in such conditions, we should not treat this as an error.
- */
-static read_block_status_t read_blocks(const uint8_t* data, uint32_t offset, size_t* blocks_count, uint16_t* blocks) {
-  int i = 0;
-  uint32_t start_addr = (offset / BLOCK_SIZE) * BLOCK_SIZE;
-  uint32_t end_addr = start_addr + BLOCK_SIZE;
-  uint32_t end_of_block_addr = end_addr - 4;
-  while (offset % BLOCK_SIZE != 0) {
-    uint16_t block = *((uint16_t*)&(data[offset]));
-    if (block == CCOS_CONTENT_BLOCKS_END_MARKER) {
-      return CONTENT_END_MARKER;
-    } else if (block == CCOS_BLOCK_END_MARKER) {
-      return BLOCK_END_MARKER;
-    }
-
-    if (offset >= end_of_block_addr) {
-      return END_OF_BLOCK;
-    }
-
-    offset += sizeof(uint16_t);
-    *blocks_count = (*blocks_count) + 1;
-    blocks[i++] = block;
-  }
-
-  return END_OF_BLOCK;
-}
-
 int ccos_get_file_blocks(uint16_t block, const uint8_t* data, size_t* blocks_count, uint16_t** blocks) {
-  uint32_t addr = block * BLOCK_SIZE;
-  uint16_t block1 = *((uint16_t*)&(data[addr + CCOS_FILE_BLOCKS_OFFSET + 2]));
-  uint16_t block2 = *((uint16_t*)&(data[addr + CCOS_FILE_BLOCKS_OFFSET]));
-
-  uint32_t content1_addr = block1 * BLOCK_SIZE + CCOS_BLOCK_1_OFFSET;
-  size_t max_blocks_count = BLOCK_SIZE - CCOS_BLOCK_1_OFFSET;
-  *blocks = calloc(max_blocks_count, sizeof(uint16_t));
+  const ccos_inode_t* inode = ccos_get_inode(block, data);
+  *blocks = calloc(MAX_BLOCKS_IN_INODE, sizeof(uint16_t));
   if (*blocks == NULL) {
     return -1;
   }
 
   size_t real_blocks_count = 0;
-  if (read_blocks(data, content1_addr, &real_blocks_count, *blocks) == END_OF_BLOCK) {
-    fprintf(stderr, "Warn: Unexpected END_OF_BLOCK encountered while reading file block list at block 0x%x!\n", block);
+  for (int i = 0; i < MAX_BLOCKS_IN_INODE; ++i) {
+    uint16_t content_block = inode->content_blocks[i];
+    if (content_block == CCOS_CONTENT_BLOCKS_END_MARKER) {
+      break;
+    }
+
+    (*blocks)[real_blocks_count++] = content_block;
+  }
+
+  if (inode->block_next != CCOS_INVALID_BLOCK) {
+    TRACE("Has more than 1 block!");
+    const ccos_content_inode_t* content_inode = ccos_get_content_inode(inode->block_next, data);
+    for (;;) {
+      TRACE("Processing extra block 0x%lx...", inode->block_next);
+      uint16_t* extra_blocks = calloc(MAX_BLOCKS_IN_CONTENT_INODE, sizeof(uint16_t));
+      if (extra_blocks == NULL) {
+        fprintf(stderr, "Unable to allocate memory for extra blocks: %s!\n", strerror(errno));
+        free(*blocks);
+        return -1;
+      }
+
+      size_t extra_blocks_count = 0;
+      for (int i = 0; i < MAX_BLOCKS_IN_CONTENT_INODE; ++i) {
+        uint16_t content_block = content_inode->content_blocks[i];
+        if (content_block == CCOS_CONTENT_BLOCKS_END_MARKER) {
+          break;
+        }
+
+        extra_blocks[extra_blocks_count++] = content_block;
+      }
+
+      TRACE("Extra block has %d blocks", extra_blocks_count);
+
+      uint16_t* new_blocks = realloc(*blocks, sizeof(uint16_t) * (real_blocks_count + extra_blocks_count));
+      if (new_blocks == NULL) {
+        fprintf(stderr, "Unable to realloc memory for content blocks: %s!\n", strerror(errno));
+        free(*blocks);
+        return -1;
+      } else {
+        *blocks = new_blocks;
+      }
+
+      memcpy(&(*blocks)[real_blocks_count], extra_blocks, sizeof(uint16_t) * extra_blocks_count);
+      real_blocks_count += extra_blocks_count;
+
+      if (content_inode->block_next == CCOS_INVALID_BLOCK) {
+        break;
+      }
+
+      content_inode = ccos_get_content_inode(content_inode->block_next, data);
+    }
   }
 
   *blocks_count = real_blocks_count;
-
-  // TODO: I've never encountered CCOS disc image with file larger than 170 kb. So, I've never seen inode larger than
-  // two blocks. The code below handles two-block inode, but this has to be modified to read larger files. I don't know
-  // how subsequent inode blocks reference each other, probably through some double-linked list, where each inode block
-  // references previous and next blocks. However, this needs to be proven, until then, we're just print error message
-  // and crash, if we encounter an inode which is obviously larger than two blocks (e.g, we met end-of-block marker
-  // before end-of-blocks-descrtiption marker in the second inode block).
-  if (block2 != 0xFFFF) {
-    uint32_t content2_addr = block2 * BLOCK_SIZE + CCOS_BLOCK_N_OFFSET;
-    max_blocks_count = max_blocks_count + BLOCK_SIZE - CCOS_BLOCK_1_OFFSET;
-    uint16_t* new_blocks = realloc(*blocks, sizeof(uint16_t) * max_blocks_count);
-    if (new_blocks == NULL) {
-      free(*blocks);
-      return -1;
-    } else {
-      *blocks = new_blocks;
-    }
-
-    size_t content2_blocks_count = 0;
-    read_block_status_t status =
-        read_blocks(data, content2_addr, &content2_blocks_count, &((*blocks)[real_blocks_count]));
-    if (status == END_OF_BLOCK) {
-      fprintf(stderr, "Warn: Unexpected END_OF_BLOCK encountered while reading file block list at block 0x%x!\n",
-              block);
-    } else if (status == BLOCK_END_MARKER) {
-      fprintf(stderr,
-              "BLOCK_END_MARKER encountered in read_blocks of the second inode "
-              "block!\n");
-      free(*blocks);
-      return -1;
-    }
-
-    *blocks_count += content2_blocks_count;
-  }
-
   return 0;
 }
 
