@@ -97,7 +97,7 @@ int ccos_get_superblock(const uint8_t* data, size_t image_size, uint16_t* superb
   }
 
   uint32_t blocks_in_image = image_size / BLOCK_SIZE;
-  if (res > BLOCK_SIZE) {
+  if (res > blocks_in_image) {
     fprintf(stderr, "Invalid superblock! (Superblock: 0x%x, but only 0x%x blocks in the image).\n", res,
             blocks_in_image);
     return -1;
