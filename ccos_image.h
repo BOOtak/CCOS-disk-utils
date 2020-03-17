@@ -7,6 +7,8 @@
 #define BLOCK_SIZE 512
 
 #define CCOS_MAX_FILE_NAME 80
+#define MAX_BLOCKS_IN_INODE 146
+#define MAX_BLOCKS_IN_CONTENT_INODE 248
 
 typedef struct {
   uint8_t major;
@@ -31,6 +33,45 @@ typedef struct {
 } ccos_date_t;
 #pragma pack(pop)
 
+#pragma pack(push, 1)
+typedef struct {
+  uint16_t block_number;
+  uint16_t block_index;
+  uint32_t file_size;
+  uint8_t name_length;
+  char name[CCOS_MAX_FILE_NAME];
+  ccos_date_t creation_date;
+  uint16_t pad1;
+  ccos_date_t mod_date;
+  ccos_date_t expiration_date;
+  uint8_t pad3[26];
+  uint8_t version_major;
+  uint8_t version_minor;
+  uint8_t pad4[15];
+  uint8_t version_patch;
+  uint8_t pad5[40];
+  uint16_t dunno;  // crc16 ?
+  uint16_t block_next;
+  uint16_t block_current;  // should match block_number
+  uint16_t block_prev;     // should be 0xFFFF
+  uint16_t content_blocks[MAX_BLOCKS_IN_INODE];
+  uint32_t block_end;
+} ccos_inode_t;
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+typedef struct {
+  uint16_t block_number;
+  uint16_t block_index;
+  uint16_t dunno;  // crc16 ?
+  uint16_t block_next;
+  uint16_t block_current;  // should match block_number
+  uint16_t block_prev;
+  uint16_t content_blocks[MAX_BLOCKS_IN_CONTENT_INODE];
+  uint32_t block_end;
+} ccos_content_inode_t;
+#pragma pack(pop)
+
 /**
  * @brief      Find a superblock (i.e. the inode with the root directory description) in a CCOS filesystem image.
  *
@@ -44,24 +85,34 @@ typedef struct {
 int ccos_get_superblock(const uint8_t* data, size_t image_size, uint16_t* superblock);
 
 /**
+ * @brief      Get the CCOS filesystem inode at the given block.
+ *
+ * @param[in]  block  The block number of the inode.
+ * @param[in]  data   CCOS image data.
+ *
+ * @return     Pointer to CCOS filesystem inode structure.
+ */
+const ccos_inode_t* ccos_get_inode(uint16_t block, const uint8_t* data);
+
+/**
  * @brief      Get the file version.
  *
- * @param[in]  inode  The file inode.
+ * @param[in]  block  The block number of the file inode.
  * @param[in]  data   CCOS image data.
  *
  * @return     The version of the file.
  */
-version_t ccos_get_file_version(uint16_t inode, const uint8_t* data);
+version_t ccos_get_file_version(uint16_t block, const uint8_t* data);
 
 /**
  * @brief      Get the name of the file.
  *
- * @param[in]  inode  The file inode.
+ * @param[in]  block  The block number of the file inode.
  * @param[in]  data   CCOS image data.
  *
  * @return     Pointer to short string with a file name.
  */
-const short_string_t* ccos_get_file_name(uint16_t inode, const uint8_t* data);
+const short_string_t* ccos_get_file_name(uint16_t block, const uint8_t* data);
 
 /**
  * @brief      Convert the string from the internal short string format into C string.
@@ -87,24 +138,24 @@ int ccos_get_file_blocks(uint16_t block, const uint8_t* data, size_t* blocks_cou
 /**
  * @brief      Read contents from the directory inode.
  *
- * @param[in]  inode           The directory inode.
+ * @param[in]  block           The block number of the directory inode.
  * @param[in]  data            CCOS image data.
  * @param      entry_count     Count of the items in the directory.
  * @param      entries_blocks  Directory contents inodes.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_get_dir_contents(uint16_t inode, const uint8_t* data, uint16_t* entry_count, uint16_t** entries_inodes);
+int ccos_get_dir_contents(uint16_t block, const uint8_t* data, uint16_t* entry_count, uint16_t** entries_inodes);
 
 /**
  * @brief      Determine whether the given inode is a directory's inode.
  *
- * @param[in]  inode  The inode.
+ * @param[in]  block  The block number of the inode.
  * @param[in]  data   CCOS image data.
  *
  * @return     1 if the given inode belongs to a directory, 0 otherwise.
  */
-int ccos_is_dir(uint16_t inode, const uint8_t* data);
+int ccos_is_dir(uint16_t block, const uint8_t* data);
 
 /**
  * @brief      Read raw data from the image at a given block. Notice it won't allocate any memory, just return a pointer
@@ -122,42 +173,42 @@ int ccos_get_block_data(uint16_t block, const uint8_t* data, const uint8_t** sta
 /**
  * @brief      Get the size of a file at a given inode.
  *
- * @param[in]  inode  The inode.
+ * @param[in]  block  The block number of the inode.
  * @param[in]  data   CCOS image data.
  *
  * @return     The size of a file at a given inode.
  */
-uint32_t ccos_get_file_size(uint16_t inode, const uint8_t* data);
+uint32_t ccos_get_file_size(uint16_t block, const uint8_t* data);
 
 /**
  * @brief      Get the creation date of a file at a given inode.
  *
- * @param[in]  inode  The inode.
+ * @param[in]  block  The block number of the inode.
  * @param[in]  data   CCOS image data.
  *
  * @return     The creation date of a file at a given inode.
  */
-ccos_date_t ccos_get_creation_date(uint16_t inode, const uint8_t* data);
+ccos_date_t ccos_get_creation_date(uint16_t block, const uint8_t* data);
 
 /**
  * @brief      Get the modification date of a file at a given inode.
  *
- * @param[in]  inode  The inode.
+ * @param[in]  block  The block number of the inode.
  * @param[in]  data   CCOS image data.
  *
  * @return     The modification date of a file at a given inode.
  */
-ccos_date_t ccos_get_mod_date(uint16_t inode, const uint8_t* data);
+ccos_date_t ccos_get_mod_date(uint16_t block, const uint8_t* data);
 
 /**
  * @brief      Get the expiry date of a file at a given inode.
  *
- * @param[in]  inode  The inode.
+ * @param[in]  block  The block number of the inode.
  * @param[in]  data   CCOS image data.
  *
  * @return     The expiry date of a file at a given inode.
  */
-ccos_date_t ccos_get_exp_date(uint16_t inode, const uint8_t* data);
+ccos_date_t ccos_get_exp_date(uint16_t block, const uint8_t* data);
 
 /**
  * @brief      Perse CCOS file name and return it's basename and it's type.
@@ -173,13 +224,13 @@ int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* 
 /**
  * @brief      Replace file in the CCOS image data.
  *
- * @param[in]  inode       The inode of the file to replace.
+ * @param[in]  block       The block number of the inode of the file to replace.
  * @param[in]  file_data   The new file contents.
  * @param[in]  file_size   The new file size (it should match old file size).
  * @param      image_data  CCOS image data.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_replace_file(uint16_t inode, const uint8_t* file_data, uint32_t file_size, uint8_t* image_data);
+int ccos_replace_file(uint16_t block, const uint8_t* file_data, uint32_t file_size, uint8_t* image_data);
 
 #endif  // CCOS_IMAGE_H

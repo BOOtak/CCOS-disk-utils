@@ -23,10 +23,6 @@
 #define TYPICAL_SUPERBLOCK_1 0x121
 #define TYPICAL_SUPERBLOCK_2 0x06
 
-#define CCOS_VERSION_MAJOR_OFFSET 0x96
-#define CCOS_VERSION_MINOR_OFFSET 0x97
-#define CCOS_VERSION_PATCH_OFFSET 0xA7
-
 #define CCOS_DIR_NAME_OFFSET 0x8
 
 #define CCOS_FILE_BLOCKS_OFFSET 0xD2
@@ -43,11 +39,6 @@
 #define CCOS_DIR_ENTRY_SUFFIX_LENGTH 0x2
 #define CCOS_DIR_LAST_ENTRY_MARKER 0xFF00
 #define CCOS_DIR_TYPE "subject"
-
-#define CCOS_INODE_FILE_SIZE_OFFSET 0x4
-#define CCOS_INODE_CREATION_DATE_OFFSET 0x59
-#define CCOS_INODE_MOD_DATE_OFFSET 0x66
-#define CCOS_INODE_EXPIRY_DATE_OFFSET 0x71
 
 struct short_string_t_ {
   uint8_t length;
@@ -114,38 +105,43 @@ int ccos_get_superblock(const uint8_t* data, size_t image_size, uint16_t* superb
   return 0;
 }
 
-version_t ccos_get_file_version(uint16_t inode, const uint8_t* data) {
-  uint32_t addr = inode * BLOCK_SIZE;
-  uint8_t major = data[addr + CCOS_VERSION_MAJOR_OFFSET];
-  uint8_t minor = data[addr + CCOS_VERSION_MINOR_OFFSET];
-  uint8_t patch = data[addr + CCOS_VERSION_PATCH_OFFSET];
+const ccos_inode_t* ccos_get_inode(uint16_t block, const uint8_t* data) {
+  uint32_t addr = block * BLOCK_SIZE;
+  return (const ccos_inode_t*)&(data[addr]);
+}
+
+version_t ccos_get_file_version(uint16_t block, const uint8_t* data) {
+  const ccos_inode_t* inode = ccos_get_inode(block, data);
+  uint8_t major = inode->version_major;
+  uint8_t minor = inode->version_minor;
+  uint8_t patch = inode->version_patch;
   version_t version = {major, minor, patch};
   return version;
 }
 
-const short_string_t* ccos_get_file_name(uint16_t inode, const uint8_t* data) {
-  uint32_t addr = inode * BLOCK_SIZE;
-  return (const short_string_t*)&(data[addr + CCOS_DIR_NAME_OFFSET]);
+const short_string_t* ccos_get_file_name(uint16_t block, const uint8_t* data) {
+  const ccos_inode_t* inode = ccos_get_inode(block, data);
+  return (const short_string_t*)&(inode->name_length);
 }
 
-uint32_t ccos_get_file_size(uint16_t inode, const uint8_t* data) {
-  size_t addr = inode * BLOCK_SIZE;
-  return *(uint32_t*)&(data[addr + CCOS_INODE_FILE_SIZE_OFFSET]);
+uint32_t ccos_get_file_size(uint16_t block, const uint8_t* data) {
+  const ccos_inode_t* inode = ccos_get_inode(block, data);
+  return inode->file_size;
 }
 
-ccos_date_t ccos_get_creation_date(uint16_t inode, const uint8_t* data) {
-  size_t addr = inode * BLOCK_SIZE;
-  return *(ccos_date_t*)&(data[addr + CCOS_INODE_CREATION_DATE_OFFSET]);
+ccos_date_t ccos_get_creation_date(uint16_t block, const uint8_t* data) {
+  const ccos_inode_t* inode = ccos_get_inode(block, data);
+  return inode->creation_date;
 }
 
-ccos_date_t ccos_get_mod_date(uint16_t inode, const uint8_t* data) {
-  size_t addr = inode * BLOCK_SIZE;
-  return *(ccos_date_t*)&(data[addr + CCOS_INODE_MOD_DATE_OFFSET]);
+ccos_date_t ccos_get_mod_date(uint16_t block, const uint8_t* data) {
+  const ccos_inode_t* inode = ccos_get_inode(block, data);
+  return inode->mod_date;
 }
 
-ccos_date_t ccos_get_exp_date(uint16_t inode, const uint8_t* data) {
-  size_t addr = inode * BLOCK_SIZE;
-  return *(ccos_date_t*)&(data[addr + CCOS_INODE_EXPIRY_DATE_OFFSET]);
+ccos_date_t ccos_get_exp_date(uint16_t block, const uint8_t* data) {
+  const ccos_inode_t* inode = ccos_get_inode(block, data);
+  return inode->expiration_date;
 }
 
 char* ccos_short_string_to_string(const short_string_t* short_string) {
@@ -303,15 +299,15 @@ static int parse_directory_contents(const uint8_t* data, size_t data_size, uint1
   return 0;
 }
 
-int ccos_get_dir_contents(uint16_t inode, const uint8_t* data, uint16_t* entry_count, uint16_t** entries_inodes) {
+int ccos_get_dir_contents(uint16_t block, const uint8_t* data, uint16_t* entry_count, uint16_t** entries_inodes) {
   uint16_t* dir_blocks = NULL;
   size_t blocks_count = 0;
 
-  if (ccos_get_file_blocks(inode, data, &blocks_count, &dir_blocks) == -1) {
+  if (ccos_get_file_blocks(block, data, &blocks_count, &dir_blocks) == -1) {
     return -1;
   }
 
-  uint32_t dir_size = ccos_get_file_size(inode, data);
+  uint32_t dir_size = ccos_get_file_size(block, data);
 
   uint8_t* dir_contents = (uint8_t*)calloc(dir_size, sizeof(uint8_t));
   if (dir_contents == NULL) {
@@ -338,11 +334,11 @@ int ccos_get_dir_contents(uint16_t inode, const uint8_t* data, uint16_t* entry_c
   return res;
 }
 
-int ccos_is_dir(uint16_t inode, const uint8_t* data) {
+int ccos_is_dir(uint16_t block, const uint8_t* data) {
   char type[CCOS_MAX_FILE_NAME];
   memset(type, 0, CCOS_MAX_FILE_NAME);
 
-  int res = ccos_parse_file_name(ccos_get_file_name(inode, data), NULL, type);
+  int res = ccos_parse_file_name(ccos_get_file_name(block, data), NULL, type);
   if (res == -1) {
     return 0;
   }
@@ -374,20 +370,20 @@ int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* 
   return 0;
 }
 
-int ccos_replace_file(uint16_t inode, const uint8_t* file_data, uint32_t file_size, uint8_t* image_data) {
-  uint32_t inode_file_size = ccos_get_file_size(inode, image_data);
+int ccos_replace_file(uint16_t block, const uint8_t* file_data, uint32_t file_size, uint8_t* image_data) {
+  uint32_t inode_file_size = ccos_get_file_size(block, image_data);
   if (inode_file_size != file_size) {
     fprintf(stderr,
             "Unable to write file: File size mismatch!\n"
-            "(size from the inode: %d bytes; actual size: %d bytes\n",
+            "(size from the block: %d bytes; actual size: %d bytes\n",
             inode_file_size, file_size);
     return -1;
   }
 
   size_t block_count = 0;
   uint16_t* blocks = NULL;
-  if (ccos_get_file_blocks(inode, image_data, &block_count, &blocks) != 0) {
-    fprintf(stderr, "Unable to write file to image: Unable to get file blocks from the inode!\n");
+  if (ccos_get_file_blocks(block, image_data, &block_count, &blocks) != 0) {
+    fprintf(stderr, "Unable to write file to image: Unable to get file blocks from the block!\n");
     return -1;
   }
 
