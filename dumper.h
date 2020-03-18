@@ -17,13 +17,14 @@ int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data);
 /**
  * @brief      Prints a CCOS image contents.
  *
- * @param[in]  path        The path to CCOS image.
- * @param[in]  superblock  The superblock inode.
- * @param[in]  data        CCOS image data.
+ * @param[in]  path          The path to CCOS image.
+ * @param[in]  superblock    The superblock inode.
+ * @param[in]  data          CCOS image data.
+ * @param[in]  short_format  Use shorter, 80-column compatible output format.
  *
  * @return     0 on success, -1 otherwise.
  */
-int print_image_info(const char* path, const uint16_t superblock, const uint8_t* data);
+int print_image_info(const char* path, const uint16_t superblock, const uint8_t* data, int short_format);
 
 /**
  * @brief      Replace file in the CCOS image.

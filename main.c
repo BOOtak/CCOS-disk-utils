@@ -19,11 +19,12 @@ static const struct option long_options[] = {{"image", required_argument, NULL, 
                                              {"in-place", no_argument, NULL, 'l'},
                                              {"dump-dir", no_argument, NULL, 'd'},
                                              {"print-contents", no_argument, NULL, 'p'},
+                                             {"short-format", no_argument, NULL, 's'},
                                              {"verbose", no_argument, NULL, 'v'},
                                              {"help", no_argument, NULL, 'h'},
                                              {NULL, no_argument, NULL, 0}};
 
-static const char* opt_string = "i:f:r:n:ldpvh";
+static const char* opt_string = "i:r:n:ldpsvh";
 
 static void print_usage() {
   fprintf(stderr,
@@ -32,10 +33,12 @@ static void print_usage() {
           "ccos_disk_tool { -i <image> | -h } [OPTIONS]\n"
           "\n"
           "Options are:\n"
-          "{ -f <filename> | -r <file> [-n <name>] [-l] | -d | -p }\n"
+          "{ -r <file> [-n <name>] [-l] | -d | -p [-s] }\n"
           "\n"
           "-i, --image <path>\t\tPath to GRiD OS floppy RAW image\n"
           "-p, --print-contents\t\tPrint image contents\n"
+          "-s, --short-format\t\tUse short format in printing contents\n"
+          "\t\t\t\t(80-column compatible, no dates)\n"
           "-d, --dump-dir\t\t\tDump image contents into the current directory\n"
           "-r, --replace-file <filename>\tReplace file in the image with the given\n"
           "\t\t\t\tfile, save changes to <path>.new\n"
@@ -53,6 +56,7 @@ int main(int argc, char** argv) {
   char* filename = NULL;
   char* target_name = NULL;
   int in_place = 0;
+  int short_format = 0;
   int opt = 0;
   while (1) {
     int option_index = 0;
@@ -80,6 +84,10 @@ int main(int argc, char** argv) {
       }
       case 'p': {
         mode = MODE_PRINT;
+        break;
+      }
+      case 's': {
+        short_format = 1;
         break;
       }
       case 'r': {
@@ -151,7 +159,7 @@ int main(int argc, char** argv) {
   int res = -1;
   switch (mode) {
     case MODE_PRINT: {
-      res = print_image_info(path, superblock, file_contents);
+      res = print_image_info(path, superblock, file_contents, short_format);
       break;
     }
     case MODE_DUMP: {

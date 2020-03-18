@@ -117,6 +117,7 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
 
 static traverse_callback_result_t print_file_info(uint16_t file_block, const uint8_t* data, const char* dirname,
                                                   int level, void* arg) {
+  int short_format = *(int*)arg;
   const short_string_t* name = ccos_get_file_name(file_block, data);
   uint32_t file_size = ccos_get_file_size(file_block, data);
 
@@ -160,14 +161,19 @@ static traverse_callback_result_t print_file_info(uint16_t file_block, const uin
   char exp_date_string[16];
   snprintf(exp_date_string, 16, "%04d/%02d/%02d", exp_date.year, exp_date.month, exp_date.day);
 
-  printf("%-*s%-*s%-*d%-*s%-*s%-*s%-*s\n", 32, formatted_name, 24, type, 16, file_size, 8, version_string, 16,
-         creation_date_string, 16, mod_date_string, 16, exp_date_string);
+  if (short_format) {
+    printf("%-*s%-*s%-*d%-*s\n", 32, formatted_name, 24, type, 14, file_size, 10, version_string);
+  } else {
+    printf("%-*s%-*s%-*d%-*s%-*s%-*s%-*s\n", 32, formatted_name, 24, type, 14, file_size, 10, version_string, 16,
+           creation_date_string, 16, mod_date_string, 16, exp_date_string);
+  }
+
   free(version_string);
   free(formatted_name);
   return RESULT_OK;
 }
 
-int print_image_info(const char* path, const uint16_t superblock, const uint8_t* data) {
+int print_image_info(const char* path, const uint16_t superblock, const uint8_t* data, int short_format) {
   char* floppy_name = ccos_short_string_to_string(ccos_get_file_name(superblock, data));
   const char* name_trimmed = trim_string(floppy_name, ' ');
 
@@ -190,11 +196,17 @@ int print_image_info(const char* path, const uint16_t superblock, const uint8_t*
 
   free(floppy_name);
 
-  printf("%-*s%-*s%-*s%-*s%-*s%-*s%-*s\n", 32, "File name", 24, "File type", 16, "File size", 8, "Version", 16,
-         "Creation date", 16, "Mod. date", 16, "Exp. date");
-  print_frame(128);
+  if (short_format) {
+    printf("%-*s%-*s%-*s%-*s\n", 32, "File name", 24, "File type", 14, "File size", 10, "Version");
+    print_frame(80);
+  } else {
+    printf("%-*s%-*s%-*s%-*s%-*s%-*s%-*s\n", 32, "File name", 24, "File type", 14, "File size", 10, "Version", 16,
+           "Creation date", 16, "Mod. date", 16, "Exp. date");
+    print_frame(128);
+  }
+
   int level = 0;
-  return traverse_ccos_image(superblock, data, "", 0, print_file_info, print_file_info, NULL);
+  return traverse_ccos_image(superblock, data, "", 0, print_file_info, print_file_info, &short_format);
 }
 
 static traverse_callback_result_t dump_dir_tree_on_file(uint16_t block, const uint8_t* data, const char* dirname,
