@@ -8,7 +8,7 @@
 
 #define CCOS_MAX_FILE_NAME 80
 #define MAX_BLOCKS_IN_INODE 146
-#define MAX_BLOCKS_IN_CONTENT_INODE 248
+#define MAX_BLOCKS_IN_CONTENT_INODE 246
 
 typedef struct {
   uint8_t major;
@@ -52,9 +52,13 @@ typedef struct {
   uint8_t version_minor;
   uint8_t pad5[15];
   uint8_t version_patch;
-  uint32_t prop_length;  // from InteGRiD Sources - OSINICS/WSTYPE.INC; purpose unknown
-  uint8_t pad6[36];
-  uint16_t dunno;  // crc16 ?
+  uint32_t prop_length;  // indicates how much bytes at the beginning of the file are used to store some properties and
+                         // are not part of the file
+  uint8_t pad6[30];
+  uint16_t metadata_checksum;   // checksum([block_number ... metadata_checksum))
+  uint16_t block_number_check;  // equal to block_number
+  uint16_t pad7;
+  uint16_t blocks_checksum;  // checksum([block_next ... block_end), block_number)
   uint16_t block_next;
   uint16_t block_current;  // should match block_number
   uint16_t block_prev;     // should be 0xFFFF
@@ -67,14 +71,24 @@ typedef struct {
 typedef struct {
   uint16_t block_number;
   uint16_t block_index;
-  uint16_t dunno;  // crc16 ?
+  uint16_t blocks_checksum;
   uint16_t block_next;
   uint16_t block_current;  // should match block_number
   uint16_t block_prev;
   uint16_t content_blocks[MAX_BLOCKS_IN_CONTENT_INODE];
-  uint32_t block_end;
+  uint64_t block_end;
 } ccos_content_inode_t;
 #pragma pack(pop)
+
+/**
+ * @brief      Calculate checksum as it done in Compass's BIOS.
+ *
+ * @param[in]  data       The data.
+ * @param[in]  data_size  The data size.
+ *
+ * @return     Checksum of the data passed.
+ */
+uint16_t ccos_make_checksum(const uint8_t* data, uint16_t data_size);
 
 /**
  * @brief      Find a superblock (i.e. the inode with the root directory description) in a CCOS filesystem image.

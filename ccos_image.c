@@ -65,6 +65,20 @@ static int is_imd_image(const uint8_t* data) {
   return data[0] == 'I' && data[1] == 'M' && data[2] == 'D' && data[3] == ' ';
 }
 
+uint16_t ccos_make_checksum(const uint8_t* data, uint16_t data_size) {
+  uint16_t ret = 0;
+  for (int i = 0; i < data_size; i += 2) {
+    if (i + 2 > data_size) {
+      ret += data[0];
+    } else {
+      ret += (data[1] << 8) | (data[0]);
+    }
+    data += 2;
+  }
+
+  return ret;
+}
+
 int ccos_get_superblock(const uint8_t* data, size_t image_size, uint16_t* superblock) {
   if (is_fat_image(data)) {
     fprintf(stderr, "FAT floppy image is found; return.\n");
@@ -183,6 +197,18 @@ int ccos_get_file_blocks(uint16_t block, const uint8_t* data, size_t* blocks_cou
     const ccos_content_inode_t* content_inode = ccos_get_content_inode(inode->block_next, data);
     for (;;) {
       TRACE("Processing extra block 0x%lx...", inode->block_next);
+
+      uint16_t checksum =
+          ccos_make_checksum((const uint8_t*)&(content_inode->block_next),
+                             offsetof(ccos_content_inode_t, block_end) - offsetof(ccos_content_inode_t, block_next));
+      checksum += content_inode->block_number;
+      checksum += content_inode->block_index;
+
+      if (checksum != content_inode->blocks_checksum) {
+        fprintf(stderr, "Warn: Blocks checksum mismatch: expected 0x%04hx, got 0x%04hx\n",
+                content_inode->blocks_checksum, checksum);
+      }
+
       uint16_t* extra_blocks = calloc(MAX_BLOCKS_IN_CONTENT_INODE, sizeof(uint16_t));
       if (extra_blocks == NULL) {
         fprintf(stderr, "Unable to allocate memory for extra blocks: %s!\n", strerror(errno));

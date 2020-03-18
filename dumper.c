@@ -38,8 +38,8 @@ static char* format_version(version_t* version) {
 static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* dirname, int level, on_file_t on_file,
                                on_dir_t on_dir, void* arg) {
   uint16_t files_count = 0;
-  uint16_t* root_dir_files = NULL;
-  if (ccos_get_dir_contents(block, data, &files_count, &root_dir_files) == -1) {
+  uint16_t* dir_blocks = NULL;
+  if (ccos_get_dir_contents(block, data, &files_count, &dir_blocks) == -1) {
     fprintf(stderr, "Unable to get root dir contents!\n");
     return -1;
   }
@@ -49,12 +49,35 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
   for (int i = 0; i < files_count; ++i) {
     TRACE("Processing %d/%d...", i + 1, files_count);
 
-    if (ccos_is_dir(root_dir_files[i], data)) {
+    const ccos_inode_t* inode = ccos_get_inode(dir_blocks[i], data);
+
+    if (inode->block_number != inode->block_number_check) {
+      fprintf(stderr, "Warn: block number mismatch in inode! 0x%hx != 0x%hx\n", inode->block_number,
+              inode->block_number_check);
+    }
+
+    uint16_t metadata_checksum =
+        ccos_make_checksum((const uint8_t*)&(inode->block_number), offsetof(ccos_inode_t, metadata_checksum));
+    if (metadata_checksum != inode->metadata_checksum) {
+      fprintf(stderr, "Warn: Invalid metadata checksum: expected 0x%hx, got 0x%hx\n", inode->metadata_checksum,
+              metadata_checksum);
+    }
+
+    uint16_t blocks_checksum = ccos_make_checksum(
+        (const uint8_t*)&(inode->block_next), offsetof(ccos_inode_t, block_end) - offsetof(ccos_inode_t, block_next));
+    blocks_checksum += inode->block_number_check;
+
+    if (blocks_checksum != inode->blocks_checksum) {
+      fprintf(stderr, "Warn: Invalid block data checksum: expected 0x%hx, got 0x%hx!\n", inode->blocks_checksum,
+              blocks_checksum);
+    }
+
+    if (ccos_is_dir(dir_blocks[i], data)) {
       TRACE("%d: directory", i + 1);
       char subdir_name[CCOS_MAX_FILE_NAME];
       memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
-      if (ccos_parse_file_name(ccos_get_file_name(root_dir_files[i], data), subdir_name, NULL) == -1) {
-        free(root_dir_files);
+      if (ccos_parse_file_name(ccos_get_file_name(dir_blocks[i], data), subdir_name, NULL) == -1) {
+        free(dir_blocks);
         return -1;
       }
 
@@ -63,7 +86,7 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
       char* subdir = (char*)calloc(sizeof(char), PATH_MAX);
       if (subdir == NULL) {
         fprintf(stderr, "Unable to allocate memory for subdir!\n");
-        free(root_dir_files);
+        free(dir_blocks);
         return -1;
       }
 
@@ -71,9 +94,9 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
 
       if (on_dir != NULL) {
         traverse_callback_result_t res;
-        if ((res = on_dir(root_dir_files[i], data, dirname, level, arg)) != RESULT_OK) {
+        if ((res = on_dir(dir_blocks[i], data, dirname, level, arg)) != RESULT_OK) {
           TRACE("on_dir returned %d", res);
-          free(root_dir_files);
+          free(dir_blocks);
           free(subdir);
           if (res == RESULT_ERROR) {
             fprintf(stderr, "An error occured, skipping the rest of the image!\n");
@@ -84,7 +107,7 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
         }
       }
 
-      int res = traverse_ccos_image(root_dir_files[i], data, subdir, level + 1, on_file, on_dir, arg);
+      int res = traverse_ccos_image(dir_blocks[i], data, subdir, level + 1, on_file, on_dir, arg);
       free(subdir);
 
       if (res == -1) {
@@ -96,9 +119,9 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
 
       if (on_file != NULL) {
         traverse_callback_result_t res;
-        if ((res = on_file(root_dir_files[i], data, dirname, level, arg)) != RESULT_OK) {
+        if ((res = on_file(dir_blocks[i], data, dirname, level, arg)) != RESULT_OK) {
           TRACE("on_file returned %d", res);
-          free(root_dir_files);
+          free(dir_blocks);
           if (res == RESULT_ERROR) {
             fprintf(stderr, "An error occured, skipping the rest of the image!\n");
             return -1;
@@ -110,7 +133,7 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
     }
   }
 
-  free(root_dir_files);
+  free(dir_blocks);
   TRACE("\"%s\" traverse complete!", dirname);
   return 0;
 }
