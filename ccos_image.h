@@ -44,12 +44,16 @@ typedef struct {
   uint16_t pad1;
   ccos_date_t mod_date;
   ccos_date_t expiration_date;
-  uint8_t pad3[26];
+  uint8_t pad3[16];
+  uint16_t dir_count;
+  uint8_t pad4[7];
+  uint8_t uses_8087;
   uint8_t version_major;
   uint8_t version_minor;
-  uint8_t pad4[15];
+  uint8_t pad5[15];
   uint8_t version_patch;
-  uint8_t pad5[40];
+  uint32_t prop_length;  // from InteGRiD Sources - OSINICS/WSTYPE.INC; purpose unknown
+  uint8_t pad6[36];
   uint16_t dunno;  // crc16 ?
   uint16_t block_next;
   uint16_t block_current;  // should match block_number
