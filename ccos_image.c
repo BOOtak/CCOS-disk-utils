@@ -201,8 +201,8 @@ int ccos_get_file_blocks(uint16_t block, const uint8_t* data, size_t* blocks_cou
       uint16_t checksum =
           ccos_make_checksum((const uint8_t*)&(content_inode->block_next),
                              offsetof(ccos_content_inode_t, block_end) - offsetof(ccos_content_inode_t, block_next));
-      checksum += content_inode->block_number;
-      checksum += content_inode->block_index;
+      checksum += content_inode->file_id;
+      checksum += content_inode->file_fragment_index;
 
       if (checksum != content_inode->blocks_checksum) {
         fprintf(stderr, "Warn: Blocks checksum mismatch: expected 0x%04hx, got 0x%04hx\n",
@@ -260,11 +260,9 @@ int ccos_get_block_data(uint16_t block, const uint8_t* data, const uint8_t** sta
   return 0;
 }
 
-static int parse_directory_contents(const uint8_t* data, size_t data_size, uint16_t* entry_count,
+static int parse_directory_contents(const uint8_t* data, size_t data_size, uint16_t entry_count,
                                     uint16_t** entries_blocks) {
-  // worst-case scenario: all the entries have empty names
-  size_t max_entry_count = data_size / (CCOS_DIR_ENTRY_SUFFIX_LENGTH + sizeof(dir_entry_t));
-  *entries_blocks = (uint16_t*)calloc(max_entry_count, sizeof(uint16_t));
+  *entries_blocks = (uint16_t*)calloc(entry_count, sizeof(uint16_t));
   if (*entries_blocks == NULL) {
     return -1;
   }
@@ -284,7 +282,6 @@ static int parse_directory_contents(const uint8_t* data, size_t data_size, uint1
     offset += sizeof(dir_entry_t) + entry->name_length + CCOS_DIR_ENTRY_SUFFIX_LENGTH;
   }
 
-  *entry_count = count;
   return 0;
 }
 
@@ -296,7 +293,9 @@ int ccos_get_dir_contents(uint16_t block, const uint8_t* data, uint16_t* entry_c
     return -1;
   }
 
-  uint32_t dir_size = ccos_get_file_size(block, data);
+  const ccos_inode_t* inode = ccos_get_inode(block, data);
+  uint32_t dir_size = inode->dir_length;
+  *entry_count = inode->dir_count;
 
   uint8_t* dir_contents = (uint8_t*)calloc(dir_size, sizeof(uint8_t));
   if (dir_contents == NULL) {
@@ -317,7 +316,7 @@ int ccos_get_dir_contents(uint16_t block, const uint8_t* data, uint16_t* entry_c
     offset += data_size;
   }
 
-  int res = parse_directory_contents(dir_contents, dir_size, entry_count, entries_inodes);
+  int res = parse_directory_contents(dir_contents, dir_size, *entry_count, entries_inodes);
   free(dir_contents);
   free(dir_blocks);
   return res;

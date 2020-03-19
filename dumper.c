@@ -51,13 +51,13 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
 
     const ccos_inode_t* inode = ccos_get_inode(dir_blocks[i], data);
 
-    if (inode->block_number != inode->block_number_check) {
-      fprintf(stderr, "Warn: block number mismatch in inode! 0x%hx != 0x%hx\n", inode->block_number,
-              inode->block_number_check);
+    if (inode->file_id != inode->file_id_check) {
+      fprintf(stderr, "Warn: block number mismatch in inode! 0x%hx != 0x%hx\n", inode->file_id,
+              inode->file_id_check);
     }
 
     uint16_t metadata_checksum =
-        ccos_make_checksum((const uint8_t*)&(inode->block_number), offsetof(ccos_inode_t, metadata_checksum));
+        ccos_make_checksum((const uint8_t*)&(inode->file_id), offsetof(ccos_inode_t, metadata_checksum));
     if (metadata_checksum != inode->metadata_checksum) {
       fprintf(stderr, "Warn: Invalid metadata checksum: expected 0x%hx, got 0x%hx\n", inode->metadata_checksum,
               metadata_checksum);
@@ -65,7 +65,7 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
 
     uint16_t blocks_checksum = ccos_make_checksum(
         (const uint8_t*)&(inode->block_next), offsetof(ccos_inode_t, block_end) - offsetof(ccos_inode_t, block_next));
-    blocks_checksum += inode->block_number_check;
+    blocks_checksum += inode->file_id_check;
 
     if (blocks_checksum != inode->blocks_checksum) {
       fprintf(stderr, "Warn: Invalid block data checksum: expected 0x%hx, got 0x%hx!\n", inode->blocks_checksum,
