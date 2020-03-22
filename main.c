@@ -5,16 +5,16 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <sys/stat.h>
-
 #include <ccos_image.h>
 #include <common.h>
 #include <dumper.h>
 
-typedef enum { MODE_DUMP = 1, MODE_PRINT, MODE_REPLACE_FILE } op_mode_t;
+typedef enum { MODE_DUMP = 1, MODE_PRINT, MODE_REPLACE_FILE, MODE_COPY_FILE } op_mode_t;
 
 static const struct option long_options[] = {{"image", required_argument, NULL, 'i'},
                                              {"replace-file", required_argument, NULL, 'r'},
+                                             {"copy-file", required_argument, NULL, 'c'},
+                                             {"target-image", required_argument, NULL, 't'},
                                              {"target-name", required_argument, NULL, 'n'},
                                              {"in-place", no_argument, NULL, 'l'},
                                              {"dump-dir", no_argument, NULL, 'd'},
@@ -24,7 +24,7 @@ static const struct option long_options[] = {{"image", required_argument, NULL, 
                                              {"help", no_argument, NULL, 'h'},
                                              {NULL, no_argument, NULL, 0}};
 
-static const char* opt_string = "i:r:n:ldpsvh";
+static const char* opt_string = "i:r:n:c:t:ldpsvh";
 
 static void print_usage() {
   fprintf(stderr,
@@ -55,6 +55,7 @@ int main(int argc, char** argv) {
   char* path = NULL;
   char* filename = NULL;
   char* target_name = NULL;
+  char* target_image = NULL;
   int in_place = 0;
   int short_format = 0;
   int opt = 0;
@@ -95,6 +96,15 @@ int main(int argc, char** argv) {
         filename = optarg;
         break;
       }
+      case 'c': {
+        mode = MODE_COPY_FILE;
+        filename = optarg;
+        break;
+      }
+      case 't': {
+        target_image = optarg;
+        break;
+      }
       case 'v': {
         trace_init(1);
         break;
@@ -106,44 +116,11 @@ int main(int argc, char** argv) {
     }
   }
 
-  if (path == NULL) {
-    fprintf(stderr, "Error: no path to disk image was passed!\n\n");
+  uint8_t* file_contents = NULL;
+  size_t file_size = 0;
+  if (read_file(path, &file_contents, &file_size) == -1) {
+    fprintf(stderr, "Unable to read disk image file!\n");
     print_usage();
-    return -1;
-  }
-
-  FILE* f = fopen(path, "rb");
-  if (f == NULL) {
-    fprintf(stderr, "Unable to open %s: %s!\n", path, strerror(errno));
-    return -1;
-  }
-
-  struct stat st = {};
-  if (stat(path, &st) == -1) {
-    fprintf(stderr, "Unable to stat %s: %s!\n", path, strerror(errno));
-    return -1;
-  }
-
-  if (!S_ISREG(st.st_mode)) {
-    fprintf(stderr, "Unable to open \"%s\": not a file!\n", path);
-    return -1;
-  }
-
-  long file_size = st.st_size;
-
-  uint8_t* file_contents = (uint8_t*)calloc(file_size, sizeof(uint8_t));
-  if (file_contents == NULL) {
-    fprintf(stderr, "Unable to allocate %li bytes for the file %s contents: %s!\n", file_size, path, strerror(errno));
-    fclose(f);
-    return -1;
-  }
-
-  size_t readed = fread(file_contents, sizeof(uint8_t), file_size, f);
-  fclose(f);
-
-  if (readed != file_size) {
-    fprintf(stderr, "Unable to read %li bytes from the file %s: %s!\n", file_size, path, strerror(errno));
-    free(file_contents);
     return -1;
   }
 
@@ -160,6 +137,15 @@ int main(int argc, char** argv) {
   switch (mode) {
     case MODE_PRINT: {
       res = print_image_info(path, superblock, file_contents, short_format);
+
+      uint16_t* free_blocks = NULL;
+      size_t free_blocks_count = 0;
+      res |= ccos_get_free_blocks(file_contents, file_size, &free_blocks, &free_blocks_count);
+
+      printf("\n");
+      printf("Free space: %ld bytes.\n", free_blocks_count * BLOCK_SIZE);
+      free(free_blocks);
+
       break;
     }
     case MODE_DUMP: {
@@ -168,6 +154,10 @@ int main(int argc, char** argv) {
     }
     case MODE_REPLACE_FILE: {
       res = replace_file(path, filename, target_name, superblock, file_contents, (size_t)file_size, in_place);
+      break;
+    }
+    case MODE_COPY_FILE: {
+      res = copy_file(target_image, filename, superblock, file_contents, (size_t)file_size);
       break;
     }
     default: {
