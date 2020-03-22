@@ -294,7 +294,7 @@ int ccos_get_dir_contents(uint16_t block, const uint8_t* data, uint16_t* entry_c
   }
 
   const ccos_inode_t* inode = ccos_get_inode(block, data);
-  uint32_t dir_size = inode->dir_length;
+  uint32_t dir_size = inode->file_size;
   *entry_count = inode->dir_count;
 
   uint8_t* dir_contents = (uint8_t*)calloc(dir_size, sizeof(uint8_t));
