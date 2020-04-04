@@ -34,7 +34,7 @@ static void print_usage() {
           "ccos_disk_tool { -i <image> | -h } [OPTIONS]\n"
           "\n"
           "Options are:\n"
-          "{ -r <file> [-n <name>] [-l] | -d | -p [-s] | -c <file> | -z <file> }\n"
+          "-r <file> [-n <name>] [-l] | -d | -p [-s] | -c <file> [-l] | -z <file> [-l]\n"
           "\n"
           "-i, --image <path>\t\tPath to GRiD OS floppy RAW image\n"
           "-p, --print-contents\t\tPrint image contents\n"
@@ -164,11 +164,11 @@ int main(int argc, char** argv) {
       break;
     }
     case MODE_COPY_FILE: {
-      res = copy_file(target_image, filename, superblock, file_contents, (size_t)file_size);
+      res = copy_file(target_image, filename, superblock, file_contents, (size_t)file_size, in_place);
       break;
     }
     case MODE_DELETE_FILE: {
-      res = delete_file(path, filename, superblock);
+      res = delete_file(path, filename, superblock, in_place);
       break;
     }
     default: {

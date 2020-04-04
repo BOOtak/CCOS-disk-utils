@@ -543,7 +543,7 @@ static int do_copy_file(uint8_t* dest_data, size_t dest_size, uint16_t dest_supe
 }
 
 int copy_file(const char* target_image, const char* filename, uint16_t superblock, const uint8_t* source_data,
-              size_t source_size) {
+              size_t source_size, int in_place) {
   if (target_image == NULL) {
     fprintf(stderr, "No target image is provided to copy file to!\n");
     return -1;
@@ -574,24 +574,34 @@ int copy_file(const char* target_image, const char* filename, uint16_t superbloc
     return -1;
   }
 
-  const char* out_suffix = ".out";
-  char* dest_filename = (char*)calloc(strlen(target_image) + strlen(out_suffix) + 1, sizeof(char));
-  if (dest_filename == NULL) {
-    fprintf(stderr, "Unable to allocate memory for destination file name: %s!\n", strerror(errno));
-    free(dest_data);
-    return -1;
+  char* dest_filename;
+  if (in_place) {
+    dest_filename = target_image;
+  } else {
+    const char* out_suffix = ".out";
+    dest_filename = (char*)calloc(strlen(target_image) + strlen(out_suffix) + 1, sizeof(char));
+    if (dest_filename == NULL) {
+      fprintf(stderr, "Unable to allocate memory for destination file name: %s!\n", strerror(errno));
+      free(dest_data);
+      return -1;
+    }
+
+    sprintf(dest_filename, "%s%s", target_image, out_suffix);
   }
 
-  sprintf(dest_filename, "%s%s", target_image, out_suffix);
   FILE* f = fopen(dest_filename, "wb");
   if (f == NULL) {
     fprintf(stderr, "Unable to open \"%s\" to write new image data to: %s!\n", dest_filename, strerror(errno));
-    free(dest_data);
-    free(dest_filename);
-    return -1;
   }
 
-  free(dest_filename);
+  free(dest_data);
+  if (!in_place) {
+    free(dest_filename);
+  }
+
+  if (f == NULL) {
+    return -1;
+  }
 
   size_t written = fwrite(dest_data, sizeof(uint8_t), dest_size, f);
   free(dest_data);
@@ -604,7 +614,7 @@ int copy_file(const char* target_image, const char* filename, uint16_t superbloc
   return 0;
 }
 
-int delete_file(const char* path, const char* filename, uint16_t superblock) {
+int delete_file(const char* path, const char* filename, uint16_t superblock, int in_place) {
   if (path == NULL) {
     fprintf(stderr, "No target image is provided to copy file to!\n");
     return -1;
@@ -635,24 +645,33 @@ int delete_file(const char* path, const char* filename, uint16_t superblock) {
     fprintf(stderr, "Unable to delete file %s!\n", filename);
   }
 
-  const char* out_suffix = ".out";
-  char* dest_filename = (char*)calloc(strlen(path) + strlen(out_suffix) + 1, sizeof(char));
-  if (dest_filename == NULL) {
-    fprintf(stderr, "Unable to allocate memory for destination file name: %s!\n", strerror(errno));
-    free(data);
-    return -1;
+  char* dest_filename;
+  if (in_place) {
+    dest_filename = path;
+  } else {
+    const char* out_suffix = ".out";
+    char* dest_filename = (char*)calloc(strlen(path) + strlen(out_suffix) + 1, sizeof(char));
+    if (dest_filename == NULL) {
+      fprintf(stderr, "Unable to allocate memory for destination file name: %s!\n", strerror(errno));
+      free(data);
+      return -1;
+    }
+
+    sprintf(dest_filename, "%s%s", path, out_suffix);
   }
 
-  sprintf(dest_filename, "%s%s", path, out_suffix);
   FILE* f = fopen(dest_filename, "wb");
   if (f == NULL) {
     fprintf(stderr, "Unable to open \"%s\" to write new image data to: %s!\n", dest_filename, strerror(errno));
     free(data);
-    free(dest_filename);
-    return -1;
   }
 
-  free(dest_filename);
+  if (!in_place) {
+    free(dest_filename);
+  }
+  if (f == NULL) {
+    return -1;
+  }
 
   size_t written = fwrite(data, sizeof(uint8_t), size, f);
   free(data);
