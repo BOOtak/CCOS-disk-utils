@@ -589,9 +589,9 @@ int copy_file(const char* target_image, const char* filename, uint16_t superbloc
   FILE* f = fopen(dest_filename, "wb");
   if (f == NULL) {
     fprintf(stderr, "Unable to open \"%s\" to write new image data to: %s!\n", dest_filename, strerror(errno));
+    free(dest_data);
   }
 
-  free(dest_data);
   if (!in_place) {
     free(dest_filename);
   }
