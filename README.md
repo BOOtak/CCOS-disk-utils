@@ -3,12 +3,15 @@ Set of tools for manipulating GRiD OS (CCOS) disk images
 
 ## Usage
 ```
-ccos_disk_tool { -i <image> | -h } [OPTIONS]
-
-Options are:
-{ -r <file> [-n <name>] [-l] | -d | -p [-s] }
+ccos_disk_tool { -i <image> | -h } [OPTIONS] [-v]
 
 -i, --image <path>              Path to GRiD OS floppy RAW image
+-h, --help                      Show this message
+-v, --verbose                   Verbose output
+
+Options are:
+-p [-s] | -d | -r <file> [-n <name>] [-l] | -c <file> OPTIONS | -z <file> [-l]
+
 -p, --print-contents            Print image contents
 -s, --short-format              Use short format in printing contents
                                 (80-column compatible, no dates)
@@ -18,9 +21,16 @@ Options are:
 -n, --target-name <name>        Optionally, replace file <name> in the image
                                 instead of basename of file passed with
                                 --replace-file
+-c, --copy-file <filename>      Copy file between images
+-z, --delete-file <filename>    Delete file from the image
 -l, --in-place                  Write changes in the original image
--v, --verbose                   Verbose output
--h, --help                      Show this message
+
+Copying options are:
+-t <path> -n <name> [-l]
+
+-t, --target-image <filename>   Path to the image to copy file to
+-n, --target-name <name>        Name of file to copy
+-l, --in-place                  Write changes in the original image
 ```
 
 ## Example

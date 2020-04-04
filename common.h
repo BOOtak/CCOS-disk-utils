@@ -1,6 +1,8 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include <stdint.h>
+
 #define VERSION_MAX_SIZE 12  // "255.255.255"
 
 #define MIN(A, B) A < B ? A : B
@@ -20,5 +22,7 @@ int trace_silent(FILE* stream, const char* format, ...);
  * @param[in]  verbose  Verbosity level (0 for no output in TRACE call, other values: maximum verbosity)
  */
 void trace_init(int verbose);
+
+int read_file(const char* path, uint8_t** file_data, size_t* file_size);
 
 #endif  // COMMON_H
