@@ -603,3 +603,64 @@ int copy_file(const char* target_image, const char* filename, uint16_t superbloc
 
   return 0;
 }
+
+int delete_file(const char* path, const char* filename, uint16_t superblock) {
+  if (path == NULL) {
+    fprintf(stderr, "No target image is provided to copy file to!\n");
+    return -1;
+  }
+
+  if (filename == NULL) {
+    fprintf(stderr, "No file name provided to copy to another image!\n");
+    return -1;
+  }
+
+  uint8_t* data = NULL;
+  size_t size = 0;
+  if (read_file(path, &data, &size) == -1) {
+    fprintf(stderr, "Unable to read target disk image file!\n");
+    return -1;
+  }
+
+  uint16_t file_block = 0;
+  if (find_filename(superblock, data, filename, &file_block) != 0) {
+    fprintf(stderr, "Unable to find file %s in the image!\n", filename);
+    free(data);
+    return -1;
+  }
+
+  ccos_inode_t* file = ccos_get_inode(file_block, data);
+
+  if (ccos_delete_file(data, size, file) == -1) {
+    fprintf(stderr, "Unable to delete file %s!\n", filename);
+  }
+
+  const char* out_suffix = ".out";
+  char* dest_filename = (char*)calloc(strlen(path) + strlen(out_suffix) + 1, sizeof(char));
+  if (dest_filename == NULL) {
+    fprintf(stderr, "Unable to allocate memory for destination file name: %s!\n", strerror(errno));
+    free(data);
+    return -1;
+  }
+
+  sprintf(dest_filename, "%s%s", path, out_suffix);
+  FILE* f = fopen(dest_filename, "wb");
+  if (f == NULL) {
+    fprintf(stderr, "Unable to open \"%s\" to write new image data to: %s!\n", dest_filename, strerror(errno));
+    free(data);
+    free(dest_filename);
+    return -1;
+  }
+
+  free(dest_filename);
+
+  size_t written = fwrite(data, sizeof(uint8_t), size, f);
+  free(data);
+  fclose(f);
+  if (written != size) {
+    fprintf(stderr, "Write size mismatch: Expected %ld, but only %ld written!\n", size, written);
+    return -1;
+  }
+
+  return 0;
+}

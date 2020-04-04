@@ -9,11 +9,12 @@
 #include <common.h>
 #include <dumper.h>
 
-typedef enum { MODE_DUMP = 1, MODE_PRINT, MODE_REPLACE_FILE, MODE_COPY_FILE } op_mode_t;
+typedef enum { MODE_DUMP = 1, MODE_PRINT, MODE_REPLACE_FILE, MODE_COPY_FILE, MODE_DELETE_FILE } op_mode_t;
 
 static const struct option long_options[] = {{"image", required_argument, NULL, 'i'},
                                              {"replace-file", required_argument, NULL, 'r'},
                                              {"copy-file", required_argument, NULL, 'c'},
+                                             {"delete-file", required_argument, NULL, 'z'},
                                              {"target-image", required_argument, NULL, 't'},
                                              {"target-name", required_argument, NULL, 'n'},
                                              {"in-place", no_argument, NULL, 'l'},
@@ -24,7 +25,7 @@ static const struct option long_options[] = {{"image", required_argument, NULL, 
                                              {"help", no_argument, NULL, 'h'},
                                              {NULL, no_argument, NULL, 0}};
 
-static const char* opt_string = "i:r:n:c:t:ldpsvh";
+static const char* opt_string = "i:r:n:c:t:z:ldpsvh";
 
 static void print_usage() {
   fprintf(stderr,
@@ -33,12 +34,13 @@ static void print_usage() {
           "ccos_disk_tool { -i <image> | -h } [OPTIONS]\n"
           "\n"
           "Options are:\n"
-          "{ -r <file> [-n <name>] [-l] | -d | -p [-s] }\n"
+          "{ -r <file> [-n <name>] [-l] | -d | -p [-s] | -c <file> | -z <file> }\n"
           "\n"
           "-i, --image <path>\t\tPath to GRiD OS floppy RAW image\n"
           "-p, --print-contents\t\tPrint image contents\n"
           "-s, --short-format\t\tUse short format in printing contents\n"
           "\t\t\t\t(80-column compatible, no dates)\n"
+          "-z, --delete-file <filename>\tDelete file from the image\n"
           "-d, --dump-dir\t\t\tDump image contents into the current directory\n"
           "-r, --replace-file <filename>\tReplace file in the image with the given\n"
           "\t\t\t\tfile, save changes to <path>.new\n"
@@ -101,6 +103,11 @@ int main(int argc, char** argv) {
         filename = optarg;
         break;
       }
+      case 'z': {
+        mode = MODE_DELETE_FILE;
+        filename = optarg;
+        break;
+      }
       case 't': {
         target_image = optarg;
         break;
@@ -158,6 +165,10 @@ int main(int argc, char** argv) {
     }
     case MODE_COPY_FILE: {
       res = copy_file(target_image, filename, superblock, file_contents, (size_t)file_size);
+      break;
+    }
+    case MODE_DELETE_FILE: {
+      res = delete_file(path, filename, superblock);
       break;
     }
     default: {

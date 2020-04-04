@@ -337,4 +337,6 @@ int ccos_add_file_to_directory(ccos_inode_t* directory, ccos_inode_t* file, uint
 int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* dest_directory, const uint8_t* src_image,
                    const ccos_inode_t* src_file);
 
+int ccos_delete_file(uint8_t* image, size_t image_size, const ccos_inode_t* file);
+
 #endif  // CCOS_IMAGE_H
