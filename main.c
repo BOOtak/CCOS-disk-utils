@@ -54,10 +54,9 @@ static void print_usage() {
           "-l, --in-place\t\t\tWrite changes in the original image\n"
           "\n"
           "Copying options are:\n"
-          "-t <path> -n <name> [-l]\n"
+          "-t <path> [-l]\n"
           "\n"
           "-t, --target-image <filename>\tPath to the image to copy file to\n"
-          "-n, --target-name <name>\tName of file to copy\n"
           "-l, --in-place\t\t\tWrite changes in the original image\n");
 }
 
