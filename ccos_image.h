@@ -276,6 +276,17 @@ int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* 
  */
 int ccos_replace_file(uint16_t block, const uint8_t* file_data, uint32_t file_size, uint8_t* image_data);
 
+/**
+ * @brief      Get info about blocks in the image. Traverse all blocks in the CCOS image and return array filled with
+ * corresponding block types.
+ *
+ * @param[in]  data               CCOS image data.
+ * @param[in]  data_size          The data size.
+ * @param      image_map          Block types array.
+ * @param      free_blocks_count  The free blocks count.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
 int ccos_get_image_map(const uint8_t* data, size_t data_size, block_type_t** image_map, size_t* free_blocks_count);
 
 /**
@@ -330,13 +341,53 @@ ccos_content_inode_t* ccos_append_content_inode(ccos_inode_t* inode, uint16_t bl
  */
 int ccos_create_file(uint8_t* image_data, ccos_inode_t* directory, uint8_t* file_data, uint32_t file_size);
 
+/**
+ * @brief      Return info about free blocks in a CCOS image.
+ *
+ * @param[in]  data               CCOS image data.
+ * @param[in]  data_size          Image size.
+ * @param      free_blocks        Pointer to the caller-allocated free blocks array.
+ * @param      free_blocks_count  Pointer to free blocks size.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
 int ccos_get_free_blocks(const uint8_t* data, size_t data_size, uint16_t** free_blocks, size_t* free_blocks_count);
 
+/**
+ * @brief      Add new file entry to the list of files in the given directory.
+ *
+ * @param      directory   The directory to add file entry to.
+ * @param      file        The file to add to the directory.
+ * @param      image_data  CCOS image data.
+ * @param[in]  image_size  Image size.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
 int ccos_add_file_to_directory(ccos_inode_t* directory, ccos_inode_t* file, uint8_t* image_data, size_t image_size);
 
+/**
+ * @brief      Copy file from one CCOS image into another.
+ *
+ * @param      dest_image       The destination CCOS image.
+ * @param[in]  dest_image_size  The destination image size.
+ * @param      dest_directory   The directory in the destination image to copy file to.
+ * @param[in]  src_image        The source CCOS image.
+ * @param[in]  src_file         The source file.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
 int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* dest_directory, const uint8_t* src_image,
                    const ccos_inode_t* src_file);
 
+/**
+ * @brief      Delete file in the image.
+ *
+ * @param      image       CCOS image data.
+ * @param[in]  image_size  The image size.
+ * @param[in]  file        The file to delete.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
 int ccos_delete_file(uint8_t* image, size_t image_size, const ccos_inode_t* file);
 
 #endif  // CCOS_IMAGE_H
