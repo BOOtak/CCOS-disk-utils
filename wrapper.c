@@ -9,8 +9,8 @@
 
 #include <ccos_image.h>
 #include <common.h>
-#include <dumper.h>
 #include <string_utils.h>
+#include <wrapper.h>
 
 #define PROGRAMS_DIR_1 "Programs~Subject~"
 #define PROGRAMS_DIR_2 "Programs~subject~"

@@ -7,7 +7,7 @@
 
 #include <ccos_image.h>
 #include <common.h>
-#include <dumper.h>
+#include <wrapper.h>
 
 typedef enum { MODE_DUMP = 1, MODE_PRINT, MODE_REPLACE_FILE, MODE_COPY_FILE, MODE_DELETE_FILE } op_mode_t;
 
@@ -58,8 +58,7 @@ static void print_usage() {
           "\n"
           "-t, --target-image <filename>\tPath to the image to copy file to\n"
           "-n, --target-name <name>\tName of file to copy\n"
-          "-l, --in-place\t\t\tWrite changes in the original image\n"
-          );
+          "-l, --in-place\t\t\tWrite changes in the original image\n");
 }
 
 int main(int argc, char** argv) {

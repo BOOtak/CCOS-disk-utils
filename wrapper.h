@@ -1,5 +1,5 @@
-#ifndef DUMPER_H
-#define DUMPER_H
+#ifndef WRAPPER_H
+#define WRAPPER_H
 
 #include <stdint.h>
 
@@ -73,4 +73,4 @@ int copy_file(const char* target_image, const char* filename, uint16_t superbloc
  */
 int delete_file(const char* path, const char* filename, uint16_t superblock, int in_place);
 
-#endif  // DUMPER_H
+#endif  // WRAPPER_H
