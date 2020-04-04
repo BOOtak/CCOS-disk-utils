@@ -650,7 +650,7 @@ int delete_file(const char* path, const char* filename, uint16_t superblock, int
     dest_filename = path;
   } else {
     const char* out_suffix = ".out";
-    char* dest_filename = (char*)calloc(strlen(path) + strlen(out_suffix) + 1, sizeof(char));
+    dest_filename = (char*)calloc(strlen(path) + strlen(out_suffix) + 1, sizeof(char));
     if (dest_filename == NULL) {
       fprintf(stderr, "Unable to allocate memory for destination file name: %s!\n", strerror(errno));
       free(data);
