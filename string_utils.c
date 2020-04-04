@@ -20,14 +20,14 @@ void print_frame(int length) {
 
 const char* trim_string(const char* src, char symbol) {
   int i = 0;
-  for (; i < strlen(src), src[i] == symbol; ++i)
+  for (; i < strlen(src) && src[i] == symbol; ++i)
     ;
   return &(src[i]);
 }
 
 const char* rtrim_string(const char* src, char symbol) {
   int i = strlen(src);
-  for (; i > 0, src[i] == symbol; --i)
+  for (; i > 0 && src[i] == symbol; --i)
     ;
   return &(src[i]);
 }

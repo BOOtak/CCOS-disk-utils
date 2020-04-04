@@ -150,14 +150,14 @@ int ccos_get_superblock(const uint8_t* data, size_t image_size, uint16_t* superb
   return 0;
 }
 
-const ccos_inode_t* ccos_get_inode(uint16_t block, const uint8_t* data) {
+ccos_inode_t* ccos_get_inode(uint16_t block, const uint8_t* data) {
   uint32_t addr = block * BLOCK_SIZE;
-  return (const ccos_inode_t*)&(data[addr]);
+  return (ccos_inode_t*)&(data[addr]);
 }
 
-const ccos_content_inode_t* ccos_get_content_inode(uint16_t block, const uint8_t* data) {
+static ccos_content_inode_t* ccos_get_content_inode(uint16_t block, const uint8_t* data) {
   uint32_t addr = block * BLOCK_SIZE;
-  return (const ccos_content_inode_t*)&(data[addr]);
+  return (ccos_content_inode_t*)&(data[addr]);
 }
 
 version_t ccos_get_file_version(uint16_t block, const uint8_t* data) {
@@ -279,7 +279,7 @@ int ccos_get_file_blocks(uint16_t block, const uint8_t* data, size_t* blocks_cou
   return 0;
 }
 
-int ccos_get_block_data(uint16_t block, const uint8_t* data, uint8_t** start, size_t* size) {
+int ccos_get_block_data(uint16_t block, const uint8_t* data, const uint8_t** start, size_t* size) {
   // TODO: check bounds
   uint32_t address = block * BLOCK_SIZE;
   *start = &(data[address + CCOS_DATA_OFFSET]);
@@ -434,7 +434,7 @@ int ccos_get_free_blocks(const uint8_t* data, size_t data_size, uint16_t** free_
 
   *free_blocks = (uint16_t*)calloc(*free_blocks_count, sizeof(uint16_t));
   if (*free_blocks == NULL) {
-    fprintf(stderr, "Unable to allocate %d bytes for free blocks: %s!\n", *free_blocks_count * sizeof(uint16_t),
+    fprintf(stderr, "Unable to allocate %ld bytes for free blocks: %s!\n", *free_blocks_count * sizeof(uint16_t),
             strerror(errno));
     return -1;
   }
@@ -459,7 +459,7 @@ int ccos_get_image_map(const uint8_t* data, size_t data_size, block_type_t** ima
 
   *image_map = (block_type_t*)calloc(block_count, sizeof(block_type_t));
   if (*image_map == NULL) {
-    fprintf(stderr, "Unable to allocate memory for %d blocks in block map: %s!\n", block_count, strerror(errno));
+    fprintf(stderr, "Unable to allocate memory for %ld blocks in block map: %s!\n", block_count, strerror(errno));
     return -1;
   }
 
@@ -538,7 +538,7 @@ ccos_content_inode_t* ccos_add_content_inode(ccos_inode_t* file, uint8_t* data, 
 
   uint16_t empty_block = (*empty_blocks)[0];
   *empty_blocks = &((*empty_blocks)[1]);
-  *empty_blocks_size--;
+  --*empty_blocks_size;
 
   uint32_t address = empty_block * BLOCK_SIZE;
   ccos_content_inode_t* content_inode = (ccos_content_inode_t*)&(data[address]);
@@ -584,7 +584,6 @@ int ccos_remove_content_inode(ccos_inode_t* file, uint8_t* data) {
     last_content_inode = ccos_get_content_inode(last_content_inode->content_inode_info.block_next, data);
   }
 
-  ccos_block_data_t* last_data = &(last_content_inode->content_inode_info);
   ccos_erase_block(last_content_inode->content_inode_info.block_current, data);
 
   prev_block_data->block_next = CCOS_INVALID_BLOCK;
@@ -601,17 +600,17 @@ int ccos_remove_content_inode(ccos_inode_t* file, uint8_t* data) {
 int ccos_remove_block_from_file(uint16_t block, uint8_t* data) {
   ccos_inode_t* inode = (ccos_inode_t*)ccos_get_inode(block, data);
 
-  uint16_t* content_blocks = &(inode->content_blocks);
+  uint16_t* content_blocks = inode->content_blocks;
   ccos_content_inode_t* last_content_inode = ccos_get_last_content_inode(inode, data);
   int content_blocks_count = MAX_BLOCKS_IN_INODE;
   if (last_content_inode != NULL) {
-    content_blocks = &(last_content_inode->content_blocks);
+    content_blocks = last_content_inode->content_blocks;
     content_blocks_count = MAX_BLOCKS_IN_CONTENT_INODE;
   }
 
   uint16_t last_content_block = CCOS_INVALID_BLOCK;
   int last_content_block_index = 0;
-  for (last_content_block_index; last_content_block_index < content_blocks_count; ++last_content_block_index) {
+  for (; last_content_block_index < content_blocks_count; ++last_content_block_index) {
     if (content_blocks[last_content_block_index] == CCOS_INVALID_BLOCK) {
       if (last_content_block_index > 0) {
         last_content_block = content_blocks[last_content_block_index - 1];
@@ -658,19 +657,19 @@ uint16_t ccos_add_block_to_file(uint16_t block, uint8_t* data, uint16_t** empty_
   ccos_inode_t* inode = (ccos_inode_t*)ccos_get_inode(block, data);
   ccos_content_inode_t* last_content_inode = NULL;
 
-  uint16_t* content_blocks = &(inode->content_blocks);
+  uint16_t* content_blocks = inode->content_blocks;
   int content_blocks_count = MAX_BLOCKS_IN_INODE;
   if (inode->content_inode_info.block_next != CCOS_INVALID_BLOCK) {
     TRACE("Has content inode!");
     last_content_inode = ccos_get_last_content_inode(inode, data);
-    content_blocks = &(last_content_inode->content_blocks);
+    content_blocks = last_content_inode->content_blocks;
     content_blocks_count = MAX_BLOCKS_IN_CONTENT_INODE;
   }
 
   uint16_t last_content_block = 0;
   int last_content_block_index = 0;
   TRACE("%x (%*s): %d content blocks", block, inode->name_length, inode->name, content_blocks_count);
-  for (last_content_block_index; last_content_block_index < content_blocks_count; ++last_content_block_index) {
+  for (; last_content_block_index < content_blocks_count; ++last_content_block_index) {
     if (content_blocks[last_content_block_index] == CCOS_INVALID_BLOCK) {
       if (last_content_block_index > 0) {
         last_content_block = content_blocks[last_content_block_index - 1];
@@ -689,7 +688,7 @@ uint16_t ccos_add_block_to_file(uint16_t block, uint8_t* data, uint16_t** empty_
 
   uint16_t new_block = (*empty_blocks)[0];
   *empty_blocks = &((*empty_blocks)[1]);
-  *empty_blocks_size--;
+  --*empty_blocks_size;
   TRACE("Allocating content block 0x%x for file id 0x%x.", new_block, block);
   TRACE("Last content block is 0x%x", last_content_block);
   uint32_t new_block_address = new_block * BLOCK_SIZE;
@@ -719,7 +718,7 @@ uint16_t ccos_add_block_to_file(uint16_t block, uint8_t* data, uint16_t** empty_
     }
 
     last_content_inode = new_content_inode;
-    content_blocks = &(new_content_inode->content_blocks);
+    content_blocks = new_content_inode->content_blocks;
     content_blocks_count = MAX_BLOCKS_IN_CONTENT_INODE;
     last_content_block_index = 0;
   }
@@ -770,7 +769,7 @@ int ccos_read_file(uint16_t block, const uint8_t* image_data, uint8_t** file_dat
 
   *file_data = (uint8_t*)calloc(*file_size, sizeof(uint8_t));
   if (*file_data == NULL) {
-    fprintf(stderr, "Unable to allocate %u bytes for file id 0x%x!\n", *file_size, file->header.file_id);
+    fprintf(stderr, "Unable to allocate %ld bytes for file id 0x%x!\n", *file_size, file->header.file_id);
     return -1;
   }
 
@@ -790,7 +789,7 @@ int ccos_read_file(uint16_t block, const uint8_t* image_data, uint8_t** file_dat
   }
 
   if (written != *file_size) {
-    fprintf(stderr, "Warn: File size (%d) != amount of bytes read (%d) at file 0x%x!\n", *file_size, written,
+    fprintf(stderr, "Warn: File size (%ld) != amount of bytes read (%u) at file 0x%x!\n", *file_size, written,
             file->header.file_id);
   }
 
@@ -858,7 +857,7 @@ int ccos_write_file(uint16_t block, uint8_t* image_data, size_t image_size, cons
   for (int i = 0; i < blocks_count; ++i) {
     uint8_t* start = NULL;
     size_t data_size = 0;
-    ccos_get_block_data(blocks[i], image_data, &start, &data_size);
+    ccos_get_block_data(blocks[i], image_data, (const uint8_t**)&start, &data_size);
 
     size_t copy_size = MIN(file_size - written, data_size);
     memcpy(start, &(file_data[written]), copy_size);
@@ -866,7 +865,7 @@ int ccos_write_file(uint16_t block, uint8_t* image_data, size_t image_size, cons
   }
 
   if (written != file_size) {
-    fprintf(stderr, "Warn: File size (%d) != amount of bytes read (%d) at file 0x%x!\n", file_size, written, block);
+    fprintf(stderr, "Warn: File size (%ld) != amount of bytes read (%ld) at file 0x%x!\n", file_size, written, block);
   }
 
   free(blocks);
@@ -997,7 +996,6 @@ int ccos_add_file_to_directory(ccos_inode_t* directory, ccos_inode_t* file, uint
 // directory
 int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* dest_directory, const uint8_t* src_image,
                    const ccos_inode_t* src_file) {
-  uint32_t dest_image_blocks_size = dest_image_size / BLOCK_SIZE;
   uint16_t* free_blocks = NULL;
   size_t free_blocks_count = 0;
   if (ccos_get_free_blocks(dest_image, dest_image_size, &free_blocks, &free_blocks_count) == -1) {
@@ -1054,7 +1052,7 @@ int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* de
 //    - Update directory checksums
 // - Find all file blocks; clear them and mark as free
 // - Clear all file content inode blocks and mark as free
-int ccos_delete_file(uint8_t* image, size_t image_size, const ccos_inode_t* file) {
+int ccos_delete_file(uint8_t* image, size_t image_size, ccos_inode_t* file) {
   uint16_t parent_dir_id = file->dir_file_id;
   size_t dir_size = 0;
   uint8_t* dir_contents = NULL;

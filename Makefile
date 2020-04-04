@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-I. -O0 -g
+CFLAGS=-I. -O0 -g -Werror -Wall
 
 .PHONY: all clean
 

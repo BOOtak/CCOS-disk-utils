@@ -135,7 +135,7 @@ int ccos_get_superblock(const uint8_t* data, size_t image_size, uint16_t* superb
  *
  * @return     Pointer to CCOS filesystem inode structure.
  */
-const ccos_inode_t* ccos_get_inode(uint16_t block, const uint8_t* data);
+ccos_inode_t* ccos_get_inode(uint16_t block, const uint8_t* data);
 
 /**
  * @brief      Get the file version.
@@ -211,7 +211,7 @@ int ccos_is_dir(uint16_t block, const uint8_t* data);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_get_block_data(uint16_t block, const uint8_t* data, uint8_t** start, size_t* size);
+int ccos_get_block_data(uint16_t block, const uint8_t* data, const uint8_t** start, size_t* size);
 
 /**
  * @brief      Get the size of a file at a given inode.
@@ -388,6 +388,6 @@ int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* de
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_delete_file(uint8_t* image, size_t image_size, const ccos_inode_t* file);
+int ccos_delete_file(uint8_t* image, size_t image_size, ccos_inode_t* file);
 
 #endif  // CCOS_IMAGE_H

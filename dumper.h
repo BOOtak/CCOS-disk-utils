@@ -44,4 +44,9 @@ int print_image_info(const char* path, const uint16_t superblock, const uint8_t*
 int replace_file(const char* path, const char* filename, const char* target_name, const uint16_t superblock,
                  uint8_t* data, size_t data_size, int in_place);
 
+int copy_file(const char* target_image, const char* filename, uint16_t superblock, const uint8_t* source_data,
+              size_t source_size, int in_place);
+
+int delete_file(const char* path, const char* filename, uint16_t superblock, int in_place);
+
 #endif  // DUMPER_H

@@ -229,7 +229,6 @@ int print_image_info(const char* path, const uint16_t superblock, const uint8_t*
     print_frame(128);
   }
 
-  int level = 0;
   return traverse_ccos_image(superblock, data, "", 0, print_file_info, print_file_info, &short_format);
 }
 
@@ -519,8 +518,6 @@ static int do_copy_file(uint8_t* dest_data, size_t dest_size, uint16_t dest_supe
   const ccos_inode_t* source_file = ccos_get_inode(source_block, source_data);
   uint16_t source_parent_dir_id = source_file->dir_file_id;
 
-  const ccos_inode_t* source_dir = ccos_get_inode(source_parent_dir_id, source_data);
-
   char* source_dir_name = ccos_short_string_to_string(ccos_get_file_name(source_parent_dir_id, source_data));
   uint16_t dest_parent_dir_id = 0;
 
@@ -576,7 +573,7 @@ int copy_file(const char* target_image, const char* filename, uint16_t superbloc
 
   char* dest_filename;
   if (in_place) {
-    dest_filename = target_image;
+    dest_filename = (char*)target_image;
   } else {
     const char* out_suffix = ".out";
     dest_filename = (char*)calloc(strlen(target_image) + strlen(out_suffix) + 1, sizeof(char));
@@ -647,7 +644,7 @@ int delete_file(const char* path, const char* filename, uint16_t superblock, int
 
   char* dest_filename;
   if (in_place) {
-    dest_filename = path;
+    dest_filename = (char*)path;
   } else {
     const char* out_suffix = ".out";
     dest_filename = (char*)calloc(strlen(path) + strlen(out_suffix) + 1, sizeof(char));
