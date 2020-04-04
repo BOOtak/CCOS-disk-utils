@@ -26,10 +26,9 @@ Options are:
 -l, --in-place                  Write changes in the original image
 
 Copying options are:
--t <path> -n <name> [-l]
+-t <path> [-l]
 
 -t, --target-image <filename>   Path to the image to copy file to
--n, --target-name <name>        Name of file to copy
 -l, --in-place                  Write changes in the original image
 ```
 
