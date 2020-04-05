@@ -934,7 +934,7 @@ static int add_file_entry_to_dir_contents(ccos_inode_t* directory, uint8_t* imag
 
     // Compare filename and filetype separately
     int res = strncasecmp(entry_name, basename, MIN(entry_name_length, basename_length));
-    TRACE("%s %s %s", entry_name, res < 0 ? "<" : res > 0 ? ">" : "==s", basename);
+    TRACE("%s %s %s", entry_name, res < 0 ? "<" : res > 0 ? ">" : "==", basename);
     if (res == 0) {
       res = strncasecmp(entry_type, type, MIN(entry_type_length, type_length));
       TRACE("%s %s %s", entry_type, res < 0 ? "<" : res > 0 ? ">" : "==", type);
