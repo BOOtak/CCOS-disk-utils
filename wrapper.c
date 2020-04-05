@@ -77,7 +77,7 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
       TRACE("%d: directory", i + 1);
       char subdir_name[CCOS_MAX_FILE_NAME];
       memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
-      if (ccos_parse_file_name(ccos_get_file_name(dir_blocks[i], data), subdir_name, NULL) == -1) {
+      if (ccos_parse_file_name(ccos_get_file_name(dir_blocks[i], data), subdir_name, NULL, NULL, NULL) == -1) {
         free(dir_blocks);
         return -1;
       }
@@ -150,7 +150,7 @@ static traverse_callback_result_t print_file_info(uint16_t file_block, const uin
   memset(basename, 0, CCOS_MAX_FILE_NAME);
   memset(type, 0, CCOS_MAX_FILE_NAME);
 
-  int res = ccos_parse_file_name(name, basename, type);
+  int res = ccos_parse_file_name(name, basename, type, NULL, NULL);
   if (res == -1) {
     fprintf(stderr, "Invalid file name!\n");
     return RESULT_ERROR;
@@ -315,7 +315,7 @@ static traverse_callback_result_t dump_dir_tree_on_dir(uint16_t block, const uin
                                                        int level, void* arg) {
   char subdir_name[CCOS_MAX_FILE_NAME];
   memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
-  if (ccos_parse_file_name(ccos_get_file_name(block, data), subdir_name, NULL) == -1) {
+  if (ccos_parse_file_name(ccos_get_file_name(block, data), subdir_name, NULL, NULL, NULL) == -1) {
     return -1;
   }
 

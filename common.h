@@ -2,6 +2,7 @@
 #define COMMON_H
 
 #include <stdint.h>
+#include <stdio.h>
 
 #define VERSION_MAX_SIZE 12  // "255.255.255"
 

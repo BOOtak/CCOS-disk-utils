@@ -253,6 +253,8 @@ ccos_date_t ccos_get_mod_date(uint16_t block, const uint8_t* data);
  */
 ccos_date_t ccos_get_exp_date(uint16_t block, const uint8_t* data);
 
+int ccos_parse_inode_name(ccos_inode_t* inode, char* basename, char* type, size_t* name_length, size_t* type_length);
+
 /**
  * @brief      Perse CCOS file name and return it's basename and it's type.
  *
@@ -262,7 +264,8 @@ ccos_date_t ccos_get_exp_date(uint16_t block, const uint8_t* data);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* type);
+int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* type, size_t* name_length,
+                         size_t* type_length);
 
 /**
  * @brief      Replace file in the CCOS image data.

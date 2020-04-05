@@ -1,9 +1,7 @@
-#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <ccos_image.h>
 #include <common.h>
@@ -148,7 +146,7 @@ int main(int argc, char** argv) {
 
   TRACE("superblock: 0x%x", superblock);
 
-  int res = -1;
+  int res;
   switch (mode) {
     case MODE_PRINT: {
       res = print_image_info(path, superblock, file_contents, short_format);

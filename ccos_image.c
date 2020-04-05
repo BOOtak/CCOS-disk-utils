@@ -1,10 +1,9 @@
+#include <ccos_image.h>
+#include <common.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include <ccos_image.h>
-#include <common.h>
 
 #define FAT_MBR_END_OF_SECTOR_MARKER 0xAA55
 #define OPCODE_NOP 0x90
@@ -353,7 +352,7 @@ int ccos_is_dir(uint16_t block, const uint8_t* data) {
   char type[CCOS_MAX_FILE_NAME];
   memset(type, 0, CCOS_MAX_FILE_NAME);
 
-  int res = ccos_parse_file_name(ccos_get_file_name(block, data), NULL, type);
+  int res = ccos_parse_file_name(ccos_get_file_name(block, data), NULL, type, NULL, NULL);
   if (res == -1) {
     return 0;
   }
@@ -361,7 +360,12 @@ int ccos_is_dir(uint16_t block, const uint8_t* data) {
   return strncasecmp(type, CCOS_DIR_TYPE, strlen(CCOS_DIR_TYPE)) == 0;
 }
 
-int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* type) {
+int ccos_parse_inode_name(ccos_inode_t* inode, char* basename, char* type, size_t* name_length, size_t* type_length) {
+  return ccos_parse_file_name((const short_string_t*)&(inode->name_length), basename, type, name_length, type_length);
+}
+
+int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* type, size_t* name_length,
+                         size_t* type_length) {
   char* delim = strchr(file_name->data, '~');
   if (delim == NULL) {
     fprintf(stderr, "Invalid name \"%.*s\": no file type found!\n", file_name->length, file_name->data);
@@ -372,6 +376,14 @@ int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* 
   if ((last_char + 1 - file_name->data) != file_name->length) {
     fprintf(stderr, "Invalid name \"%.*s\": invalid file type format!\n", file_name->length, file_name->data);
     return -1;
+  }
+
+  if (name_length != NULL) {
+    *name_length = (delim - file_name->data);
+  }
+
+  if (type_length != NULL) {
+    *type_length = strlen(delim + 1) - 1;
   }
 
   if (basename != NULL) {
@@ -894,6 +906,17 @@ static int add_file_entry_to_dir_contents(ccos_inode_t* directory, uint8_t* imag
     return -1;
   }
 
+  char basename[CCOS_MAX_FILE_NAME] = {0};
+  char type[CCOS_MAX_FILE_NAME] = {0};
+  size_t basename_length = 0;
+  size_t type_length = 0;
+  ccos_parse_inode_name(file, basename, type, &basename_length, &type_length);
+
+  char entry_name[CCOS_MAX_FILE_NAME] = {0};
+  char entry_type[CCOS_MAX_FILE_NAME] = {0};
+  size_t entry_name_length = 0;
+  size_t entry_type_length = 0;
+
   int add_at_last = 0;
   int offset = CCOS_DIR_ENTRIES_OFFSET;
   int parsed_entries = 0;
@@ -901,10 +924,22 @@ static int add_file_entry_to_dir_contents(ccos_inode_t* directory, uint8_t* imag
     TRACE("Parsing entry #%d...", parsed_entries);
     dir_entry_t* entry = (dir_entry_t*)&(dir_contents[offset]);
     TRACE("entry block: 0x%x, name length: %d", entry->block, entry->name_length);
-    char* name = (char*)&dir_contents[offset + sizeof(dir_entry_t)];
-    TRACE("%*s", entry->name_length, name);
-    int res = strncasecmp(name, file->name, MIN(entry->name_length, file->name_length));
-    TRACE("%*s %s %*s", entry->name_length, name, res < 0 ? "<" : res > 0 ? ">" : "=", file->name_length, file->name);
+
+    memset(entry_name, 0, CCOS_MAX_FILE_NAME);
+    memset(entry_type, 0, CCOS_MAX_FILE_NAME);
+    ccos_parse_file_name((const short_string_t*)&(entry->name_length), entry_name, entry_type, &entry_name_length,
+                         &entry_type_length);
+
+    TRACE("%s", entry_name);
+
+    // Compare filename and filetype separately
+    int res = strncasecmp(entry_name, basename, MIN(entry_name_length, basename_length));
+    TRACE("%s %s %s", entry_name, res < 0 ? "<" : res > 0 ? ">" : "==s", basename);
+    if (res == 0) {
+      res = strncasecmp(entry_type, type, MIN(entry_type_length, type_length));
+      TRACE("%s %s %s", entry_type, res < 0 ? "<" : res > 0 ? ">" : "==", type);
+    }
+
     if (res > 0) {
       break;
     } else if (res == 0) {
@@ -1064,6 +1099,17 @@ int ccos_delete_file(uint8_t* image, size_t image_size, ccos_inode_t* file) {
     return -1;
   }
 
+  char basename[CCOS_MAX_FILE_NAME] = {0};
+  char type[CCOS_MAX_FILE_NAME] = {0};
+  size_t basename_length = 0;
+  size_t type_length = 0;
+  ccos_parse_inode_name(file, basename, type, &basename_length, &type_length);
+
+  char entry_name[CCOS_MAX_FILE_NAME] = {0};
+  char entry_type[CCOS_MAX_FILE_NAME] = {0};
+  size_t entry_name_length = 0;
+  size_t entry_type_length = 0;
+
   int offset = CCOS_DIR_ENTRIES_OFFSET;
   size_t entry_size = 0;
   int parsed_entries = 0;
@@ -1071,10 +1117,20 @@ int ccos_delete_file(uint8_t* image, size_t image_size, ccos_inode_t* file) {
     TRACE("Parsing entry #%d...", parsed_entries++);
     dir_entry_t* entry = (dir_entry_t*)&(dir_contents[offset]);
     TRACE("entry block: 0x%x, name length: %d", entry->block, entry->name_length);
-    char* name = (char*)&dir_contents[offset + sizeof(dir_entry_t)];
-    TRACE("%*s", entry->name_length, name);
-    int res = strncasecmp(name, file->name, MIN(entry->name_length, file->name_length));
-    TRACE("%*s %s %*s", entry->name_length, name, res < 0 ? "<" : res > 0 ? ">" : "=", file->name_length, file->name);
+
+    memset(entry_name, 0, CCOS_MAX_FILE_NAME);
+    memset(entry_type, 0, CCOS_MAX_FILE_NAME);
+    ccos_parse_file_name((const short_string_t*)&(entry->name_length), entry_name, entry_type, &entry_name_length,
+                         &entry_type_length);
+    TRACE("%s (%d)", entry_name, entry_name_length);
+
+    // Compare filename and filetype separately
+    int res = strncasecmp(entry_name, basename, MIN(entry_name_length, basename_length));
+    TRACE("%s %s %s", entry_name, res < 0 ? "<" : res > 0 ? ">" : "==", basename);
+    if (res == 0) {
+      res = strncasecmp(entry_type, type, MIN(entry_type_length, type_length));
+      TRACE("%s %s %s", entry_type, res < 0 ? "<" : res > 0 ? ">" : "==", type);
+    }
 
     uint16_t file_suffix = *(uint16_t*)&(dir_contents[offset + sizeof(dir_entry_t) + entry->name_length]);
     TRACE("File suffix: %x", file_suffix);
