@@ -1178,6 +1178,12 @@ int ccos_delete_file(uint8_t* image, size_t image_size, ccos_inode_t* file) {
 
   // Write dir contents back with old size to overwrite bytes at the end of dir with zeroes.
   int res = ccos_write_file(directory->header.file_id, image, image_size, dir_contents, dir_size);
+
+  // Do that once more with new size to clear freed up content block.
+  if (res != -1) {
+    res = ccos_write_file(directory->header.file_id, image, image_size, dir_contents, new_dir_size);
+  }
+
   free(dir_contents);
   if (res == -1) {
     fprintf(stderr, "Unable to update directory contents of dir with id=0x%x!\n", directory->header.file_id);
