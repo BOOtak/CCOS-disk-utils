@@ -1113,6 +1113,10 @@ int ccos_delete_file(uint8_t* image, size_t image_size, ccos_inode_t* file) {
   int offset = CCOS_DIR_ENTRIES_OFFSET;
   size_t entry_size = 0;
   int parsed_entries = 0;
+
+  uint16_t* prev_file_suffix = NULL;
+  uint16_t* file_suffix = NULL;
+
   for (;;) {
     TRACE("Parsing entry #%d...", parsed_entries++);
     dir_entry_t* entry = (dir_entry_t*)&(dir_contents[offset]);
@@ -1132,15 +1136,16 @@ int ccos_delete_file(uint8_t* image, size_t image_size, ccos_inode_t* file) {
       TRACE("%s %s %s", entry_type, res < 0 ? "<" : res > 0 ? ">" : "==", type);
     }
 
-    uint16_t file_suffix = *(uint16_t*)&(dir_contents[offset + sizeof(dir_entry_t) + entry->name_length]);
-    TRACE("File suffix: %x", file_suffix);
-    entry_size = sizeof(dir_entry_t) + entry->name_length + sizeof(file_suffix);
+    prev_file_suffix = file_suffix;
+    file_suffix = (uint16_t*)&(dir_contents[offset + sizeof(dir_entry_t) + entry->name_length]);
+    TRACE("File suffix: %x", *file_suffix);
+    entry_size = sizeof(dir_entry_t) + entry->name_length + sizeof(uint16_t);
 
     if (res == 0) {
       TRACE("File is found!");
       break;
     } else if (res < 0) {
-      if ((file_suffix & CCOS_DIR_LAST_ENTRY_MARKER) == CCOS_DIR_LAST_ENTRY_MARKER) {
+      if ((*file_suffix & CCOS_DIR_LAST_ENTRY_MARKER) == CCOS_DIR_LAST_ENTRY_MARKER) {
         fprintf(stderr, "Unable to find file \"%*s\" in directory \"%*s\"!\n", file->name_length, file->name,
                 directory->name_length, directory->name);
         free(dir_contents);
@@ -1157,10 +1162,22 @@ int ccos_delete_file(uint8_t* image, size_t image_size, ccos_inode_t* file) {
     }
   }
 
+  // If we remove last entry, mark the one before it as last.
+  if ((*file_suffix & CCOS_DIR_LAST_ENTRY_MARKER) == CCOS_DIR_LAST_ENTRY_MARKER) {
+    if (prev_file_suffix != NULL) {
+      *prev_file_suffix = *prev_file_suffix | CCOS_DIR_LAST_ENTRY_MARKER;
+    }
+  }
+
   memmove(dir_contents + offset, dir_contents + offset + entry_size, dir_size - (offset + entry_size));
+
+  // Zero last bytes at the end of dir contents. It's not necessary if you have last entry marker set correctly, but
+  // it'll help read image in HEX editor if removed dir entry will be nice and zeroed.
+  memset(dir_contents + dir_size - entry_size, 0, entry_size);
   size_t new_dir_size = dir_size - entry_size;
 
-  int res = ccos_write_file(directory->header.file_id, image, image_size, dir_contents, new_dir_size);
+  // Write dir contents back with old size to overwrite bytes at the end of dir with zeroes.
+  int res = ccos_write_file(directory->header.file_id, image, image_size, dir_contents, dir_size);
   free(dir_contents);
   if (res == -1) {
     fprintf(stderr, "Unable to update directory contents of dir with id=0x%x!\n", directory->header.file_id);
