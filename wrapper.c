@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -571,44 +570,49 @@ int copy_file(const char* target_image, const char* filename, uint16_t superbloc
     return -1;
   }
 
-  char* dest_filename;
-  if (in_place) {
-    dest_filename = (char*)target_image;
-  } else {
-    const char* out_suffix = ".out";
-    dest_filename = (char*)calloc(strlen(target_image) + strlen(out_suffix) + 1, sizeof(char));
-    if (dest_filename == NULL) {
-      fprintf(stderr, "Unable to allocate memory for destination file name: %s!\n", strerror(errno));
-      free(dest_data);
-      return -1;
-    }
-
-    sprintf(dest_filename, "%s%s", target_image, out_suffix);
-  }
-
-  FILE* f = fopen(dest_filename, "wb");
-  if (f == NULL) {
-    fprintf(stderr, "Unable to open \"%s\" to write new image data to: %s!\n", dest_filename, strerror(errno));
-    free(dest_data);
-  }
-
-  if (!in_place) {
-    free(dest_filename);
-  }
-
-  if (f == NULL) {
-    return -1;
-  }
-
-  size_t written = fwrite(dest_data, sizeof(uint8_t), dest_size, f);
+  int res = write_file(target_image, dest_data, dest_size, in_place);
   free(dest_data);
-  fclose(f);
-  if (written != dest_size) {
-    fprintf(stderr, "Write size mismatch: Expected %ld, but only %ld written!\n", dest_size, written);
+  return res;
+}
+
+int add_file(const char* image_path, const char* file_path, const char* file_name, uint16_t superblock, uint8_t* data,
+             size_t data_size, int in_place) {
+  if (image_path == NULL) {
+    fprintf(stderr, "No path to image is provided to copy file to!\n");
     return -1;
   }
 
-  return 0;
+  if (file_path == NULL) {
+    fprintf(stderr, "No file name provided to add to image!\n");
+    return -1;
+  }
+
+  uint8_t* file_data = NULL;
+  size_t file_size = 0;
+  if (read_file(file_path, &file_data, &file_size) == -1) {
+    fprintf(stderr, "Unable to read target disk image file!\n");
+    return -1;
+  }
+
+  uint16_t dest_parent_dir_id = 0;
+
+  if (find_filename(superblock, data, PROGRAMS_DIR_1, &dest_parent_dir_id) == -1 &&
+      find_filename(superblock, data, PROGRAMS_DIR_2, &dest_parent_dir_id) == -1) {
+    fprintf(stderr, "Warn: Unable to find directory %s in dest image, will add file to the root directory instead\n",
+            PROGRAMS_DIR_1);
+    dest_parent_dir_id = superblock;
+  }
+
+  ccos_inode_t* dest_dir = ccos_get_inode(dest_parent_dir_id, data);
+  int res = ccos_add_file(dest_dir, file_data, file_size, file_name, data, data_size);
+  free(file_data);
+  if (res == -1) {
+    fprintf(stderr, "Unable to copy %s to %s!", file_name, file_path);
+    return -1;
+  }
+
+  res = write_file(image_path, data, data_size, in_place);
+  return res;
 }
 
 int delete_file(const char* path, const char* filename, uint16_t superblock, int in_place) {

@@ -61,3 +61,41 @@ int read_file(const char* path, uint8_t** file_data, size_t* file_size) {
 
   return 0;
 }
+
+int write_file(const char* source_filename, uint8_t* data, size_t data_size, int in_place) {
+  char* dest_filename;
+  if (in_place) {
+    dest_filename = (char*)source_filename;
+  } else {
+    const char* out_suffix = ".out";
+    dest_filename = (char*)calloc(strlen(source_filename) + strlen(out_suffix) + 1, sizeof(char));
+    if (dest_filename == NULL) {
+      fprintf(stderr, "Unable to allocate memory for destination file name: %s!\n", strerror(errno));
+      return -1;
+    }
+
+    sprintf(dest_filename, "%s%s", source_filename, out_suffix);
+  }
+
+  FILE* f = fopen(dest_filename, "wb");
+  if (f == NULL) {
+    fprintf(stderr, "Unable to open \"%s\" for writing: %s!\n", dest_filename, strerror(errno));
+  }
+
+  if (!in_place) {
+    free(dest_filename);
+  }
+
+  if (f == NULL) {
+    return -1;
+  }
+
+  size_t written = fwrite(data, sizeof(uint8_t), data_size, f);
+  fclose(f);
+  if (written != data_size) {
+    fprintf(stderr, "Write size mismatch: Expected %ld, but only %ld written!\n", data_size, written);
+    return -1;
+  }
+
+  return 0;
+}

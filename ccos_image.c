@@ -1057,9 +1057,8 @@ int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* de
     return -1;
   }
 
-  ccos_inode_t* new_inode = ccos_get_inode(new_file_block, dest_image);
   TRACE("Copying file info over...");
-  memcpy(&(new_inode->file_size), &(src_file->file_size),
+  memcpy(&(new_file->file_size), &(src_file->file_size),
          offsetof(ccos_inode_t, content_inode_info) - offsetof(ccos_inode_t, file_size));
 
   TRACE("Writing file 0x%lx", new_file->header.file_id);
@@ -1220,4 +1219,49 @@ int ccos_delete_file(uint8_t* image, size_t image_size, ccos_inode_t* file) {
   ccos_erase_block(file->header.file_id, image);
 
   return 0;
+}
+
+int ccos_add_file(ccos_inode_t* dest_directory, const uint8_t* file_data, uint32_t file_size, const char* file_name, uint8_t* image_data, size_t image_size) {
+  uint16_t* free_blocks = NULL;
+  size_t free_blocks_count = 0;
+  if (ccos_get_free_blocks(image_data, image_size, &free_blocks, &free_blocks_count) == -1) {
+    fprintf(stderr, "Unable to get block map of an image!\n");
+    return -1;
+  }
+
+  if (free_blocks_count == 0) {
+    fprintf(stderr, "Unable to copy file: no space left!\n");
+    free(free_blocks);
+    return -1;
+  }
+
+  uint16_t new_file_block = free_blocks[0];
+  free(free_blocks);
+
+  ccos_inode_t* new_file = ccos_create_inode(new_file_block, dest_directory->header.file_id, image_data);
+
+  TRACE("Filling file info...");
+  new_file->file_size = file_size;
+  new_file->dir_file_id=dest_directory->header.file_id;
+  new_file->name_length = strlen(file_name);
+  strncpy(new_file->name, file_name, strlen(file_name));
+
+  new_file->creation_date = dest_directory->creation_date;
+  new_file->mod_date = dest_directory->mod_date;
+  new_file->expiration_date = dest_directory->expiration_date;
+
+  TRACE("Writing file 0x%lx", new_file->header.file_id);
+  if (ccos_write_file(new_file_block, image_data, image_size, file_data, file_size) == -1) {
+    fprintf(stderr, "Unable to write file to file with id 0x%x!\n", new_file_block);
+    return -1;
+  }
+
+  int res = ccos_add_file_to_directory(dest_directory, new_file, image_data, image_size);
+
+  if (res == -1) {
+    fprintf(stderr, "Unable to copy file: unable to add new file with id 0x%x to the directory with id 0x%x!\n",
+            new_file->header.file_id, dest_directory->header.file_id);
+  }
+
+  return res;
 }

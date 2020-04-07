@@ -1,13 +1,19 @@
+#include <ccos_image.h>
+#include <common.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include <ccos_image.h>
-#include <common.h>
 #include <wrapper.h>
 
-typedef enum { MODE_DUMP = 1, MODE_PRINT, MODE_REPLACE_FILE, MODE_COPY_FILE, MODE_DELETE_FILE } op_mode_t;
+typedef enum {
+  MODE_DUMP = 1,
+  MODE_PRINT,
+  MODE_REPLACE_FILE,
+  MODE_COPY_FILE,
+  MODE_DELETE_FILE,
+  MODE_ADD_FILE
+} op_mode_t;
 
 static const struct option long_options[] = {{"image", required_argument, NULL, 'i'},
                                              {"replace-file", required_argument, NULL, 'r'},
@@ -16,6 +22,7 @@ static const struct option long_options[] = {{"image", required_argument, NULL, 
                                              {"target-image", required_argument, NULL, 't'},
                                              {"target-name", required_argument, NULL, 'n'},
                                              {"in-place", no_argument, NULL, 'l'},
+                                             {"add-file", required_argument, NULL, 'a'},
                                              {"dump-dir", no_argument, NULL, 'd'},
                                              {"print-contents", no_argument, NULL, 'p'},
                                              {"short-format", no_argument, NULL, 's'},
@@ -23,7 +30,7 @@ static const struct option long_options[] = {{"image", required_argument, NULL, 
                                              {"help", no_argument, NULL, 'h'},
                                              {NULL, no_argument, NULL, 0}};
 
-static const char* opt_string = "i:r:n:c:t:z:ldpsvh";
+static const char* opt_string = "i:r:n:c:a:t:z:ldpsvh";
 
 static void print_usage() {
   fprintf(stderr,
@@ -42,6 +49,7 @@ static void print_usage() {
           "-s, --short-format\t\tUse short format in printing contents\n"
           "\t\t\t\t(80-column compatible, no dates)\n"
           "-d, --dump-dir\t\t\tDump image contents into the current directory\n"
+          "-a, --add-file <filename>\tAdd file to the image\n"
           "-r, --replace-file <filename>\tReplace file in the image with the given\n"
           "\t\t\t\tfile, save changes to <path>.new\n"
           "-n, --target-name <name>\tOptionally, replace file <name> in the image\n"
@@ -106,6 +114,11 @@ int main(int argc, char** argv) {
       }
       case 'c': {
         mode = MODE_COPY_FILE;
+        filename = optarg;
+        break;
+      }
+      case 'a': {
+        mode = MODE_ADD_FILE;
         filename = optarg;
         break;
       }
@@ -175,6 +188,16 @@ int main(int argc, char** argv) {
     }
     case MODE_DELETE_FILE: {
       res = delete_file(path, filename, superblock, in_place);
+      break;
+    }
+    case MODE_ADD_FILE: {
+      if (target_name == NULL) {
+        fprintf(stderr, "No file name is provided! Usage: -i <image> -a <file path> -n <target name>\n");
+        print_usage();
+        res = -1;
+      } else {
+        res = add_file(path, filename, target_name, superblock, file_contents, file_size, in_place);
+      }
       break;
     }
     default: {

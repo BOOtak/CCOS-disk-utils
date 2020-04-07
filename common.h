@@ -26,4 +26,6 @@ void trace_init(int verbose);
 
 int read_file(const char* path, uint8_t** file_data, size_t* file_size);
 
+int write_file(const char* source_filename, uint8_t* data, size_t data_size, int in_place);
+
 #endif  // COMMON_H

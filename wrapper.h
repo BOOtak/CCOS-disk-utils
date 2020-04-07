@@ -73,4 +73,7 @@ int copy_file(const char* target_image, const char* filename, uint16_t superbloc
  */
 int delete_file(const char* path, const char* filename, uint16_t superblock, int in_place);
 
+int add_file(const char* image_path, const char* file_path, const char* file_name, uint16_t superblock, uint8_t* data,
+             size_t data_size, int in_place);
+
 #endif  // WRAPPER_H
