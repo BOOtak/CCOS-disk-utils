@@ -3,33 +3,34 @@ Set of tools for manipulating GRiD OS (CCOS) disk images
 
 ## Usage
 ```
-ccos_disk_tool { -i <image> | -h } [OPTIONS] [-v]
+ccos_disk_tool [ -i image | -h ] OPTIONS [-v]
 
--i, --image <path>              Path to GRiD OS floppy RAW image
--h, --help                      Show this message
--v, --verbose                   Verbose output
+Examples:
+ccos_disk_tool -i image -p [-s]
+ccos_disk_tool -i image -d
+ccos_disk_tool -i image -a file -n name [-l]
+ccos_disk_tool -i src_image -c name -t dest_image [-l]
+ccos_disk_tool -i image -r file -n name [-l]
+ccos_disk_tool -i image -z name [-l]
 
-Options are:
--p [-s] | -d | -r <file> [-n <name>] [-l] | -c <file> OPTIONS | -z <file> [-l]
+-i, --image IMAGE        Path to GRiD OS floppy RAW image
+-h, --help               Show this message
+-v, --verbose            Verbose output
 
--p, --print-contents            Print image contents
--s, --short-format              Use short format in printing contents
-                                (80-column compatible, no dates)
--d, --dump-dir                  Dump image contents into the current directory
--r, --replace-file <filename>   Replace file in the image with the given
-                                file, save changes to <path>.new
--n, --target-name <name>        Optionally, replace file <name> in the image
-                                instead of basename of file passed with
-                                --replace-file
--c, --copy-file <filename>      Copy file between images
--z, --delete-file <filename>    Delete file from the image
--l, --in-place                  Write changes in the original image
-
-Copying options are:
--t <path> [-l]
-
--t, --target-image <filename>   Path to the image to copy file to
--l, --in-place                  Write changes in the original image
+OPTIONS:
+-p, --print-contents     Print image contents
+-s, --short-format       Use short format in printing contents
+                         (80-column compatible, no dates)
+-d, --dump-dir           Dump image contents into the current directory
+-a, --add-file FILE      Add file to the image
+-r, --replace-file FILE  Replace file in the image with the given
+                         file, save changes to IMAGE.out
+-c, --copy-file NAME     Copy file from one image to another
+-t, --target-name FILE   Path to image to copy file to
+-z, --delete-file FILE   Delete file from the image
+-n, --target-name NAME   Replace / delete / copy or add file with the name NAME
+                         in the image
+-l, --in-place           Write changes to the original image
 ```
 
 ## Examples
@@ -93,4 +94,10 @@ Free space: 4608 bytes.
 ./ccos_disk_tool -i GRIDOS.IMG -z Executive~Run~ -l
 # Now, copy file over
 ./ccos_disk_tool -i CCOS315.IMG -c Executive~Run~ -t GRIDOS.IMG -l
+```
+
+### Add file `MAIN.RUN` as `Main~Run~` to `GRIDOS.IMG`
+
+```bash
+./ccos_disk_tool -i GRIDOS.IMG -a MAIN.RUN -n Main~Run~ -l
 ```
