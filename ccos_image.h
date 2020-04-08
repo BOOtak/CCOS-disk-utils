@@ -9,6 +9,7 @@
 #define CCOS_MAX_FILE_NAME 80
 #define MAX_BLOCKS_IN_INODE 146
 #define MAX_BLOCKS_IN_CONTENT_INODE 246
+#define BITMASK_SIZE 500
 
 typedef struct {
   uint8_t major;
@@ -97,6 +98,16 @@ typedef struct {
 } ccos_content_inode_t;
 #pragma pack(pop)
 
+#pragma pack(push, 1)
+typedef struct {
+  ccos_block_header_t header;
+  uint16_t checksum;
+  uint16_t allocated;
+  uint8_t bytes[BITMASK_SIZE];
+  uint32_t block_end;
+} ccos_bitmask_t;
+#pragma pack(pop)
+
 typedef enum { UNKNOWN, DATA, EMPTY } block_type_t;
 
 /**
@@ -126,6 +137,8 @@ uint16_t ccos_make_content_inode_checksum(const ccos_content_inode_t* content_in
  * invalid image format).
  */
 int ccos_get_superblock(const uint8_t* data, size_t image_size, uint16_t* superblock);
+
+uint16_t ccos_get_bitmask_block(uint16_t superblock);
 
 /**
  * @brief      Get the CCOS filesystem inode at the given block.
@@ -310,6 +323,8 @@ int ccos_update_checksums(ccos_inode_t* inode);
  */
 int ccos_update_content_inode_checksums(ccos_content_inode_t* content_inode);
 
+int ccos_update_bitmask_checksum(ccos_bitmask_t* bitmask);
+
 /**
  * @brief      Create empty inode at the given block.
  *
@@ -321,40 +336,21 @@ int ccos_update_content_inode_checksums(ccos_content_inode_t* content_inode);
  */
 ccos_inode_t* ccos_create_inode(uint16_t block, uint16_t parent_dir_block, uint8_t* image_data);
 
-/**
- * @brief      Append new content inode to the current inode.
- *
- * @param      inode  The inode to append content inode to.
- * @param[in]  block  The block to create new content inode at.
- * @param      image_data  CCOS image data.
- *
- * @return     Pointer to the newly created content inode on success, NULL otherwise.
- */
-ccos_content_inode_t* ccos_append_content_inode(ccos_inode_t* inode, uint16_t block, uint8_t* image_data);
-
-/**
- * @brief      Add file to a CCOS image.
- *
- * @param      image_data  CCOS image data.
- * @param      directory   The directory in which this file will be created.
- * @param      file_data   The file data.
- * @param[in]  file_size   The file size.
- *
- * @return     0 on success, -1 otherwise.
- */
-int ccos_create_file(uint8_t* image_data, ccos_inode_t* directory, uint8_t* file_data, uint32_t file_size);
+uint16_t ccos_get_free_block(uint16_t bitmask_block, const uint8_t* data);
 
 /**
  * @brief      Return info about free blocks in a CCOS image.
  *
+ * @param[in]  bitmask_block      Block number with image bitmask.
  * @param[in]  data               CCOS image data.
  * @param[in]  data_size          Image size.
+ * @param      free_blocks_count  Pointer to free blocks count.
  * @param      free_blocks        Pointer to the caller-allocated free blocks array.
- * @param      free_blocks_count  Pointer to free blocks size.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_get_free_blocks(const uint8_t* data, size_t data_size, uint16_t** free_blocks, size_t* free_blocks_count);
+int ccos_get_free_blocks(uint16_t bitmask_block, const uint8_t* data, size_t data_size, size_t* free_blocks_count,
+                         uint16_t** free_blocks);
 
 /**
  * @brief      Add new file entry to the list of files in the given directory.
@@ -366,7 +362,8 @@ int ccos_get_free_blocks(const uint8_t* data, size_t data_size, uint16_t** free_
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_add_file_to_directory(ccos_inode_t* directory, ccos_inode_t* file, uint8_t* image_data, size_t image_size);
+int ccos_add_file_to_directory(ccos_inode_t* directory, ccos_inode_t* file, uint8_t* image_data, size_t image_size,
+                               uint16_t bitmask_block);
 
 /**
  * @brief      Copy file from one CCOS image into another.
@@ -379,8 +376,8 @@ int ccos_add_file_to_directory(ccos_inode_t* directory, ccos_inode_t* file, uint
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* dest_directory, const uint8_t* src_image,
-                   const ccos_inode_t* src_file);
+int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* dest_directory,
+                   uint16_t dest_bitmask_block, const uint8_t* src_image, const ccos_inode_t* src_file);
 
 /**
  * @brief      Delete file in the image.
@@ -391,9 +388,9 @@ int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* de
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_delete_file(uint8_t* image, size_t image_size, ccos_inode_t* file);
+int ccos_delete_file(uint8_t* image, size_t image_size, ccos_inode_t* file, uint16_t bitmask_block);
 
 int ccos_add_file(ccos_inode_t* dest_directory, const uint8_t* file_data, uint32_t file_size, const char* file_name,
-                  uint8_t* image_data, size_t image_size);
+                  uint8_t* image_data, size_t image_size, uint16_t bitmask_block);
 
 #endif  // CCOS_IMAGE_H

@@ -1,14 +1,13 @@
+#include <ccos_image.h>
+#include <common.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string_utils.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-
-#include <ccos_image.h>
-#include <common.h>
-#include <string_utils.h>
 #include <wrapper.h>
 
 #define PROGRAMS_DIR_1 "Programs~Subject~"
@@ -534,8 +533,8 @@ static int do_copy_file(uint8_t* dest_data, size_t dest_size, uint16_t dest_supe
   free(source_dir_name);
 
   ccos_inode_t* dest_directory = ccos_get_inode(dest_parent_dir_id, dest_data);
-
-  return ccos_copy_file(dest_data, dest_size, dest_directory, source_data, source_file);
+  uint16_t dest_bitmask_block = ccos_get_bitmask_block(dest_superblock);
+  return ccos_copy_file(dest_data, dest_size, dest_directory, dest_bitmask_block, source_data, source_file);
 }
 
 int copy_file(const char* target_image, const char* filename, uint16_t superblock, const uint8_t* source_data,
@@ -604,7 +603,8 @@ int add_file(const char* image_path, const char* file_path, const char* file_nam
   }
 
   ccos_inode_t* dest_dir = ccos_get_inode(dest_parent_dir_id, data);
-  int res = ccos_add_file(dest_dir, file_data, file_size, file_name, data, data_size);
+  uint16_t bitmask_block = ccos_get_bitmask_block(superblock);
+  int res = ccos_add_file(dest_dir, file_data, file_size, file_name, data, data_size, bitmask_block);
   free(file_data);
   if (res == -1) {
     fprintf(stderr, "Unable to copy %s to %s!", file_name, file_path);
@@ -642,7 +642,8 @@ int delete_file(const char* path, const char* filename, uint16_t superblock, int
 
   ccos_inode_t* file = ccos_get_inode(file_block, data);
 
-  if (ccos_delete_file(data, size, file) == -1) {
+  uint16_t bitmask_block = ccos_get_bitmask_block(superblock);
+  if (ccos_delete_file(data, size, file, bitmask_block) == -1) {
     fprintf(stderr, "Unable to delete file %s!\n", filename);
   }
 

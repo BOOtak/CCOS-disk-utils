@@ -166,7 +166,8 @@ int main(int argc, char** argv) {
 
       uint16_t* free_blocks = NULL;
       size_t free_blocks_count = 0;
-      res |= ccos_get_free_blocks(file_contents, file_size, &free_blocks, &free_blocks_count);
+      res |= ccos_get_free_blocks(ccos_get_bitmask_block(superblock), file_contents, file_size, &free_blocks_count,
+                                  &free_blocks);
 
       printf("\n");
       printf("Free space: %ld bytes.\n", free_blocks_count * BLOCK_SIZE);
