@@ -557,7 +557,7 @@ int ccos_get_image_map(const uint8_t* data, size_t data_size, block_type_t** ima
 
   *image_map = (block_type_t*)calloc(block_count, sizeof(block_type_t));
   if (*image_map == NULL) {
-    fprintf(stderr, "Unable to allocate memory for %I64u blocks in block map: %s!\n", block_count, strerror(errno));
+    fprintf(stderr, "Unable to allocate memory for %I64d blocks in block map: %s!\n", block_count, strerror(errno));
     return -1;
   }
 
@@ -854,7 +854,7 @@ int ccos_read_file(uint16_t block, const uint8_t* image_data, uint8_t** file_dat
 
   *file_data = (uint8_t*)calloc(*file_size, sizeof(uint8_t));
   if (*file_data == NULL) {
-    fprintf(stderr, "Unable to allocate %I64u bytes for file id 0x%x!\n", *file_size, file->header.file_id);
+    fprintf(stderr, "Unable to allocate %I64d bytes for file id 0x%x!\n", *file_size, file->header.file_id);
     return -1;
   }
 
@@ -874,7 +874,7 @@ int ccos_read_file(uint16_t block, const uint8_t* image_data, uint8_t** file_dat
   }
 
   if (written != *file_size) {
-    fprintf(stderr, "Warn: File size (%I64u) != amount of bytes read (%u) at file 0x%x!\n", *file_size, written,
+    fprintf(stderr, "Warn: File size (%I64d) != amount of bytes read (%u) at file 0x%x!\n", *file_size, written,
             file->header.file_id);
   }
 
@@ -940,7 +940,7 @@ int ccos_write_file(uint16_t block, uint8_t* image_data, size_t image_size, cons
   }
 
   if (written != file_size) {
-    fprintf(stderr, "Warn: File size (%I64u) != amount of bytes read (%I64u) at file 0x%x!\n", file_size, written, block);
+    fprintf(stderr, "Warn: File size (%I64d) != amount of bytes read (%I64u) at file 0x%x!\n", file_size, written, block);
   }
 
   free(blocks);
@@ -1052,7 +1052,7 @@ static int add_file_entry_to_dir_contents(ccos_inode_t* directory, uint8_t* imag
   size_t new_dir_size = dir_size + file_entry_size;
   uint8_t* new_dir_contents = realloc(dir_contents, new_dir_size);
   if (new_dir_contents == NULL) {
-    fprintf(stderr, "Unable to realloc %I64u bytes for the directory contents: %s!\n", new_dir_size, strerror(errno));
+    fprintf(stderr, "Unable to realloc %I64d bytes for the directory contents: %s!\n", new_dir_size, strerror(errno));
     free(dir_contents);
     free(new_file_entry);
     return -1;
