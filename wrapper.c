@@ -328,7 +328,7 @@ static traverse_callback_result_t dump_dir_tree_on_dir(uint16_t block, const uin
 
   snprintf(subdir, PATH_MAX, "%s/%s", dirname, subdir_name);
 
-  int res = mkdir(subdir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+  int res = mkdir(subdir);
   free(subdir);
 
   if (res == -1) {
@@ -373,7 +373,7 @@ int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data) {
   // some directories have '/' in their names, e.g. "GRiD-OS/Windows 113x, 114x v3.1.5D"
   replace_char_in_place(dirname, '/', '_');
 
-  if (mkdir(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
+  if (mkdir(dirname) == -1) {
     fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dirname, strerror(errno));
     free(dirname);
     return -1;
@@ -497,7 +497,7 @@ int replace_file(const char* path, const char* filename, const char* target_name
   fclose(output);
 
   if (res != data_size) {
-    fprintf(stderr, "Unable to write new image: written %li, expected %li: %s!\n", res, data_size, strerror(errno));
+    fprintf(stderr, "Unable to write new image: written %I64i, expected %I64i: %s!\n", res, data_size, strerror(errno));
     return -1;
   }
 
@@ -679,7 +679,7 @@ int delete_file(const char* path, const char* filename, uint16_t superblock, int
   free(data);
   fclose(f);
   if (written != size) {
-    fprintf(stderr, "Write size mismatch: Expected %ld, but only %ld written!\n", size, written);
+    fprintf(stderr, "Write size mismatch: Expected %I64d, but only %I64d written!\n", size, written);
     return -1;
   }
 
