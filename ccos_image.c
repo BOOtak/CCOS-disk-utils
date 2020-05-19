@@ -940,7 +940,7 @@ int ccos_write_file(uint16_t block, uint8_t* image_data, size_t image_size, cons
   }
 
   if (written != file_size) {
-    fprintf(stderr, "Warn: File size (%I64d) != amount of bytes read (%I64u) at file 0x%x!\n", file_size, written, block);
+    fprintf(stderr, "Warn: File size (%I64d) != amount of bytes read (%I64d) at file 0x%x!\n", file_size, written, block);
   }
 
   free(blocks);
