@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.4.1)
 
+project(ccos_disk_tool)
+
 set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${SOURCE_DIR})
 
