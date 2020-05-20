@@ -45,7 +45,7 @@ int read_file(const char* path, uint8_t** file_data, size_t* file_size) {
 
   *file_data = (uint8_t*)calloc(*file_size, sizeof(uint8_t));
   if (*file_data == NULL) {
-    fprintf(stderr, "Unable to allocate %li bytes for the file %s contents: %s!\n", *file_size, path, strerror(errno));
+    fprintf(stderr, "Unable to allocate %I64i bytes for the file %s contents: %s!\n", *file_size, path, strerror(errno));
     fclose(f);
     return -1;
   }
@@ -54,7 +54,7 @@ int read_file(const char* path, uint8_t** file_data, size_t* file_size) {
   fclose(f);
 
   if (readed != *file_size) {
-    fprintf(stderr, "Unable to read %li bytes from the file %s: %s!\n", *file_size, path, strerror(errno));
+    fprintf(stderr, "Unable to read %I64i bytes from the file %s: %s!\n", *file_size, path, strerror(errno));
     free(*file_data);
     return -1;
   }
@@ -93,7 +93,7 @@ int write_file(const char* source_filename, uint8_t* data, size_t data_size, int
   size_t written = fwrite(data, sizeof(uint8_t), data_size, f);
   fclose(f);
   if (written != data_size) {
-    fprintf(stderr, "Write size mismatch: Expected %ld, but only %ld written!\n", data_size, written);
+    fprintf(stderr, "Write size mismatch: Expected %I64d, but only %I64d written!\n", data_size, written);
     return -1;
   }
 
