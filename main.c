@@ -171,7 +171,7 @@ int main(int argc, char** argv) {
                                   &free_blocks);
 
       printf("\n");
-      printf("Free space: %I64d bytes.\n", free_blocks_count * BLOCK_SIZE);
+      printf("Free space: " SIZE_T " bytes.\n", free_blocks_count * BLOCK_SIZE);
       free(free_blocks);
 
       break;

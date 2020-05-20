@@ -523,7 +523,7 @@ int ccos_get_free_blocks(uint16_t bitmask_block, const uint8_t* data, size_t dat
   TRACE("Free blocks: %d", *free_blocks_count);
   *free_blocks = (uint16_t*)calloc(*free_blocks_count, sizeof(uint16_t));
   if (*free_blocks == NULL) {
-    fprintf(stderr, "Unable to allocate %I64u bytes for free blocks: %s!\n", *free_blocks_count * sizeof(uint16_t),
+    fprintf(stderr, "Unable to allocate " SIZE_T " bytes for free blocks: %s!\n", *free_blocks_count * sizeof(uint16_t),
             strerror(errno));
     return -1;
   }
@@ -541,8 +541,8 @@ int ccos_get_free_blocks(uint16_t bitmask_block, const uint8_t* data, size_t dat
   }
 
   if (free_count != *free_blocks_count) {
-    fprintf(stderr, "Warn: free block count (%I64u) mismatches found free blocks count (%I64u)!\n", *free_blocks_count,
-            free_count);
+    fprintf(stderr, "Warn: free block count (" SIZE_T ") mismatches found free blocks count (" SIZE_T ")!\n",
+            *free_blocks_count, free_count);
   }
 
   return 0;
@@ -551,13 +551,14 @@ int ccos_get_free_blocks(uint16_t bitmask_block, const uint8_t* data, size_t dat
 int ccos_get_image_map(const uint8_t* data, size_t data_size, block_type_t** image_map, size_t* free_blocks_count) {
   size_t block_count = data_size / BLOCK_SIZE;
   if (block_count * BLOCK_SIZE != data_size) {
-    fprintf(stderr, "Warn: image size (%I64u bytes) is not a multiple of a block size (%d bytes)\n", data_size,
+    fprintf(stderr, "Warn: image size (" SIZE_T " bytes) is not a multiple of a block size (%d bytes)\n", data_size,
             BLOCK_SIZE);
   }
 
   *image_map = (block_type_t*)calloc(block_count, sizeof(block_type_t));
   if (*image_map == NULL) {
-    fprintf(stderr, "Unable to allocate memory for %I64d blocks in block map: %s!\n", block_count, strerror(errno));
+    fprintf(stderr, "Unable to allocate memory for " SIZE_T " blocks in block map: %s!\n", block_count,
+            strerror(errno));
     return -1;
   }
 
@@ -854,7 +855,7 @@ int ccos_read_file(uint16_t block, const uint8_t* image_data, uint8_t** file_dat
 
   *file_data = (uint8_t*)calloc(*file_size, sizeof(uint8_t));
   if (*file_data == NULL) {
-    fprintf(stderr, "Unable to allocate %I64d bytes for file id 0x%x!\n", *file_size, file->header.file_id);
+    fprintf(stderr, "Unable to allocate " SIZE_T " bytes for file id 0x%x!\n", *file_size, file->header.file_id);
     return -1;
   }
 
@@ -874,7 +875,7 @@ int ccos_read_file(uint16_t block, const uint8_t* image_data, uint8_t** file_dat
   }
 
   if (written != *file_size) {
-    fprintf(stderr, "Warn: File size (%I64d) != amount of bytes read (%u) at file 0x%x!\n", *file_size, written,
+    fprintf(stderr, "Warn: File size (" SIZE_T ") != amount of bytes read (%u) at file 0x%x!\n", *file_size, written,
             file->header.file_id);
   }
 
@@ -940,7 +941,8 @@ int ccos_write_file(uint16_t block, uint8_t* image_data, size_t image_size, cons
   }
 
   if (written != file_size) {
-    fprintf(stderr, "Warn: File size (%I64d) != amount of bytes read (%I64d) at file 0x%x!\n", file_size, written, block);
+    fprintf(stderr, "Warn: File size (" SIZE_T ") != amount of bytes read (" SIZE_T ") at file 0x%x!\n", file_size,
+            written, block);
   }
 
   free(blocks);
@@ -1052,7 +1054,7 @@ static int add_file_entry_to_dir_contents(ccos_inode_t* directory, uint8_t* imag
   size_t new_dir_size = dir_size + file_entry_size;
   uint8_t* new_dir_contents = realloc(dir_contents, new_dir_size);
   if (new_dir_contents == NULL) {
-    fprintf(stderr, "Unable to realloc %I64d bytes for the directory contents: %s!\n", new_dir_size, strerror(errno));
+    fprintf(stderr, "Unable to realloc " SIZE_T " bytes for the directory contents: %s!\n", new_dir_size, strerror(errno));
     free(dir_contents);
     free(new_file_entry);
     return -1;
