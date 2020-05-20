@@ -4,14 +4,24 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#if defined(__MINGW64__)
+#define SIZE_T "%I64d"
+#define MKDIR(filename, mode) mkdir(filename)
+#else
+#define SIZE_T "%ld"
+#define MKDIR(filename, mode) mkdir(filename, mode)
+#endif
+
 #define VERSION_MAX_SIZE 12  // "255.255.255"
 
 #define MIN(A, B) A < B ? A : B
 
-#define TRACE(format, ...)                                                        \
-  if (trace != NULL) {                                                            \
-    trace(stderr, "%s:%d:\t" format "\n", __FUNCTION__, __LINE__, ##__VA_ARGS__); \
-  }
+#define TRACE(format, ...)                                                          \
+  do {                                                                              \
+    if (trace != NULL) {                                                            \
+      trace(stderr, "%s:%d:\t" format "\n", __FUNCTION__, __LINE__, ##__VA_ARGS__); \
+    }                                                                               \
+  } while (0)
 
 int (*trace)(FILE* stream, const char* format, ...);
 
