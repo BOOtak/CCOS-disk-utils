@@ -339,7 +339,12 @@ int dump_dir(const char* path, const ccos_inode_t* dir, uint8_t* data) {
   }
 
   if (strlen(name_trimmed) == 0) {
-    strncpy(dirname, basename, strchr(basename, '.') - basename);
+    char* dot_position;
+    if ((dot_position = strchr(basename, '.')) != NULL) {
+      strncpy(dirname, basename, dot_position - basename);
+    } else {
+      strcpy(dirname, basename);
+    }
   } else {
     const char* idx = rtrim_string(name_trimmed, ' ');
     if (idx == NULL) {
