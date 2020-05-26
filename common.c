@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-int trace_silent(FILE* stream, const char* format, ...) {
+int trace_silent(UNUSED FILE* stream, UNUSED const char* format, ...) {
   return 0;
 }
 
@@ -62,7 +62,7 @@ int read_file(const char* path, uint8_t** file_data, size_t* file_size) {
   return 0;
 }
 
-int write_file(const char* source_filename, uint8_t* data, size_t data_size, int in_place) {
+int save_image(const char* source_filename, uint8_t* data, size_t data_size, int in_place) {
   char* dest_filename;
   if (in_place) {
     dest_filename = (char*)source_filename;

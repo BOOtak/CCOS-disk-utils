@@ -7,12 +7,14 @@
  * @brief      Dumps a directory recirsively from CCOS disk image.
  *
  * @param[in]  path       The path to CCOS image.
- * @param[in]  dir_inode  The directory inode.
+ * @param[in]  dir        The directory.
  * @param[in]  data       CCOS image data.
  *
  * @return     0 on success, -1 otherwise.
  */
-int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data);
+int dump_dir(const char* path, const ccos_inode_t* dir, uint8_t* data);
+
+int dump_image(const char* path, uint8_t* data, size_t data_size);
 
 /**
  * @brief      Prints a CCOS image contents.
@@ -24,7 +26,7 @@ int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data);
  *
  * @return     0 on success, -1 otherwise.
  */
-int print_image_info(const char* path, const uint16_t superblock, const uint8_t* data, int short_format);
+int print_image_info(const char* path, uint8_t* data, size_t data_size, int short_format);
 
 /**
  * @brief      Replace file in the CCOS image.
@@ -41,8 +43,8 @@ int print_image_info(const char* path, const uint16_t superblock, const uint8_t*
  *
  * @return     0 on success, -1 otherwise.
  */
-int replace_file(const char* path, const char* filename, const char* target_name, const uint16_t superblock,
-                 uint8_t* data, size_t data_size, int in_place);
+int replace_file(const char* path, const char* filename, const char* target_name, uint8_t* data, size_t data_size,
+                 int in_place);
 
 /**
  * @brief      Copy file from one image into another.
@@ -57,8 +59,8 @@ int replace_file(const char* path, const char* filename, const char* target_name
  *
  * @return     0 on success, -1 otherwise.
  */
-int copy_file(const char* target_image, const char* filename, uint16_t superblock, const uint8_t* source_data,
-              size_t source_size, int in_place);
+int copy_file(const char* target_image, const char* filename, uint8_t* source_data, size_t source_size,
+              int in_place);
 
 /**
  * @brief      Delete file in the image.
@@ -71,9 +73,9 @@ int copy_file(const char* target_image, const char* filename, uint16_t superbloc
  *
  * @return     0 on success, -1 otherwise.
  */
-int delete_file(const char* path, const char* filename, uint16_t superblock, int in_place);
+int delete_file(const char* path, const char* filename, int in_place);
 
-int add_file(const char* image_path, const char* file_path, const char* file_name, uint16_t superblock, uint8_t* data,
-             size_t data_size, int in_place);
+int add_file(const char* image_path, const char* file_path, const char* file_name, uint8_t* data, size_t data_size,
+             int in_place);
 
 #endif  // WRAPPER_H

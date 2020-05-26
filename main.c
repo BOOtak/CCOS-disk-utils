@@ -151,45 +151,35 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  uint16_t superblock = 0;
-  if (ccos_get_superblock(file_contents, file_size, &superblock) == -1) {
+  if (ccos_check_image(file_contents) == -1) {
     fprintf(stderr, "Unable to get superblock: invalid image format!\n");
     free(file_contents);
     return -1;
   }
 
-  TRACE("superblock: 0x%x", superblock);
-
   int res;
   switch (mode) {
     case MODE_PRINT: {
-      res = print_image_info(path, superblock, file_contents, short_format);
-
-      uint16_t* free_blocks = NULL;
-      size_t free_blocks_count = 0;
-      res |= ccos_get_free_blocks(ccos_get_bitmask_block(superblock), file_contents, file_size, &free_blocks_count,
-                                  &free_blocks);
-
+      res = print_image_info(path, file_contents, file_size, short_format);
+      size_t free_bytes = ccos_calc_free_space(file_contents, file_size);
       printf("\n");
-      printf("Free space: " SIZE_T " bytes.\n", free_blocks_count * BLOCK_SIZE);
-      free(free_blocks);
-
+      printf("Free space: " SIZE_T " bytes.\n", free_bytes);
       break;
     }
     case MODE_DUMP: {
-      res = dump_dir(path, superblock, file_contents);
+      res = dump_image(path, file_contents, file_size);
       break;
     }
     case MODE_REPLACE_FILE: {
-      res = replace_file(path, filename, target_name, superblock, file_contents, (size_t)file_size, in_place);
+      res = replace_file(path, filename, target_name, file_contents, file_size, in_place);
       break;
     }
     case MODE_COPY_FILE: {
-      res = copy_file(target_image, filename, superblock, file_contents, (size_t)file_size, in_place);
+      res = copy_file(target_image, filename, file_contents, file_size, in_place);
       break;
     }
     case MODE_DELETE_FILE: {
-      res = delete_file(path, filename, superblock, in_place);
+      res = delete_file(path, filename, in_place);
       break;
     }
     case MODE_ADD_FILE: {
@@ -198,7 +188,7 @@ int main(int argc, char** argv) {
         print_usage();
         res = -1;
       } else {
-        res = add_file(path, filename, target_name, superblock, file_contents, file_size, in_place);
+        res = add_file(path, filename, target_name, file_contents, file_size, in_place);
       }
       break;
     }

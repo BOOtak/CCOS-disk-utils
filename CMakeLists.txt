@@ -14,4 +14,6 @@ add_executable(ccos_disk_tool
         ${SOURCE_DIR}/common.h
         ${SOURCE_DIR}/common.c
         ${SOURCE_DIR}/ccos_image.h
-        ${SOURCE_DIR}/ccos_image.c)
+        ${SOURCE_DIR}/ccos_image.c
+        ${SOURCE_DIR}/ccos_private.c
+        ${SOURCE_DIR}/ccos_private.h)

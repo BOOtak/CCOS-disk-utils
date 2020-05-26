@@ -12,6 +12,8 @@
 #define MKDIR(filename, mode) mkdir(filename, mode)
 #endif
 
+#define UNUSED __attribute__((unused))
+
 #define VERSION_MAX_SIZE 12  // "255.255.255"
 
 #define MIN(A, B) A < B ? A : B
@@ -36,6 +38,6 @@ void trace_init(int verbose);
 
 int read_file(const char* path, uint8_t** file_data, size_t* file_size);
 
-int write_file(const char* source_filename, uint8_t* data, size_t data_size, int in_place);
+int save_image(const char* source_filename, uint8_t* data, size_t data_size, int in_place);
 
 #endif  // COMMON_H

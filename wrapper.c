@@ -7,7 +7,6 @@
 #include <string.h>
 #include <string_utils.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <wrapper.h>
 
 #define PROGRAMS_DIR_1 "Programs~Subject~"
@@ -15,15 +14,15 @@
 
 typedef struct {
   const char* target_name;
-  uint16_t target_inode;
+  ccos_inode_t* target_file;
 } find_file_data_t;
 
 typedef enum { RESULT_OK = 1, RESULT_ERROR, RESULT_BREAK } traverse_callback_result_t;
 
-typedef traverse_callback_result_t (*on_file_t)(uint16_t block, const uint8_t* data, const char* dirname, int level,
+typedef traverse_callback_result_t (*on_file_t)(ccos_inode_t* file, const uint8_t* data, const char* dirname, int level,
                                                 void* arg);
 
-typedef traverse_callback_result_t (*on_dir_t)(uint16_t block, const uint8_t* data, const char* dirname, int level,
+typedef traverse_callback_result_t (*on_dir_t)(ccos_inode_t* dir, const uint8_t* data, const char* dirname, int level,
                                                void* arg);
 
 static char* format_version(version_t* version) {
@@ -36,11 +35,11 @@ static char* format_version(version_t* version) {
   return version_string;
 }
 
-static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* dirname, int level, on_file_t on_file,
-                               on_dir_t on_dir, void* arg) {
+static int traverse_ccos_image(const ccos_inode_t* dir, uint8_t* data, const char* dirname, int level,
+                               on_file_t on_file, on_dir_t on_dir, void* arg) {
   uint16_t files_count = 0;
-  uint16_t* dir_blocks = NULL;
-  if (ccos_get_dir_contents(block, data, &files_count, &dir_blocks) == -1) {
+  ccos_inode_t** dir_contents = NULL;
+  if (ccos_get_dir_contents(dir, data, &files_count, &dir_contents) == -1) {
     fprintf(stderr, "Unable to get root dir contents!\n");
     return -1;
   }
@@ -50,33 +49,21 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
   for (int i = 0; i < files_count; ++i) {
     TRACE("Processing %d/%d...", i + 1, files_count);
 
-    const ccos_inode_t* inode = ccos_get_inode(dir_blocks[i], data);
+    const ccos_inode_t* inode = dir_contents[i];
 
     if (inode->header.file_id != inode->content_inode_info.header.file_id) {
-      fprintf(stderr, "Warn: block number mismatch in inode! 0x%hx != 0x%hx (0x%hx)\n", inode->header.file_id,
-              inode->content_inode_info.header.file_id, dir_blocks[i]);
+      fprintf(stderr, "Warn: block number mismatch in inode! 0x%hx != 0x%hx\n", inode->header.file_id,
+              inode->content_inode_info.header.file_id);
     }
 
-    uint16_t metadata_checksum =
-        ccos_make_checksum((const uint8_t*)&(inode->header.file_id), offsetof(ccos_inode_t, metadata_checksum));
-    if (metadata_checksum != inode->metadata_checksum) {
-      fprintf(stderr, "Warn: Invalid metadata checksum: expected 0x%hx, got 0x%hx\n", inode->metadata_checksum,
-              metadata_checksum);
-    }
+    ccos_check_file_checksum(inode);
 
-    uint16_t blocks_checksum = ccos_make_inode_blocks_checksum(inode);
-
-    if (blocks_checksum != inode->content_inode_info.blocks_checksum) {
-      fprintf(stderr, "Warn: Invalid block data checksum: expected 0x%hx, got 0x%hx!\n",
-              inode->content_inode_info.blocks_checksum, blocks_checksum);
-    }
-
-    if (ccos_is_dir(dir_blocks[i], data)) {
+    if (ccos_is_dir(dir_contents[i])) {
       TRACE("%d: directory", i + 1);
       char subdir_name[CCOS_MAX_FILE_NAME];
       memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
-      if (ccos_parse_file_name(ccos_get_file_name(dir_blocks[i], data), subdir_name, NULL, NULL, NULL) == -1) {
-        free(dir_blocks);
+      if (ccos_parse_file_name(dir_contents[i], subdir_name, NULL, NULL, NULL) == -1) {
+        free(dir_contents);
         return -1;
       }
 
@@ -85,7 +72,7 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
       char* subdir = (char*)calloc(sizeof(char), PATH_MAX);
       if (subdir == NULL) {
         fprintf(stderr, "Unable to allocate memory for subdir!\n");
-        free(dir_blocks);
+        free(dir_contents);
         return -1;
       }
 
@@ -93,12 +80,12 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
 
       if (on_dir != NULL) {
         traverse_callback_result_t res;
-        if ((res = on_dir(dir_blocks[i], data, dirname, level, arg)) != RESULT_OK) {
+        if ((res = on_dir(dir_contents[i], data, dirname, level, arg)) != RESULT_OK) {
           TRACE("on_dir returned %d", res);
-          free(dir_blocks);
+          free(dir_contents);
           free(subdir);
           if (res == RESULT_ERROR) {
-            fprintf(stderr, "An error occured, skipping the rest of the image!\n");
+            fprintf(stderr, "An error occurred, skipping the rest of the image!\n");
             return -1;
           } else {
             return 0;
@@ -106,11 +93,11 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
         }
       }
 
-      int res = traverse_ccos_image(dir_blocks[i], data, subdir, level + 1, on_file, on_dir, arg);
+      int res = traverse_ccos_image(dir_contents[i], data, subdir, level + 1, on_file, on_dir, arg);
       free(subdir);
 
       if (res == -1) {
-        fprintf(stderr, "An error occured, skipping the rest of the image!\n");
+        fprintf(stderr, "An error occurred, skipping the rest of the image!\n");
         return -1;
       }
     } else {
@@ -118,11 +105,11 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
 
       if (on_file != NULL) {
         traverse_callback_result_t res;
-        if ((res = on_file(dir_blocks[i], data, dirname, level, arg)) != RESULT_OK) {
+        if ((res = on_file(dir_contents[i], data, dirname, level, arg)) != RESULT_OK) {
           TRACE("on_file returned %d", res);
-          free(dir_blocks);
+          free(dir_contents);
           if (res == RESULT_ERROR) {
-            fprintf(stderr, "An error occured, skipping the rest of the image!\n");
+            fprintf(stderr, "An error occurred, skipping the rest of the image!\n");
             return -1;
           } else {
             return 0;
@@ -132,38 +119,37 @@ static int traverse_ccos_image(uint16_t block, const uint8_t* data, const char* 
     }
   }
 
-  free(dir_blocks);
+  free(dir_contents);
   TRACE("\"%s\" traverse complete!", dirname);
   return 0;
 }
 
-static traverse_callback_result_t print_file_info(uint16_t file_block, const uint8_t* data, const char* dirname,
-                                                  int level, void* arg) {
+static traverse_callback_result_t print_file_info(ccos_inode_t* file, UNUSED const uint8_t* data,
+                                                  UNUSED const char* dirname, int level, void* arg) {
   int short_format = *(int*)arg;
-  const short_string_t* name = ccos_get_file_name(file_block, data);
-  uint32_t file_size = ccos_get_file_size(file_block, data);
+  uint32_t file_size = ccos_get_file_size(file);
 
   char basename[CCOS_MAX_FILE_NAME];
   char type[CCOS_MAX_FILE_NAME];
   memset(basename, 0, CCOS_MAX_FILE_NAME);
   memset(type, 0, CCOS_MAX_FILE_NAME);
 
-  int res = ccos_parse_file_name(name, basename, type, NULL, NULL);
+  int res = ccos_parse_file_name(file, basename, type, NULL, NULL);
   if (res == -1) {
     fprintf(stderr, "Invalid file name!\n");
     return RESULT_ERROR;
   }
 
-  int formatted_name_length = strlen(basename) + 2 * level;
+  size_t formatted_name_length = strlen(basename) + 2 * level;
   char* formatted_name = calloc(formatted_name_length + 1, sizeof(char));
   if (formatted_name == NULL) {
     fprintf(stderr, "Error: unable to allocate memory for formatted name!\n");
     return RESULT_ERROR;
   }
 
-  snprintf(formatted_name, formatted_name_length + 1, "%*s", formatted_name_length, basename);
+  snprintf(formatted_name, formatted_name_length + 1, "%*s", (int)formatted_name_length, basename);
 
-  version_t version = ccos_get_file_version(file_block, data);
+  version_t version = ccos_get_file_version(file);
   char* version_string = format_version(&version);
   if (version_string == NULL) {
     fprintf(stderr, "Error: invalid file version string!\n");
@@ -171,15 +157,15 @@ static traverse_callback_result_t print_file_info(uint16_t file_block, const uin
     return RESULT_ERROR;
   }
 
-  ccos_date_t creation_date = ccos_get_creation_date(file_block, data);
+  ccos_date_t creation_date = ccos_get_creation_date(file);
   char creation_date_string[16];
   snprintf(creation_date_string, 16, "%04d/%02d/%02d", creation_date.year, creation_date.month, creation_date.day);
 
-  ccos_date_t mod_date = ccos_get_mod_date(file_block, data);
+  ccos_date_t mod_date = ccos_get_mod_date(file);
   char mod_date_string[16];
   snprintf(mod_date_string, 16, "%04d/%02d/%02d", mod_date.year, mod_date.month, mod_date.day);
 
-  ccos_date_t exp_date = ccos_get_exp_date(file_block, data);
+  ccos_date_t exp_date = ccos_get_exp_date(file);
   char exp_date_string[16];
   snprintf(exp_date_string, 16, "%04d/%02d/%02d", exp_date.year, exp_date.month, exp_date.day);
 
@@ -195,8 +181,14 @@ static traverse_callback_result_t print_file_info(uint16_t file_block, const uin
   return RESULT_OK;
 }
 
-int print_image_info(const char* path, const uint16_t superblock, const uint8_t* data, int short_format) {
-  char* floppy_name = ccos_short_string_to_string(ccos_get_file_name(superblock, data));
+int print_image_info(const char* path, uint8_t* data, size_t data_size, int short_format) {
+  const ccos_inode_t* root_dir = ccos_get_root_dir(data, data_size);
+  if (root_dir == NULL) {
+    fprintf(stderr, "Unable to print image info: Unable to find root directory!\n");
+    return -1;
+  }
+
+  char* floppy_name = short_string_to_string(ccos_get_file_name(root_dir));
   const char* name_trimmed = trim_string(floppy_name, ' ');
 
   char* basename = strrchr(path, '/');
@@ -227,20 +219,20 @@ int print_image_info(const char* path, const uint16_t superblock, const uint8_t*
     print_frame(128);
   }
 
-  return traverse_ccos_image(superblock, data, "", 0, print_file_info, print_file_info, &short_format);
+  return traverse_ccos_image(root_dir, data, "", 0, print_file_info, print_file_info, &short_format);
 }
 
-static traverse_callback_result_t dump_dir_tree_on_file(uint16_t block, const uint8_t* data, const char* dirname,
-                                                        int level, void* arg) {
+static traverse_callback_result_t dump_dir_tree_on_file(ccos_inode_t* file, const uint8_t* data, const char* dirname,
+                                                        UNUSED int level, UNUSED void* arg) {
   char* abspath = (char*)calloc(sizeof(char), PATH_MAX);
   if (abspath == NULL) {
     fprintf(stderr, "Unable to allocate memory for the filename!\n");
     return RESULT_ERROR;
   }
 
-  char* file_name = ccos_short_string_to_string(ccos_get_file_name(block, data));
+  char* file_name = short_string_to_string(ccos_get_file_name(file));
   if (file_name == NULL) {
-    fprintf(stderr, "Unable to get filename at block 0x%x\n", block);
+    fprintf(stderr, "Unable to get filename at file at 0x%x\n", file->header.file_id);
     free(abspath);
     return RESULT_ERROR;
   }
@@ -250,13 +242,14 @@ static traverse_callback_result_t dump_dir_tree_on_file(uint16_t block, const ui
   snprintf(abspath, PATH_MAX, "%s/%s", dirname, file_name);
   free(file_name);
 
-  size_t blocks_count = 0;
-  uint16_t* blocks = NULL;
-
-  if (ccos_get_file_blocks(block, data, &blocks_count, &blocks) == -1) {
-    fprintf(stderr, "Unable to get file blocks for file %s at block 0x%x!\n", abspath, block);
-    free(abspath);
-    return RESULT_ERROR;
+  size_t file_size = 0;
+  uint8_t* file_data = NULL;
+  if (ccos_read_file(file, data, &file_data, &file_size) == -1) {
+    fprintf(stderr, "Unable to dump file at 0x%x: Unable to get file contents!\n", file->header.file_id);
+    if (file_data != NULL) {
+      free(file_data);
+      return RESULT_ERROR;
+    }
   }
 
   TRACE("Writing to \"%s\"...", abspath);
@@ -265,55 +258,33 @@ static traverse_callback_result_t dump_dir_tree_on_file(uint16_t block, const ui
   if (f == NULL) {
     fprintf(stderr, "Unable to open file \"%s\": %s!\n", abspath, strerror(errno));
     free(abspath);
-    free(blocks);
+    free(file_data);
     return RESULT_ERROR;
   }
 
-  uint32_t file_size = ccos_get_file_size(block, data);
-  uint32_t current_size = 0;
-
-  for (int i = 0; i < blocks_count; ++i) {
-    const uint8_t* data_start = NULL;
-    size_t data_size = 0;
-    if (ccos_get_block_data(blocks[i], data, &data_start, &data_size) == -1) {
-      fprintf(stderr, "Unable to get data for data block 0x%x, file block 0x%x\n", blocks[i], block);
-      fclose(f);
-      free(abspath);
-      free(blocks);
-      return RESULT_ERROR;
-    }
-
-    size_t write_size = MIN(file_size - current_size, data_size);
-
-    if (fwrite(data_start, sizeof(uint8_t), write_size, f) < write_size) {
-      fprintf(stderr, "Unable to write data to \"%s\": %s!\n", abspath, strerror(errno));
-      free(abspath);
-      fclose(f);
-      free(blocks);
-      return RESULT_ERROR;
-    }
-
-    current_size += write_size;
-
-    if ((i + 1) % 10 == 0) {
-      TRACE("Writing block %d/%ld: %d/%d bytes written", i + 1, blocks_count, current_size, file_size);
-    }
+  if (fwrite(file_data, sizeof(uint8_t), file_size, f) < file_size) {
+    fprintf(stderr, "Unable to write data to \"%s\": %s!\n", abspath, strerror(errno));
+    free(abspath);
+    free(file_data);
+    fclose(f);
+    return RESULT_ERROR;
   }
 
   fclose(f);
-  free(blocks);
+  free(file_data);
   free(abspath);
 
-  TRACE("Done! %d/%d bytes writtem", current_size, file_size);
+  TRACE("Done!");
 
   return RESULT_OK;
 }
 
-static traverse_callback_result_t dump_dir_tree_on_dir(uint16_t block, const uint8_t* data, const char* dirname,
-                                                       int level, void* arg) {
+static traverse_callback_result_t dump_dir_tree_on_dir(ccos_inode_t* dir, UNUSED const uint8_t* data,
+                                                       const char* dirname, UNUSED int level, UNUSED void* arg) {
   char subdir_name[CCOS_MAX_FILE_NAME];
   memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
-  if (ccos_parse_file_name(ccos_get_file_name(block, data), subdir_name, NULL, NULL, NULL) == -1) {
+  if (ccos_parse_file_name(dir, subdir_name, NULL, NULL, NULL) == -1) {
+    fprintf(stderr, "Unable to dump directory at 0x%x: Unable to get directory name!\n", dir->header.file_id);
     return -1;
   }
 
@@ -339,8 +310,18 @@ static traverse_callback_result_t dump_dir_tree_on_dir(uint16_t block, const uin
   return RESULT_OK;
 }
 
-int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data) {
-  char* floppy_name = ccos_short_string_to_string(ccos_get_file_name(dir_inode, data));
+int dump_image(const char* path, uint8_t* data, size_t data_size) {
+  const ccos_inode_t* root_dir = ccos_get_root_dir(data, data_size);
+  if (root_dir == NULL) {
+    fprintf(stderr, "Unable to dump image: Unable to get root directory!\n");
+    return -1;
+  }
+
+  return dump_dir(path, root_dir, data);
+}
+
+int dump_dir(const char* path, const ccos_inode_t* dir, uint8_t* data) {
+  char* floppy_name = short_string_to_string(ccos_get_file_name(dir));
   const char* name_trimmed = trim_string(floppy_name, ' ');
 
   char* basename = strrchr(path, '/');
@@ -358,6 +339,7 @@ int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data) {
   }
 
   if (strlen(name_trimmed) == 0) {
+    // TODO: remove file extension
     strcpy(dirname, basename);
   } else {
     const char* idx = rtrim_string(name_trimmed, ' ');
@@ -379,24 +361,24 @@ int dump_dir(const char* path, const uint16_t dir_inode, const uint8_t* data) {
     return -1;
   }
 
-  int res = traverse_ccos_image(dir_inode, data, dirname, 0, dump_dir_tree_on_file, dump_dir_tree_on_dir, NULL);
+  int res = traverse_ccos_image(dir, data, dirname, 0, dump_dir_tree_on_file, dump_dir_tree_on_dir, NULL);
   free(dirname);
   TRACE("Image dump complete!");
   return res;
 }
 
-static traverse_callback_result_t find_file_on_file(uint16_t block, const uint8_t* data, const char* dirname, int level,
-                                                    void* arg) {
-  char* file_name = ccos_short_string_to_string(ccos_get_file_name(block, data));
+static traverse_callback_result_t find_file_on_file(ccos_inode_t* file, UNUSED const uint8_t* data,
+                                                    UNUSED const char* dirname, UNUSED int level, void* arg) {
+  char* file_name = short_string_to_string(ccos_get_file_name(file));
   if (file_name == NULL) {
-    fprintf(stderr, "Unable to get filename at block 0x%x\n", block);
+    fprintf(stderr, "Unable to get filename at 0x%x\n", file->header.file_id);
     return RESULT_ERROR;
   }
 
   find_file_data_t* target_data = (find_file_data_t*)arg;
   replace_char_in_place(file_name, '/', '_');
   if (strcmp(target_data->target_name, file_name) == 0) {
-    target_data->target_inode = block;
+    target_data->target_file = file;
     free(file_name);
     return RESULT_BREAK;
   }
@@ -405,26 +387,25 @@ static traverse_callback_result_t find_file_on_file(uint16_t block, const uint8_
   return RESULT_OK;
 }
 
-static int find_filename(const uint16_t superblock, const uint8_t* data, const char* filename, uint16_t* inode) {
-  find_file_data_t find_file_data = {.target_name = filename, .target_inode = 0};
+static int find_filename(const ccos_inode_t* root_dir, uint8_t* data, const char* filename, ccos_inode_t** file) {
+  find_file_data_t find_file_data = {.target_name = filename, .target_file = 0};
 
-  if (traverse_ccos_image(superblock, data, "", 0, find_file_on_file, find_file_on_file, &find_file_data) == -1) {
+  if (traverse_ccos_image(root_dir, data, "", 0, find_file_on_file, find_file_on_file, &find_file_data) == -1) {
     fprintf(stderr, "Unable to find file in image due to the error!\n");
     return -1;
   }
 
-  if (find_file_data.target_inode == 0) {
+  if (find_file_data.target_file == 0) {
     fprintf(stderr, "Unable to find file %s in image!\n", filename);
     return -1;
   }
 
-  *inode = find_file_data.target_inode;
+  *file = find_file_data.target_file;
   return 0;
 }
 
-int replace_file(const char* path, const char* filename, const char* target_name, const uint16_t superblock,
-                 uint8_t* data, size_t data_size, int in_place) {
-  uint16_t inode = 0;
+int replace_file(const char* path, const char* filename, const char* target_name, uint8_t* data, size_t data_size,
+                 int in_place) {
   const char* basename;
 
   if (target_name != NULL) {
@@ -438,7 +419,10 @@ int replace_file(const char* path, const char* filename, const char* target_name
     }
   }
 
-  if (find_filename(superblock, data, basename, &inode) != 0) {
+  const ccos_inode_t* root_dir = ccos_get_root_dir(data, data_size);
+
+  ccos_inode_t* found_file = NULL;
+  if (find_filename(root_dir, data, basename, &found_file) != 0) {
     fprintf(stderr, "Unable to find file %s in the image!\n", basename);
     return -1;
   }
@@ -470,7 +454,7 @@ int replace_file(const char* path, const char* filename, const char* target_name
     return -1;
   }
 
-  if (ccos_replace_file(inode, file_contents, file_size, data) == -1) {
+  if (ccos_replace_file(found_file, file_contents, file_size, data) == -1) {
     fprintf(stderr, "Unable to overwrite file %s in the image!\n", filename);
     free(file_contents);
     return -1;
@@ -505,41 +489,37 @@ int replace_file(const char* path, const char* filename, const char* target_name
   return 0;
 }
 
-static int do_copy_file(uint8_t* dest_data, size_t dest_size, uint16_t dest_superblock, const uint8_t* source_data,
-                        size_t source_size, uint16_t source_superblock, const char* filename) {
-  uint16_t source_block = 0;
+static int do_copy_file(uint8_t* dest_data, size_t dest_size, ccos_inode_t* dest_root_dir, uint8_t* source_data,
+                        const ccos_inode_t* source_root_dir, const char* filename) {
+  ccos_inode_t* source_file = NULL;
 
-  if (find_filename(source_superblock, source_data, filename, &source_block) != 0) {
+  if (find_filename(source_root_dir, source_data, filename, &source_file) != 0) {
     fprintf(stderr, "Unable to find file %s in the image!\n", filename);
     return -1;
   }
 
-  const ccos_inode_t* source_file = ccos_get_inode(source_block, source_data);
-  uint16_t source_parent_dir_id = source_file->dir_file_id;
+  const ccos_inode_t* source_parent_dir = ccos_get_parent_dir(source_file, source_data);
+  char* source_dir_name = short_string_to_string(ccos_get_file_name(source_parent_dir));
 
-  char* source_dir_name = ccos_short_string_to_string(ccos_get_file_name(source_parent_dir_id, source_data));
-  uint16_t dest_parent_dir_id = 0;
+  ccos_inode_t* dest_directory = NULL;
 
-  if (find_filename(dest_superblock, dest_data, source_dir_name, &dest_parent_dir_id) == -1) {
+  if (find_filename(dest_root_dir, dest_data, source_dir_name, &dest_directory) == -1) {
     fprintf(stderr, "Warn: Unable to find directory %s in dest image, will copy to the " PROGRAMS_DIR_1 " instead.\n",
             source_dir_name);
-    if (find_filename(dest_superblock, dest_data, PROGRAMS_DIR_1, &dest_parent_dir_id) == -1 &&
-        find_filename(dest_superblock, dest_data, PROGRAMS_DIR_2, &dest_parent_dir_id) == -1) {
+    if (find_filename(dest_root_dir, dest_data, PROGRAMS_DIR_1, &dest_directory) == -1 &&
+        find_filename(dest_root_dir, dest_data, PROGRAMS_DIR_2, &dest_directory) == -1) {
       fprintf(stderr, "Warn: Unable to find directory %s in dest image, will copy to the root directory instead\n",
               PROGRAMS_DIR_1);
-      dest_parent_dir_id = dest_superblock;
+      dest_directory = dest_root_dir;
     }
   }
 
   free(source_dir_name);
 
-  ccos_inode_t* dest_directory = ccos_get_inode(dest_parent_dir_id, dest_data);
-  uint16_t dest_bitmask_block = ccos_get_bitmask_block(dest_superblock);
-  return ccos_copy_file(dest_data, dest_size, dest_directory, dest_bitmask_block, source_data, source_file);
+  return ccos_copy_file(dest_data, dest_size, dest_directory, source_data, source_file);
 }
 
-int copy_file(const char* target_image, const char* filename, uint16_t superblock, const uint8_t* source_data,
-              size_t source_size, int in_place) {
+int copy_file(const char* target_image, const char* filename, uint8_t* source_data, size_t source_size, int in_place) {
   if (target_image == NULL) {
     fprintf(stderr, "No target image is provided to copy file to!\n");
     return -1;
@@ -557,26 +537,33 @@ int copy_file(const char* target_image, const char* filename, uint16_t superbloc
     return -1;
   }
 
-  uint16_t dest_superblock = 0;
-  if (ccos_get_superblock(dest_data, dest_size, &dest_superblock) == -1) {
-    fprintf(stderr, "Unable to get superblock of the target image!\n");
+  const ccos_inode_t* root_dir;
+  if ((root_dir = ccos_get_root_dir(source_data, source_size)) == NULL) {
+    fprintf(stderr, "Unable to get root directory of the source image!\n");
     free(dest_data);
     return -1;
   }
 
-  if (do_copy_file(dest_data, dest_size, dest_superblock, source_data, source_size, superblock, filename) == -1) {
+  ccos_inode_t* dest_root_dir;
+  if ((dest_root_dir = (ccos_inode_t*)ccos_get_root_dir(dest_data, dest_size)) == NULL) {
+    fprintf(stderr, "Unable to get root directory of the target image!\n");
+    free(dest_data);
+    return -1;
+  }
+
+  if (do_copy_file(dest_data, dest_size, dest_root_dir, source_data, root_dir, filename) == -1) {
     fprintf(stderr, "Unable to copy file \"%s\" in \"%s\"!\n", filename, target_image);
     free(dest_data);
     return -1;
   }
 
-  int res = write_file(target_image, dest_data, dest_size, in_place);
+  int res = save_image(target_image, dest_data, dest_size, in_place);
   free(dest_data);
   return res;
 }
 
-int add_file(const char* image_path, const char* file_path, const char* file_name, uint16_t superblock, uint8_t* data,
-             size_t data_size, int in_place) {
+int add_file(const char* image_path, const char* file_path, const char* file_name, uint8_t* data, size_t data_size,
+             int in_place) {
   if (image_path == NULL) {
     fprintf(stderr, "No path to image is provided to copy file to!\n");
     return -1;
@@ -594,29 +581,34 @@ int add_file(const char* image_path, const char* file_path, const char* file_nam
     return -1;
   }
 
-  uint16_t dest_parent_dir_id = 0;
-
-  if (find_filename(superblock, data, PROGRAMS_DIR_1, &dest_parent_dir_id) == -1 &&
-      find_filename(superblock, data, PROGRAMS_DIR_2, &dest_parent_dir_id) == -1) {
-    fprintf(stderr, "Warn: Unable to find directory %s in dest image, will add file to the root directory instead\n",
-            PROGRAMS_DIR_1);
-    dest_parent_dir_id = superblock;
+  ccos_inode_t* root_dir = ccos_get_root_dir(file_data, file_size);
+  if (root_dir == NULL) {
+    fprintf(stderr, "Unable to add file to image: Unable to get root directory!\n");
+    free(file_data);
+    return -1;
   }
 
-  ccos_inode_t* dest_dir = ccos_get_inode(dest_parent_dir_id, data);
-  uint16_t bitmask_block = ccos_get_bitmask_block(superblock);
-  int res = ccos_add_file(dest_dir, file_data, file_size, file_name, data, data_size, bitmask_block);
+  ccos_inode_t* dest_dir = NULL;
+
+  if (find_filename(root_dir, data, PROGRAMS_DIR_1, &dest_dir) == -1 &&
+      find_filename(root_dir, data, PROGRAMS_DIR_2, &dest_dir) == -1) {
+    fprintf(stderr, "Warn: Unable to find directory %s in dest image, will add file to the root directory instead\n",
+            PROGRAMS_DIR_1);
+    dest_dir = root_dir;
+  }
+
+  int res = ccos_add_file(dest_dir, file_data, file_size, file_name, data, data_size);
   free(file_data);
   if (res == -1) {
     fprintf(stderr, "Unable to copy %s to %s!", file_name, file_path);
     return -1;
   }
 
-  res = write_file(image_path, data, data_size, in_place);
+  res = save_image(image_path, data, data_size, in_place);
   return res;
 }
 
-int delete_file(const char* path, const char* filename, uint16_t superblock, int in_place) {
+int delete_file(const char* path, const char* filename, int in_place) {
   if (path == NULL) {
     fprintf(stderr, "No target image is provided to copy file to!\n");
     return -1;
@@ -634,17 +626,15 @@ int delete_file(const char* path, const char* filename, uint16_t superblock, int
     return -1;
   }
 
-  uint16_t file_block = 0;
-  if (find_filename(superblock, data, filename, &file_block) != 0) {
+  ccos_inode_t* root_dir = ccos_get_root_dir(data, size);
+  ccos_inode_t* file = NULL;
+  if (find_filename(root_dir, data, filename, &file) != 0) {
     fprintf(stderr, "Unable to find file %s in the image!\n", filename);
     free(data);
     return -1;
   }
 
-  ccos_inode_t* file = ccos_get_inode(file_block, data);
-
-  uint16_t bitmask_block = ccos_get_bitmask_block(superblock);
-  if (ccos_delete_file(data, size, file, bitmask_block) == -1) {
+  if (ccos_delete_file(data, size, file) == -1) {
     fprintf(stderr, "Unable to delete file %s!\n", filename);
   }
 

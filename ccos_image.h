@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "string_utils.h"
+
 #define BLOCK_SIZE 512
 
 #define CCOS_MAX_FILE_NAME 80
@@ -16,9 +18,6 @@ typedef struct {
   uint8_t minor;
   uint8_t patch;
 } version_t;
-
-struct short_string_t_;
-typedef struct short_string_t_ short_string_t;
 
 #pragma pack(push, 1)
 typedef struct {
@@ -110,187 +109,105 @@ typedef struct {
 
 typedef enum { UNKNOWN, DATA, EMPTY } block_type_t;
 
-/**
- * @brief      Calculate checksum as it done in Compass's BIOS.
- *
- * @param[in]  data       The data.
- * @param[in]  data_size  The data size.
- *
- * @return     Checksum of the data passed.
- */
-uint16_t ccos_make_checksum(const uint8_t* data, uint16_t data_size);
-
-uint16_t ccos_make_inode_metadata_checksum(const ccos_inode_t* inode);
-
-uint16_t ccos_make_inode_blocks_checksum(const ccos_inode_t* inode);
-
-uint16_t ccos_make_content_inode_checksum(const ccos_content_inode_t* content_inode);
-
-/**
- * @brief      Find a superblock (i.e. the inode with the root directory description) in a CCOS filesystem image.
- *
- * @param[in]  data        CCOS image data.
- * @param[in]  image_size  The image size.
- * @param      superblock  The superblock to return.
- *
- * @return     0 on success, with superblock numper passed out to the superblock parameter, -1 on error (i.e. in case of
- * invalid image format).
- */
-int ccos_get_superblock(const uint8_t* data, size_t image_size, uint16_t* superblock);
-
-uint16_t ccos_get_bitmask_block(uint16_t superblock);
-
-/**
- * @brief      Get the CCOS filesystem inode at the given block.
- *
- * @param[in]  block  The block number of the inode.
- * @param[in]  data   CCOS image data.
- *
- * @return     Pointer to CCOS filesystem inode structure.
- */
-ccos_inode_t* ccos_get_inode(uint16_t block, const uint8_t* data);
+int ccos_check_image(const uint8_t* file_data);
 
 /**
  * @brief      Get the file version.
  *
- * @param[in]  block  The block number of the file inode.
+ * @param[in]  file   The file.
  * @param[in]  data   CCOS image data.
  *
  * @return     The version of the file.
  */
-version_t ccos_get_file_version(uint16_t block, const uint8_t* data);
+version_t ccos_get_file_version(ccos_inode_t* file);
 
 /**
  * @brief      Get the name of the file.
  *
- * @param[in]  block  The block number of the file inode.
- * @param[in]  data   CCOS image data.
+ * @param[in]  file   File inode.
  *
  * @return     Pointer to short string with a file name.
  */
-const short_string_t* ccos_get_file_name(uint16_t block, const uint8_t* data);
+short_string_t* ccos_get_file_name(const ccos_inode_t* file);
 
 /**
- * @brief      Convert the string from the internal short string format into C string.
+ * @brief      Get root directory of the given image.
  *
- * @param[in]  short_string  The short string.
+ * @param      data       CCOS image data.
+ * @param[in]  data_size  Image data size.
  *
- * @return     Pointer to allocated C string on success, NULL otherwise.
+ * @return     Root directory on success, NULL otherwise.
  */
-char* ccos_short_string_to_string(const short_string_t* short_string);
-
-/**
- * @brief      Parse an inode and return the list of the file content blocks.
- *
- * @param[in]  block         Inode first block number.
- * @param[in]  data          CCOS image data.
- * @param      blocks_count  The file content blocks count.
- * @param      blocks        The file content block numbers.
- *
- * @return     0 on success, -1 otherwise.
- */
-int ccos_get_file_blocks(uint16_t block, const uint8_t* data, size_t* blocks_count, uint16_t** blocks);
+ccos_inode_t* ccos_get_root_dir(uint8_t* data, size_t data_size);
 
 /**
  * @brief      Read contents from the directory inode.
  *
- * @param[in]  block           The block number of the directory inode.
+ * @param[in]  dir             Directory inode.
  * @param[in]  data            CCOS image data.
  * @param      entry_count     Count of the items in the directory.
- * @param      entries_blocks  Directory contents inodes.
+ * @param      entries         Directory contents inodes.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_get_dir_contents(uint16_t block, const uint8_t* data, uint16_t* entry_count, uint16_t** entries_inodes);
+int ccos_get_dir_contents(const ccos_inode_t* dir, uint8_t* data, uint16_t* entry_count, ccos_inode_t*** entries);
 
 /**
  * @brief      Determine whether the given inode is a directory's inode.
  *
- * @param[in]  block  The block number of the inode.
- * @param[in]  data   CCOS image data.
+ * @param[in]  file  The file to check.
  *
  * @return     1 if the given inode belongs to a directory, 0 otherwise.
  */
-int ccos_is_dir(uint16_t block, const uint8_t* data);
-
-/**
- * @brief      Read raw data from the image at a given block. Notice it won't allocate any memory, just return a pointer
- * and a size of a raw data inside a block.
- *
- * @param[in]  block  Block number.
- * @param[in]  data   CCOS image data.
- * @param      start  Start address of the raw data.
- * @param      size   The size of a raw data.
- *
- * @return     0 on success, -1 otherwise.
- */
-int ccos_get_block_data(uint16_t block, const uint8_t* data, const uint8_t** start, size_t* size);
+int ccos_is_dir(ccos_inode_t* file);
 
 /**
  * @brief      Get the size of a file at a given inode.
  *
- * @param[in]  block  The block number of the inode.
- * @param[in]  data   CCOS image data.
+ * @param[in]  file  The file.
  *
  * @return     The size of a file at a given inode.
  */
-uint32_t ccos_get_file_size(uint16_t block, const uint8_t* data);
+uint32_t ccos_get_file_size(ccos_inode_t* file);
 
 /**
  * @brief      Get the creation date of a file at a given inode.
  *
- * @param[in]  block  The block number of the inode.
- * @param[in]  data   CCOS image data.
+ * @param[in]  file  The file.
  *
  * @return     The creation date of a file at a given inode.
  */
-ccos_date_t ccos_get_creation_date(uint16_t block, const uint8_t* data);
+ccos_date_t ccos_get_creation_date(ccos_inode_t* file);
 
 /**
  * @brief      Get the modification date of a file at a given inode.
  *
- * @param[in]  block  The block number of the inode.
- * @param[in]  data   CCOS image data.
+ * @param[in]  file  The file.
  *
  * @return     The modification date of a file at a given inode.
  */
-ccos_date_t ccos_get_mod_date(uint16_t block, const uint8_t* data);
+ccos_date_t ccos_get_mod_date(ccos_inode_t* file);
 
 /**
  * @brief      Get the expiry date of a file at a given inode.
  *
- * @param[in]  block  The block number of the inode.
- * @param[in]  data   CCOS image data.
+ * @param[in]  file  The file.
  *
  * @return     The expiry date of a file at a given inode.
  */
-ccos_date_t ccos_get_exp_date(uint16_t block, const uint8_t* data);
-
-int ccos_parse_inode_name(ccos_inode_t* inode, char* basename, char* type, size_t* name_length, size_t* type_length);
-
-/**
- * @brief      Perse CCOS file name and return it's basename and it's type.
- *
- * @param[in]  file_name  The file name.
- * @param      basename   The basename.
- * @param      type       The file type.
- *
- * @return     0 on success, -1 otherwise.
- */
-int ccos_parse_file_name(const short_string_t* file_name, char* basename, char* type, size_t* name_length,
-                         size_t* type_length);
+ccos_date_t ccos_get_exp_date(ccos_inode_t* file);
 
 /**
  * @brief      Replace file in the CCOS image data.
  *
- * @param[in]  block       The block number of the inode of the file to replace.
+ * @param[in]  file        The file to replace.
  * @param[in]  file_data   The new file contents.
  * @param[in]  file_size   The new file size (it should match old file size).
  * @param      image_data  CCOS image data.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_replace_file(uint16_t block, const uint8_t* file_data, uint32_t file_size, uint8_t* image_data);
+int ccos_replace_file(ccos_inode_t* file, const uint8_t* file_data, uint32_t file_size, uint8_t* image_data);
 
 /**
  * @brief      Get info about blocks in the image. Traverse all blocks in the CCOS image and return array filled with
@@ -306,64 +223,26 @@ int ccos_replace_file(uint16_t block, const uint8_t* file_data, uint32_t file_si
 int ccos_get_image_map(const uint8_t* data, size_t data_size, block_type_t** image_map, size_t* free_blocks_count);
 
 /**
- * @brief      Recalculate checksums of the inode.
+ * @brief      Read file contents into memory buffer
  *
- * @param      inode  The inode.
- *
- * @return     0 on success, -1 otherwise.
- */
-int ccos_update_checksums(ccos_inode_t* inode);
-
-/**
- * @brief      Recalculate checksum of the content inode.
- *
- * @param      content_inode  The content inode.
+ * @param[in]  file        File to read.
+ * @param[in]  image_data  CCOS image data.
+ * @param      file_data   The file data.
+ * @param      file_size   The file size.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_update_content_inode_checksums(ccos_content_inode_t* content_inode);
-
-int ccos_update_bitmask_checksum(ccos_bitmask_t* bitmask);
+int ccos_read_file(ccos_inode_t* file, const uint8_t* image_data, uint8_t** file_data, size_t* file_size);
 
 /**
- * @brief      Create empty inode at the given block.
+ * @brief      Get parent directory of the given file.
  *
- * @param[in]  block       The block to create inode at.
- * @param[in]  parent_dir_block  The parent dir block
- * @param      image_data  CCOS image data.
+ * @param      file  The file.
+ * @param      data  CCOS image data.
  *
- * @return     Pointer to the newly created inode on success, NULL otherwise.
+ * @return     Parent directory on success, NULL otherwise.
  */
-ccos_inode_t* ccos_create_inode(uint16_t block, uint16_t parent_dir_block, uint8_t* image_data);
-
-uint16_t ccos_get_free_block(uint16_t bitmask_block, const uint8_t* data);
-
-/**
- * @brief      Return info about free blocks in a CCOS image.
- *
- * @param[in]  bitmask_block      Block number with image bitmask.
- * @param[in]  data               CCOS image data.
- * @param[in]  data_size          Image size.
- * @param      free_blocks_count  Pointer to free blocks count.
- * @param      free_blocks        Pointer to the caller-allocated free blocks array.
- *
- * @return     0 on success, -1 otherwise.
- */
-int ccos_get_free_blocks(uint16_t bitmask_block, const uint8_t* data, size_t data_size, size_t* free_blocks_count,
-                         uint16_t** free_blocks);
-
-/**
- * @brief      Add new file entry to the list of files in the given directory.
- *
- * @param      directory   The directory to add file entry to.
- * @param      file        The file to add to the directory.
- * @param      image_data  CCOS image data.
- * @param[in]  image_size  Image size.
- *
- * @return     0 on success, -1 otherwise.
- */
-int ccos_add_file_to_directory(ccos_inode_t* directory, ccos_inode_t* file, uint8_t* image_data, size_t image_size,
-                               uint16_t bitmask_block);
+ccos_inode_t* ccos_get_parent_dir(ccos_inode_t* file, uint8_t* data);
 
 /**
  * @brief      Copy file from one CCOS image into another.
@@ -376,21 +255,79 @@ int ccos_add_file_to_directory(ccos_inode_t* directory, ccos_inode_t* file, uint
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* dest_directory,
-                   uint16_t dest_bitmask_block, const uint8_t* src_image, const ccos_inode_t* src_file);
+int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* dest_directory, const uint8_t* src_image,
+                   ccos_inode_t* src_file);
 
 /**
  * @brief      Delete file in the image.
  *
- * @param      image       CCOS image data.
- * @param[in]  image_size  The image size.
+ * @param      data       CCOS image data.
+ * @param[in]  data_size  The image size.
  * @param[in]  file        The file to delete.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_delete_file(uint8_t* image, size_t image_size, ccos_inode_t* file, uint16_t bitmask_block);
+int ccos_delete_file(uint8_t* data, size_t data_size, ccos_inode_t* file);
 
-int ccos_add_file(ccos_inode_t* dest_directory, const uint8_t* file_data, uint32_t file_size, const char* file_name,
-                  uint8_t* image_data, size_t image_size, uint16_t bitmask_block);
+/**
+ * @brief      Add new file to the given directory.
+ *
+ * @param[in]  dest_directory  The destination directory to add file to.
+ * @param[in]  file_data       File data.
+ * @param[in]  file_size       File data size.
+ * @param[in]  file_name       File name.
+ * @param      image_data      CCOS image data.
+ * @param[in]  image_size      Image size.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_add_file(ccos_inode_t* dest_directory, uint8_t* file_data, size_t file_size, const char* file_name,
+                  uint8_t* image_data, size_t image_size);
+
+/**
+ * @brief      Check file checksums, log to stderr in case of checksum mismatch.
+ *
+ * @param[in]  file  File to check.
+ */
+void ccos_check_file_checksum(const ccos_inode_t* file);
+
+/**
+ * @brief      Return amount of free space available in the image.
+ *
+ * @param      data       CCOS image data.
+ * @param[in]  data_size  Data size.
+ *
+ * @return     Free space in the image, in bytes.
+ */
+size_t ccos_calc_free_space(uint8_t* data, size_t data_size);
+
+/**
+ * @brief      Overwrite file contents with the given data.
+ *
+ * @param      file        The file.
+ * @param      image_data  CCOS image data.
+ * @param[in]  image_size  Image data size.
+ * @param[in]  file_data   File contents.
+ * @param[in]  file_size   File contents size.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_write_file(ccos_inode_t* file, uint8_t* image_data, size_t image_size, const uint8_t* file_data,
+                    size_t file_size);
+
+/**
+ * @brief      Get info about the name of the given file.
+ *
+ * @param[in]  inode        File to parse name of.
+ * @param      basename     File basename (optional, may be NULL).
+ * @param      type         File extension (optional, may be NULL).
+ * @param      name_length  Length of the name (optional, may be NULL).
+ * @param      type_length  The type length (optional, may be NULL).
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_parse_file_name(ccos_inode_t* inode, char* basename, char* type, size_t* name_length, size_t* type_length);
+
+//TODO: add new directory; remove directory recursively
 
 #endif  // CCOS_IMAGE_H
