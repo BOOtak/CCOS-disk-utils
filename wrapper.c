@@ -339,8 +339,7 @@ int dump_dir(const char* path, const ccos_inode_t* dir, uint8_t* data) {
   }
 
   if (strlen(name_trimmed) == 0) {
-    // TODO: remove file extension
-    strcpy(dirname, basename);
+    strncpy(dirname, basename, strchr(basename, '.') - basename);
   } else {
     const char* idx = rtrim_string(name_trimmed, ' ');
     if (idx == NULL) {
