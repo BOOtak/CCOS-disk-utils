@@ -519,7 +519,7 @@ int ccos_delete_file(uint8_t* data, size_t data_size, ccos_inode_t* file) {
 
 int ccos_add_file(ccos_inode_t* dest_directory, uint8_t* file_data, size_t file_size, const char* file_name,
                   uint8_t* image_data, size_t image_size) {
-  ccos_bitmask_t* bitmask = get_bitmask(file_data, file_size);
+  ccos_bitmask_t* bitmask = get_bitmask(image_data, image_size);
   if (bitmask == NULL) {
     fprintf(stderr, "Unable to add file: Unable to find bitmask in the image!\n");
     return -1;

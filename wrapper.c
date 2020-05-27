@@ -585,7 +585,7 @@ int add_file(const char* image_path, const char* file_path, const char* file_nam
     return -1;
   }
 
-  ccos_inode_t* root_dir = ccos_get_root_dir(file_data, file_size);
+  ccos_inode_t* root_dir = ccos_get_root_dir(data, data_size);
   if (root_dir == NULL) {
     fprintf(stderr, "Unable to add file to image: Unable to get root directory!\n");
     free(file_data);
@@ -604,7 +604,7 @@ int add_file(const char* image_path, const char* file_path, const char* file_nam
   int res = ccos_add_file(dest_dir, file_data, file_size, file_name, data, data_size);
   free(file_data);
   if (res == -1) {
-    fprintf(stderr, "Unable to copy %s to %s!", file_name, file_path);
+    fprintf(stderr, "Unable to copy %s to %s!\n", file_name, file_path);
     return -1;
   }
 
