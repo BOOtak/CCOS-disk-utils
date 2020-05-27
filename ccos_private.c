@@ -505,13 +505,12 @@ int parse_directory_contents(uint8_t* image_data, const uint8_t* directory_data,
     return -1;
   }
 
-  uint16_t count = 0;
   size_t offset = CCOS_DIR_ENTRIES_OFFSET;
-  while (offset < directory_data_size) {
+  for (uint16_t count = 0; count < entry_count && offset < directory_data_size; count++) {
     dir_entry_t* entry = (dir_entry_t*)&(directory_data[offset]);
 
     uint16_t entry_block = entry->block;
-    (*entries)[count++] = get_inode(entry_block, image_data);
+    (*entries)[count] = get_inode(entry_block, image_data);
     uint16_t file_suffix = *(uint16_t*)&(directory_data[offset + sizeof(dir_entry_t) + entry->name_length]);
 
     if ((file_suffix & CCOS_DIR_LAST_ENTRY_MARKER) == CCOS_DIR_LAST_ENTRY_MARKER) {
