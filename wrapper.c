@@ -391,16 +391,19 @@ static traverse_callback_result_t find_file_on_file(ccos_inode_t* file, UNUSED c
   return RESULT_OK;
 }
 
-static int find_filename(const ccos_inode_t* root_dir, uint8_t* data, const char* filename, ccos_inode_t** file) {
+static int find_filename(const ccos_inode_t* root_dir, uint8_t* data, const char* filename, ccos_inode_t** file,
+                         int verbose) {
   find_file_data_t find_file_data = {.target_name = filename, .target_file = 0};
 
   if (traverse_ccos_image(root_dir, data, "", 0, find_file_on_file, find_file_on_file, &find_file_data) == -1) {
-    fprintf(stderr, "Unable to find file in image due to the error!\n");
+    fprintf(stderr, "Unable to find file in image: Unable to complete search!\n");
     return -1;
   }
 
   if (find_file_data.target_file == 0) {
-    fprintf(stderr, "Unable to find file %s in image!\n", filename);
+    if (verbose) {
+      fprintf(stderr, "No file %s in the image.\n", filename);
+    }
     return -1;
   }
 
@@ -426,7 +429,7 @@ int replace_file(const char* path, const char* filename, const char* target_name
   const ccos_inode_t* root_dir = ccos_get_root_dir(data, data_size);
 
   ccos_inode_t* found_file = NULL;
-  if (find_filename(root_dir, data, basename, &found_file) != 0) {
+  if (find_filename(root_dir, data, basename, &found_file, 1) != 0) {
     fprintf(stderr, "Unable to find file %s in the image!\n", basename);
     return -1;
   }
@@ -497,7 +500,7 @@ static int do_copy_file(uint8_t* dest_data, size_t dest_size, ccos_inode_t* dest
                         const ccos_inode_t* source_root_dir, const char* filename) {
   ccos_inode_t* source_file = NULL;
 
-  if (find_filename(source_root_dir, source_data, filename, &source_file) != 0) {
+  if (find_filename(source_root_dir, source_data, filename, &source_file, 1) != 0) {
     fprintf(stderr, "Unable to find file %s in the image!\n", filename);
     return -1;
   }
@@ -507,11 +510,11 @@ static int do_copy_file(uint8_t* dest_data, size_t dest_size, ccos_inode_t* dest
 
   ccos_inode_t* dest_directory = NULL;
 
-  if (find_filename(dest_root_dir, dest_data, source_dir_name, &dest_directory) == -1) {
+  if (find_filename(dest_root_dir, dest_data, source_dir_name, &dest_directory, 1) == -1) {
     fprintf(stderr, "Warn: Unable to find directory %s in dest image, will copy to the " PROGRAMS_DIR_1 " instead.\n",
             source_dir_name);
-    if (find_filename(dest_root_dir, dest_data, PROGRAMS_DIR_1, &dest_directory) == -1 &&
-        find_filename(dest_root_dir, dest_data, PROGRAMS_DIR_2, &dest_directory) == -1) {
+    if (find_filename(dest_root_dir, dest_data, PROGRAMS_DIR_1, &dest_directory, 0) == -1 &&
+        find_filename(dest_root_dir, dest_data, PROGRAMS_DIR_2, &dest_directory, 0) == -1) {
       fprintf(stderr, "Warn: Unable to find directory %s in dest image, will copy to the root directory instead\n",
               PROGRAMS_DIR_1);
       dest_directory = dest_root_dir;
@@ -594,8 +597,8 @@ int add_file(const char* image_path, const char* file_path, const char* file_nam
 
   ccos_inode_t* dest_dir = NULL;
 
-  if (find_filename(root_dir, data, PROGRAMS_DIR_1, &dest_dir) == -1 &&
-      find_filename(root_dir, data, PROGRAMS_DIR_2, &dest_dir) == -1) {
+  if (find_filename(root_dir, data, PROGRAMS_DIR_1, &dest_dir, 0) == -1 &&
+      find_filename(root_dir, data, PROGRAMS_DIR_2, &dest_dir, 0) == -1) {
     fprintf(stderr, "Warn: Unable to find directory %s in dest image, will add file to the root directory instead\n",
             PROGRAMS_DIR_1);
     dest_dir = root_dir;
@@ -632,7 +635,7 @@ int delete_file(const char* path, const char* filename, int in_place) {
 
   ccos_inode_t* root_dir = ccos_get_root_dir(data, size);
   ccos_inode_t* file = NULL;
-  if (find_filename(root_dir, data, filename, &file) != 0) {
+  if (find_filename(root_dir, data, filename, &file, 1) != 0) {
     fprintf(stderr, "Unable to find file %s in the image!\n", filename);
     free(data);
     return -1;
