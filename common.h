@@ -4,6 +4,12 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#ifdef _WIN32
+#define PATHSEP '\\'
+#else
+#define PATHSEP '/'
+#endif
+
 #if defined(__MINGW64__)
 #define SIZE_T "%I64d"
 #define MKDIR(filename, mode) mkdir(filename)

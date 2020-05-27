@@ -324,7 +324,7 @@ int dump_dir(const char* path, const ccos_inode_t* dir, uint8_t* data) {
   char* floppy_name = short_string_to_string(ccos_get_file_name(dir));
   const char* name_trimmed = trim_string(floppy_name, ' ');
 
-  char* basename = strrchr(path, '/');
+  char* basename = strrchr(path, PATHSEP);
   if (basename == NULL) {
     basename = (char*)path;
   } else {
@@ -415,7 +415,7 @@ int replace_file(const char* path, const char* filename, const char* target_name
   if (target_name != NULL) {
     basename = target_name;
   } else {
-    basename = strrchr(filename, '/');
+    basename = strrchr(filename, PATHSEP);
     if (basename == NULL) {
       basename = filename;
     } else {
