@@ -685,8 +685,7 @@ int get_block_data(uint16_t block, const uint8_t* data, const uint8_t** start, s
   return 0;
 }
 
-int get_free_blocks(ccos_bitmask_t* bitmask, const uint8_t* data, size_t data_size, size_t* free_blocks_count,
-                    uint16_t** free_blocks) {
+int get_free_blocks(ccos_bitmask_t* bitmask, size_t data_size, size_t* free_blocks_count, uint16_t** free_blocks) {
   size_t free_count = 0;
   size_t block_count = data_size / BLOCK_SIZE;
 

@@ -309,14 +309,12 @@ int get_block_data(uint16_t block, const uint8_t* data, const uint8_t** start, s
  * @brief      Return info about free blocks in a CCOS image.
  *
  * @param[in]  bitmask            Image bitmask.
- * @param[in]  data               CCOS image data.
  * @param[in]  data_size          Image size.
  * @param      free_blocks_count  Pointer to free blocks count.
  * @param      free_blocks        Pointer to the free blocks array.
  *
  * @return     0 on success, -1 otherwise.
  */
-int get_free_blocks(ccos_bitmask_t* bitmask, const uint8_t* data, size_t data_size, size_t* free_blocks_count,
-                    uint16_t** free_blocks);
+int get_free_blocks(ccos_bitmask_t* bitmask, size_t data_size, size_t* free_blocks_count, uint16_t** free_blocks);
 
 #endif  // CCOS_DISK_TOOL_CCOS_PRIVATE_H

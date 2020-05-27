@@ -601,7 +601,7 @@ size_t ccos_calc_free_space(uint8_t* data, size_t data_size) {
     return -1;
   }
 
-  if (get_free_blocks(bitmask, data, data_size, &free_blocks_count, &free_blocks) == -1) {
+  if (get_free_blocks(bitmask, data_size, &free_blocks_count, &free_blocks) == -1) {
     fprintf(stderr, "Unable to calculate free space: Unable to get free blocks!\n");
     if (free_blocks != NULL) {
       free(free_blocks);
