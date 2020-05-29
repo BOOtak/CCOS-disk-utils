@@ -4,12 +4,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#ifdef _WIN32
-#define PATHSEP '\\'
-#else
-#define PATHSEP '/'
-#endif
-
 #if defined(__MINGW64__)
 #define SIZE_T "%I64d"
 #define MKDIR(filename, mode) mkdir(filename)
@@ -45,5 +39,7 @@ void trace_init(int verbose);
 int read_file(const char* path, uint8_t** file_data, size_t* file_size);
 
 int save_image(const char* source_filename, uint8_t* data, size_t data_size, int in_place);
+
+const char* get_basename(const char* path);
 
 #endif  // COMMON_H

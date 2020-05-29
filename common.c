@@ -99,3 +99,21 @@ int save_image(const char* source_filename, uint8_t* data, size_t data_size, int
 
   return 0;
 }
+
+const char* get_basename(const char* path) {
+  const char* basename = strrchr(path, '/');
+
+#ifdef _WIN32
+  if (basename == NULL) {
+    basename = strrchr(path, '\\');
+  }
+#endif
+
+  if (basename == NULL) {
+    basename = path;
+  } else {
+    basename = basename + 1;
+  }
+
+  return basename;
+}
