@@ -551,7 +551,8 @@ int add_file_entry_to_dir_contents(ccos_inode_t* directory, uint8_t* image_data,
   int add_at_last = 0;
   size_t offset = CCOS_DIR_ENTRIES_OFFSET;
   int parsed_entries = 0;
-  for (;;) {
+
+  for (; parsed_entries < directory->dir_count;) {
     TRACE("Parsing entry #%d...", parsed_entries);
     dir_entry_t* entry = (dir_entry_t*)&(dir_contents[offset]);
     TRACE("entry block: 0x%x, name length: %d", entry->block, entry->name_length);
@@ -629,7 +630,10 @@ int add_file_entry_to_dir_contents(ccos_inode_t* directory, uint8_t* image_data,
     dir_contents = new_dir_contents;
   }
 
-  memmove(dir_contents + offset + file_entry_size, dir_contents + offset, dir_size - offset);
+  if (dir_size > 0) {
+    memmove(dir_contents + offset + file_entry_size, dir_contents + offset, dir_size - offset);
+  }
+
   memcpy(dir_contents + offset, new_file_entry, file_entry_size);
   free(new_file_entry);
 
