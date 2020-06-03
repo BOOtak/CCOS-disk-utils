@@ -11,7 +11,7 @@
 
 #define CCOS_DIR_ENTRIES_OFFSET 0x1
 #define CCOS_DIR_ENTRY_SUFFIX_LENGTH 0x2
-#define CCOS_DIR_LAST_ENTRY_MARKER 0xFF00U
+#define CCOS_DIR_LAST_ENTRY_MARKER 0xFFU
 
 #define CCOS_EMPTY_BLOCK_MARKER 0xFFFFFFFF
 
@@ -25,6 +25,12 @@ typedef struct {
   uint8_t name_length;
 } dir_entry_t;
 #pragma pack(pop)
+
+typedef struct {
+  uint16_t offset;
+  size_t size;
+  ccos_inode_t* file;
+} parsed_directory_element_t;
 
 /**
  * @brief      Calculate checksum as it done in Compass's BIOS.
@@ -289,8 +295,8 @@ int parse_file_name(const short_string_t* file_name, char* basename, char* type,
  *
  * @return     0 on success, -1 otherwise.
  */
-int parse_directory_contents(uint8_t* image_data, const uint8_t* directory_data, size_t directory_data_size,
-                             uint16_t entry_count, ccos_inode_t*** entries);
+int parse_directory_data(uint8_t* image_data, const uint8_t* directory_data, size_t directory_data_size,
+                         uint16_t entry_count, parsed_directory_element_t** entries);
 
 /**
  * @brief      Read raw data from the image at a given block. Notice it won't allocate any memory, just return a pointer
@@ -316,5 +322,10 @@ int get_block_data(uint16_t block, const uint8_t* data, const uint8_t** start, s
  * @return     0 on success, -1 otherwise.
  */
 int get_free_blocks(ccos_bitmask_t* bitmask, size_t data_size, size_t* free_blocks_count, uint16_t** free_blocks);
+
+int find_file_index_in_directory_data(ccos_inode_t* file, ccos_inode_t* directory,
+                                      parsed_directory_element_t* elements);
+
+int is_root_dir(ccos_inode_t* file);
 
 #endif  // CCOS_DISK_TOOL_CCOS_PRIVATE_H

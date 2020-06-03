@@ -498,28 +498,68 @@ int add_file_to_directory(ccos_inode_t* directory, ccos_inode_t* file, uint8_t* 
   return 0;
 }
 
-int parse_directory_contents(uint8_t* image_data, const uint8_t* directory_data, size_t directory_data_size,
-                             uint16_t entry_count, ccos_inode_t*** entries) {
-  *entries = (ccos_inode_t**)calloc(entry_count, sizeof(ccos_inode_t*));
+int parse_directory_data(uint8_t* image_data, const uint8_t* directory_data, size_t directory_data_size,
+                         uint16_t entry_count, parsed_directory_element_t** entries) {
+  *entries = (parsed_directory_element_t*)calloc(entry_count, sizeof(parsed_directory_element_t));
   if (*entries == NULL) {
     return -1;
   }
 
-  size_t offset = CCOS_DIR_ENTRIES_OFFSET;
+  TRACE("Parsing %d dir entries, size = %d bytes...", entry_count, directory_data_size);
+
+  size_t offset = 0;
   for (uint16_t count = 0; count < entry_count && offset < directory_data_size; count++) {
-    dir_entry_t* entry = (dir_entry_t*)&(directory_data[offset]);
-
-    uint16_t entry_block = entry->block;
-    (*entries)[count] = get_inode(entry_block, image_data);
-    uint16_t file_suffix = *(uint16_t*)&(directory_data[offset + sizeof(dir_entry_t) + entry->name_length]);
-
-    if ((file_suffix & CCOS_DIR_LAST_ENTRY_MARKER) == CCOS_DIR_LAST_ENTRY_MARKER) {
+    if (directory_data[offset] == CCOS_DIR_LAST_ENTRY_MARKER) {
+      TRACE("Last directory entry found after parsing %d entries.", count);
       break;
     }
 
-    offset += sizeof(dir_entry_t) + entry->name_length + CCOS_DIR_ENTRY_SUFFIX_LENGTH;
+    offset += sizeof(uint8_t);
+
+    TRACE("%d / %d, offset = %d bytes...", count + 1, entry_count, offset);
+    dir_entry_t* entry = (dir_entry_t*)&(directory_data[offset]);
+
+    TRACE("entry block: 0x%x, name length: %d characters", entry->block, entry->name_length);
+    uint16_t entry_block = entry->block;
+    uint8_t reverse_length = *(uint8_t*)&(directory_data[offset + sizeof(dir_entry_t) + entry->name_length]);
+    size_t entry_size = sizeof(dir_entry_t) + entry->name_length + sizeof(reverse_length);
+
+    (*entries)[count].offset = offset;
+    (*entries)[count].size = entry_size;
+    (*entries)[count].file = get_inode(entry_block, image_data);
+
+    offset += entry_size;
   }
 
+  return 0;
+}
+
+// Create new directory entry:
+//
+// offset |  00  01  |   02    | 03 04 05 ... NN |    NN+1    |    NN+2    |
+// -------|----------|---------|-----------------|------------|------------|
+//        | file id  |  name   |      name       |    NN+1    | last entry |
+//        |          | length  |                 |            |    flag    |
+static int create_directory_entry(ccos_inode_t* file, int is_last, size_t* entry_size, uint8_t** directory_entry) {
+  uint8_t reverse_length = file->name_length + sizeof(dir_entry_t) + sizeof(reverse_length);
+  uint8_t last_entry_flag = is_last ? CCOS_DIR_LAST_ENTRY_MARKER : 0;
+  *entry_size = reverse_length + sizeof(last_entry_flag);
+  *directory_entry = (uint8_t*)calloc(*entry_size, sizeof(uint8_t));
+  if (*directory_entry == NULL) {
+    fprintf(stderr, "Unable to allocate %d bytes for new directory entry: %s!\n", reverse_length + 1, strerror(errno));
+    return -1;
+  }
+
+  size_t offset = 0;
+  ((uint16_t*)*directory_entry)[offset] = file->header.file_id;
+  offset += sizeof(file->header.file_id);
+  (*directory_entry)[offset] = file->name_length;
+  offset += sizeof(file->name_length);
+  memcpy(*directory_entry + offset, file->name, file->name_length);
+  offset += file->name_length;
+  (*directory_entry)[offset] = reverse_length;
+  offset += sizeof(reverse_length);
+  (*directory_entry)[offset] = last_entry_flag;
   return 0;
 }
 
@@ -527,16 +567,115 @@ int parse_directory_contents(uint8_t* image_data, const uint8_t* directory_data,
 // order), and insert it there
 int add_file_entry_to_dir_contents(ccos_inode_t* directory, uint8_t* image_data, size_t image_size,
                                    ccos_inode_t* file) {
-  size_t dir_size = 0;
-  uint8_t* dir_contents = NULL;
+  TRACE("Directory size: %d bytes, length: %d, has %d entries", directory->file_size, directory->dir_length,
+        directory->dir_count);
 
-  TRACE("Reading contents of the directory %*s (0x%x)", directory->name_length, directory->name,
-        directory->header.file_id);
-  if (ccos_read_file(directory, image_data, &dir_contents, &dir_size) == -1) {
-    fprintf(stderr, "Unable to read directory contents at directory id 0x%x\n", directory->header.file_id);
+  uint8_t* directory_data = NULL;
+  size_t dir_size = 0;
+  if (ccos_read_file(directory, image_data, &directory_data, &dir_size) == -1) {
+    fprintf(stderr, "Unable to get directory contents: Unable to read directory!\n");
+    if (directory_data != NULL) {
+      free(directory_data);
+      return -1;
+    }
+  }
+
+  parsed_directory_element_t* elements = NULL;
+  if (parse_directory_data(image_data, directory_data, dir_size, directory->dir_count, &elements) == -1) {
+    fprintf(stderr, "Unable to add file to directory files list: Unable to parse directory data!\n");
     return -1;
   }
 
+  // 1. Find place for the new file to insert
+  int i = find_file_index_in_directory_data(file, directory, elements);
+  if ((i < directory->dir_count) && (file->name_length == elements[i].file->name_length) &&
+      !(strncasecmp(file->name, elements[i].file->name, file->name_length))) {
+    // TODO: add option to overwrite existing file
+    fprintf(stderr, "Unable to add file %*s to the directory: File exists!\n", file->name_length, file->name);
+    free(directory_data);
+    return -1;
+  }
+
+  int new_entry_is_last = i == directory->dir_count;
+
+  // 2. Create new directory entry
+  uint8_t* new_file_entry = NULL;
+  size_t file_entry_size = 0;
+  if (create_directory_entry(file, new_entry_is_last, &file_entry_size, &new_file_entry) == -1) {
+    fprintf(stderr, "Unable to add new entry to the directory: Unable to create entry!\n");
+    free(directory_data);
+    free(elements);
+    return -1;
+  }
+
+  // 3. Insert new entry into directory data
+  size_t real_dir_size = 1;
+  if (directory->dir_count > 0) {
+    real_dir_size = elements[directory->dir_count - 1].offset + elements[directory->dir_count - 1].size + 1;
+  }
+
+  TRACE("Real directory size: " SIZE_T " bytes", real_dir_size);
+  size_t new_dir_size = real_dir_size + file_entry_size;
+  TRACE("Dir size " SIZE_T " -> " SIZE_T ".", dir_size, new_dir_size);
+
+  uint8_t* new_directory_data = realloc(directory_data, new_dir_size);
+  if (new_directory_data == NULL) {
+    fprintf(stderr, "Unable to realloc " SIZE_T " bytes for the directory contents: %s!\n", new_dir_size,
+            strerror(errno));
+    free(directory_data);
+    free(new_file_entry);
+    return -1;
+  } else {
+    directory_data = new_directory_data;
+  }
+
+  if (new_entry_is_last) {
+    size_t last_entry_offset;
+    if (directory->dir_count == 0) {
+      last_entry_offset = CCOS_DIR_ENTRIES_OFFSET;
+    } else {
+      // |  <------------ elements[i-1].size ------------->  |
+      // |  .-- elements[i-1].offset                         |
+      // |  V                                                |
+      // |  00  01  |   02    | 03 04 05 ... NN |    NN+1    |    NN+2    |
+      // |----------|---------|-----------------|------------|------------|
+      // | file id  |  name   |      name       |  reversed  | last entry |
+      // |          | length  |                 |  length    |    flag    |
+      last_entry_offset = elements[i - 1].offset + elements[i - 1].size + sizeof(uint8_t);
+    }
+
+    memcpy(directory_data + last_entry_offset, new_file_entry, file_entry_size);
+  } else {
+    memmove(directory_data + elements[i].offset + file_entry_size, directory_data + elements[i].offset,
+            dir_size - elements[i].offset);
+    memcpy(directory_data + elements[i].offset, new_file_entry, file_entry_size);
+  }
+
+  free(new_file_entry);
+
+  // 4. Remove last entry flag from previous last entry if necessary
+  if (new_entry_is_last) {
+    if (directory->dir_count == 0) {
+      // Empty directory contains only last entry flag
+      directory_data[0] = 0;
+    } else {
+      directory_data[elements[i - 1].offset + elements[i - 1].size] = 0;
+    }
+  }
+
+  // 5. Save changes
+  int res = ccos_write_file(directory, image_data, image_size, directory_data, new_dir_size);
+  free(directory_data);
+  if (res == -1) {
+    fprintf(stderr, "Unable to update directory contents of dir with id=0x%x!\n", directory->header.file_id);
+    return -1;
+  }
+
+  return 0;
+}
+
+int find_file_index_in_directory_data(ccos_inode_t* file, ccos_inode_t* directory,
+                                      parsed_directory_element_t* elements) {
   char basename[CCOS_MAX_FILE_NAME] = {0};
   char type[CCOS_MAX_FILE_NAME] = {0};
   size_t basename_length = 0;
@@ -548,18 +687,13 @@ int add_file_entry_to_dir_contents(ccos_inode_t* directory, uint8_t* image_data,
   size_t entry_name_length = 0;
   size_t entry_type_length = 0;
 
-  int add_at_last = 0;
-  size_t offset = CCOS_DIR_ENTRIES_OFFSET;
-  int parsed_entries = 0;
-
-  for (; parsed_entries < directory->dir_count;) {
-    TRACE("Parsing entry #%d...", parsed_entries);
-    dir_entry_t* entry = (dir_entry_t*)&(dir_contents[offset]);
-    TRACE("entry block: 0x%x, name length: %d", entry->block, entry->name_length);
+  int i;
+  for (i = 0; i < directory->dir_count; ++i) {
+    TRACE("Parsing entry # %d...", i);
 
     memset(entry_name, 0, CCOS_MAX_FILE_NAME);
     memset(entry_type, 0, CCOS_MAX_FILE_NAME);
-    parse_file_name((const short_string_t*)&(entry->name_length), entry_name, entry_type, &entry_name_length,
+    parse_file_name((const short_string_t*)&(elements[i].file->name_length), entry_name, entry_type, &entry_name_length,
                     &entry_type_length);
 
     TRACE("%s", entry_name);
@@ -572,79 +706,12 @@ int add_file_entry_to_dir_contents(ccos_inode_t* directory, uint8_t* image_data,
       TRACE("%s %s %s", entry_type, res < 0 ? "<" : res > 0 ? ">" : "==", type);
     }
 
-    if (res > 0) {
+    if (res >= 0) {
       break;
-    } else if (res == 0) {
-      // TODO: add option to overwrite existing file
-      fprintf(stderr, "Unable to add file %*s to the directory: File exists!\n", file->name_length, file->name);
-      free(dir_contents);
-      return -1;
-    } else {
-      uint16_t file_suffix = *(uint16_t*)&(dir_contents[offset + sizeof(dir_entry_t) + entry->name_length]);
-      TRACE("File suffix: %x", file_suffix);
-      offset += (sizeof(dir_entry_t) + entry->name_length + sizeof(file_suffix));
-      TRACE("Offset = " SIZE_T, offset);
-
-      if ((file_suffix & CCOS_DIR_LAST_ENTRY_MARKER) == CCOS_DIR_LAST_ENTRY_MARKER) {
-        TRACE("File %*s should be placed at the end of the directory", file->name_length, file->name);
-        add_at_last = 1;
-        // removing last entry marker in this case
-        *(uint16_t*)&(dir_contents[offset - sizeof(uint16_t)]) &= ~CCOS_DIR_LAST_ENTRY_MARKER;
-        break;
-      }
     }
-
-    parsed_entries++;
   }
 
-  //  |  XX XX   |   XX    | XX XX XX ... XX |     XX     |    XX     |
-  //  |    dir_entry_t     |                 |       file_suffix      |
-  //  | file id  |  name   |      name       |    name    | end of    |
-  //  |          | length  |                 | length + 3 | dir flag  |
-  dir_entry_t dir_entry = {file->header.file_id, file->name_length};
-  uint8_t total_size = file->name_length + sizeof(dir_entry_t);
-  total_size += sizeof(total_size);
-  uint16_t file_suffix = total_size | (add_at_last ? CCOS_DIR_LAST_ENTRY_MARKER : 0);
-  size_t file_entry_size = total_size + 1;
-
-  uint8_t* new_file_entry = (uint8_t*)calloc(file_entry_size, sizeof(uint8_t));
-  if (new_file_entry == NULL) {
-    fprintf(stderr, "Unable to allocate %d bytes for new file entry: %s!\n", total_size + 1, strerror(errno));
-    free(dir_contents);
-    return -1;
-  }
-
-  memcpy(new_file_entry, &dir_entry, sizeof(dir_entry_t));
-  memcpy(new_file_entry + sizeof(dir_entry_t), file->name, file->name_length);
-  memcpy(new_file_entry + sizeof(dir_entry_t) + file->name_length, &file_suffix, sizeof(uint16_t));
-
-  size_t new_dir_size = dir_size + file_entry_size;
-  uint8_t* new_dir_contents = realloc(dir_contents, new_dir_size);
-  if (new_dir_contents == NULL) {
-    fprintf(stderr, "Unable to realloc " SIZE_T " bytes for the directory contents: %s!\n", new_dir_size,
-            strerror(errno));
-    free(dir_contents);
-    free(new_file_entry);
-    return -1;
-  } else {
-    dir_contents = new_dir_contents;
-  }
-
-  if (dir_size > 0) {
-    memmove(dir_contents + offset + file_entry_size, dir_contents + offset, dir_size - offset);
-  }
-
-  memcpy(dir_contents + offset, new_file_entry, file_entry_size);
-  free(new_file_entry);
-
-  int res = ccos_write_file(directory, image_data, image_size, dir_contents, new_dir_size);
-  free(dir_contents);
-  if (res == -1) {
-    fprintf(stderr, "Unable to update directory contents of dir with id=0x%x!\n", directory->header.file_id);
-    return -1;
-  }
-
-  return 0;
+  return i;
 }
 
 int parse_file_name(const short_string_t* file_name, char* basename, char* type, size_t* name_length,
@@ -725,4 +792,9 @@ int get_free_blocks(ccos_bitmask_t* bitmask, size_t data_size, size_t* free_bloc
   }
 
   return 0;
+}
+
+int is_root_dir(ccos_inode_t* file) {
+  // In CCOS, root directory's parent file id it its own file id.
+  return file->header.file_id == file->dir_file_id;
 }

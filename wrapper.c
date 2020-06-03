@@ -35,8 +35,8 @@ static char* format_version(version_t* version) {
   return version_string;
 }
 
-static int traverse_ccos_image(const ccos_inode_t* dir, uint8_t* data, const char* dirname, int level,
-                               on_file_t on_file, on_dir_t on_dir, void* arg) {
+static int traverse_ccos_image(ccos_inode_t* dir, uint8_t* data, const char* dirname, int level, on_file_t on_file,
+                               on_dir_t on_dir, void* arg) {
   uint16_t files_count = 0;
   ccos_inode_t** dir_contents = NULL;
   if (ccos_get_dir_contents(dir, data, &files_count, &dir_contents) == -1) {
@@ -182,7 +182,7 @@ static traverse_callback_result_t print_file_info(ccos_inode_t* file, UNUSED con
 }
 
 int print_image_info(const char* path, uint8_t* data, size_t data_size, int short_format) {
-  const ccos_inode_t* root_dir = ccos_get_root_dir(data, data_size);
+  ccos_inode_t* root_dir = ccos_get_root_dir(data, data_size);
   if (root_dir == NULL) {
     fprintf(stderr, "Unable to print image info: Unable to find root directory!\n");
     return -1;
@@ -311,7 +311,7 @@ static traverse_callback_result_t dump_dir_tree_on_dir(ccos_inode_t* dir, UNUSED
 }
 
 int dump_image(const char* path, uint8_t* data, size_t data_size) {
-  const ccos_inode_t* root_dir = ccos_get_root_dir(data, data_size);
+  ccos_inode_t* root_dir = ccos_get_root_dir(data, data_size);
   if (root_dir == NULL) {
     fprintf(stderr, "Unable to dump image: Unable to get root directory!\n");
     return -1;
@@ -320,7 +320,7 @@ int dump_image(const char* path, uint8_t* data, size_t data_size) {
   return dump_dir(path, root_dir, data);
 }
 
-int dump_dir(const char* path, const ccos_inode_t* dir, uint8_t* data) {
+int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data) {
   char* floppy_name = short_string_to_string(ccos_get_file_name(dir));
   const char* name_trimmed = trim_string(floppy_name, ' ');
 
@@ -386,7 +386,7 @@ static traverse_callback_result_t find_file_on_file(ccos_inode_t* file, UNUSED c
   return RESULT_OK;
 }
 
-static int find_filename(const ccos_inode_t* root_dir, uint8_t* data, const char* filename, ccos_inode_t** file,
+static int find_filename(ccos_inode_t* root_dir, uint8_t* data, const char* filename, ccos_inode_t** file,
                          int verbose) {
   find_file_data_t find_file_data = {.target_name = filename, .target_file = 0};
 
@@ -416,7 +416,7 @@ int replace_file(const char* path, const char* filename, const char* target_name
     basename = get_basename(path);
   }
 
-  const ccos_inode_t* root_dir = ccos_get_root_dir(data, data_size);
+  ccos_inode_t* root_dir = ccos_get_root_dir(data, data_size);
 
   ccos_inode_t* found_file = NULL;
   if (find_filename(root_dir, data, basename, &found_file, 1) != 0) {
@@ -487,7 +487,7 @@ int replace_file(const char* path, const char* filename, const char* target_name
 }
 
 static int do_copy_file(uint8_t* dest_data, size_t dest_size, ccos_inode_t* dest_root_dir, uint8_t* source_data,
-                        const ccos_inode_t* source_root_dir, const char* filename) {
+                        ccos_inode_t* source_root_dir, const char* filename) {
   ccos_inode_t* source_file = NULL;
 
   if (find_filename(source_root_dir, source_data, filename, &source_file, 1) != 0) {
@@ -534,7 +534,7 @@ int copy_file(const char* target_image, const char* filename, uint8_t* source_da
     return -1;
   }
 
-  const ccos_inode_t* root_dir;
+  ccos_inode_t* root_dir;
   if ((root_dir = ccos_get_root_dir(source_data, source_size)) == NULL) {
     fprintf(stderr, "Unable to get root directory of the source image!\n");
     free(dest_data);
@@ -594,15 +594,14 @@ int add_file(const char* image_path, const char* file_path, const char* file_nam
     dest_dir = root_dir;
   }
 
-  int res = ccos_add_file(dest_dir, file_data, file_size, file_name, data, data_size);
+  ccos_inode_t* new_file = ccos_add_file(dest_dir, file_data, file_size, file_name, data, data_size);
   free(file_data);
-  if (res == -1) {
+  if (new_file == NULL) {
     fprintf(stderr, "Unable to copy %s to %s!\n", file_name, file_path);
     return -1;
   }
 
-  res = save_image(image_path, data, data_size, in_place);
-  return res;
+  return save_image(image_path, data, data_size, in_place);
 }
 
 int delete_file(const char* path, const char* filename, int in_place) {
@@ -635,41 +634,30 @@ int delete_file(const char* path, const char* filename, int in_place) {
     fprintf(stderr, "Unable to delete file %s!\n", filename);
   }
 
-  char* dest_filename;
-  if (in_place) {
-    dest_filename = (char*)path;
-  } else {
-    const char* out_suffix = ".out";
-    dest_filename = (char*)calloc(strlen(path) + strlen(out_suffix) + 1, sizeof(char));
-    if (dest_filename == NULL) {
-      fprintf(stderr, "Unable to allocate memory for destination file name: %s!\n", strerror(errno));
-      free(data);
-      return -1;
-    }
+  return save_image(path, data, size, in_place);
+}
 
-    sprintf(dest_filename, "%s%s", path, out_suffix);
-  }
-
-  FILE* f = fopen(dest_filename, "wb");
-  if (f == NULL) {
-    fprintf(stderr, "Unable to open \"%s\" to write new image data to: %s!\n", dest_filename, strerror(errno));
-    free(data);
-  }
-
-  if (!in_place) {
-    free(dest_filename);
-  }
-  if (f == NULL) {
+int create_directory(char* path, char* directory_name, uint8_t* image_data, size_t image_size, int in_place) {
+  if (path == NULL) {
+    fprintf(stderr, "No target image is provided to copy file to!\n");
     return -1;
   }
 
-  size_t written = fwrite(data, sizeof(uint8_t), size, f);
-  free(data);
-  fclose(f);
-  if (written != size) {
-    fprintf(stderr, "Write size mismatch: Expected " SIZE_T ", but only " SIZE_T " written!\n", size, written);
+  if (directory_name == NULL) {
+    fprintf(stderr, "No file name provided to copy to another image!\n");
     return -1;
   }
 
-  return 0;
+  ccos_inode_t* root_dir = ccos_get_root_dir(image_data, image_size);
+  if (root_dir == NULL) {
+    fprintf(stderr, "Unable to add file to image: Unable to get root directory!\n");
+    return -1;
+  }
+
+  if (ccos_create_dir(root_dir, directory_name, image_data, image_size) == -1) {
+    fprintf(stderr, "Unable to create directory!\n");
+    return -1;
+  }
+
+  return save_image(path, image_data, image_size, in_place);
 }

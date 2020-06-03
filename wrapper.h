@@ -12,7 +12,7 @@
  *
  * @return     0 on success, -1 otherwise.
  */
-int dump_dir(const char* path, const ccos_inode_t* dir, uint8_t* data);
+int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data);
 
 int dump_image(const char* path, uint8_t* data, size_t data_size);
 
@@ -77,5 +77,7 @@ int delete_file(const char* path, const char* filename, int in_place);
 
 int add_file(const char* image_path, const char* file_path, const char* file_name, uint8_t* data, size_t data_size,
              int in_place);
+
+int create_directory(char* path, char* directory_name, uint8_t* file_contents, size_t file_size, int in_place);
 
 #endif  // WRAPPER_H

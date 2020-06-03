@@ -12,6 +12,7 @@ typedef enum {
   MODE_REPLACE_FILE,
   MODE_COPY_FILE,
   MODE_DELETE_FILE,
+  MODE_CREATE_DIRECTORY,
   MODE_ADD_FILE
 } op_mode_t;
 
@@ -21,6 +22,7 @@ static const struct option long_options[] = {{"image", required_argument, NULL, 
                                              {"delete-file", required_argument, NULL, 'z'},
                                              {"target-image", required_argument, NULL, 't'},
                                              {"target-name", required_argument, NULL, 'n'},
+                                             {"create-dir", required_argument, NULL, 'y'},
                                              {"in-place", no_argument, NULL, 'l'},
                                              {"add-file", required_argument, NULL, 'a'},
                                              {"dump-dir", no_argument, NULL, 'd'},
@@ -30,7 +32,7 @@ static const struct option long_options[] = {{"image", required_argument, NULL, 
                                              {"help", no_argument, NULL, 'h'},
                                              {NULL, no_argument, NULL, 0}};
 
-static const char* opt_string = "i:r:n:c:a:t:z:ldpsvh";
+static const char* opt_string = "i:r:n:c:a:t:y:z:ldpsvh";
 
 static void print_usage() {
   fprintf(stderr,
@@ -41,6 +43,7 @@ static void print_usage() {
           "Examples:\n"
           "ccos_disk_tool -i image -p [-s]\n"
           "ccos_disk_tool -i image -d\n"
+          "ccos_disk_tool -i image -y dir_name\n"
           "ccos_disk_tool -i image -a file -n name [-l]\n"
           "ccos_disk_tool -i src_image -c name -t dest_image [-l]\n"
           "ccos_disk_tool -i image -r file -n name [-l]\n"
@@ -56,6 +59,7 @@ static void print_usage() {
           "                         (80-column compatible, no dates)\n"
           "-d, --dump-dir           Dump image contents into the current directory\n"
           "-a, --add-file FILE      Add file to the image\n"
+          "-y, --create-dir NAME    Create new directory\n"
           "-r, --replace-file FILE  Replace file in the image with the given\n"
           "                         file, save changes to IMAGE.out\n"
           "-c, --copy-file NAME     Copy file from one image to another\n"
@@ -63,14 +67,14 @@ static void print_usage() {
           "-z, --delete-file FILE   Delete file from the image\n"
           "-n, --target-name NAME   Replace / delete / copy or add file with the name NAME\n"
           "                         in the image\n"
-          "-l, --in-place           Write changes to the original image\n"
-          );
+          "-l, --in-place           Write changes to the original image\n");
 }
 
 int main(int argc, char** argv) {
   op_mode_t mode = 0;
   char* path = NULL;
   char* filename = NULL;
+  char* dir_name = NULL;
   char* target_name = NULL;
   char* target_image = NULL;
   int in_place = 0;
@@ -121,6 +125,11 @@ int main(int argc, char** argv) {
       case 'a': {
         mode = MODE_ADD_FILE;
         filename = optarg;
+        break;
+      }
+      case 'y': {
+        mode = MODE_CREATE_DIRECTORY;
+        dir_name = optarg;
         break;
       }
       case 'z': {
@@ -190,6 +199,10 @@ int main(int argc, char** argv) {
       } else {
         res = add_file(path, filename, target_name, file_contents, file_size, in_place);
       }
+      break;
+    }
+    case MODE_CREATE_DIRECTORY: {
+      res = create_directory(path, dir_name, file_contents, file_size, in_place);
       break;
     }
     default: {

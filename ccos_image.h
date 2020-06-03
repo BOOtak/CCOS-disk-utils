@@ -150,7 +150,7 @@ ccos_inode_t* ccos_get_root_dir(uint8_t* data, size_t data_size);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_get_dir_contents(const ccos_inode_t* dir, uint8_t* data, uint16_t* entry_count, ccos_inode_t*** entries);
+int ccos_get_dir_contents(ccos_inode_t* dir, uint8_t* data, uint16_t* entry_count, ccos_inode_t*** entries);
 
 /**
  * @brief      Determine whether the given inode is a directory's inode.
@@ -261,13 +261,13 @@ int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* de
 /**
  * @brief      Delete file in the image.
  *
- * @param      data       CCOS image data.
+ * @param      image_data       CCOS image data.
  * @param[in]  data_size  The image size.
  * @param[in]  file        The file to delete.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_delete_file(uint8_t* data, size_t data_size, ccos_inode_t* file);
+int ccos_delete_file(uint8_t* image_data, size_t data_size, ccos_inode_t* file);
 
 /**
  * @brief      Add new file to the given directory.
@@ -281,7 +281,7 @@ int ccos_delete_file(uint8_t* data, size_t data_size, ccos_inode_t* file);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_add_file(ccos_inode_t* dest_directory, uint8_t* file_data, size_t file_size, const char* file_name,
+ccos_inode_t* ccos_add_file(ccos_inode_t* dest_directory, uint8_t* file_data, size_t file_size, const char* file_name,
                   uint8_t* image_data, size_t image_size);
 
 /**
@@ -328,6 +328,18 @@ int ccos_write_file(ccos_inode_t* file, uint8_t* image_data, size_t image_size, 
  */
 int ccos_parse_file_name(ccos_inode_t* inode, char* basename, char* type, size_t* name_length, size_t* type_length);
 
-//TODO: add new directory; remove directory recursively
+/**
+ * @brief      Create directory in the image.
+ *
+ * @param      parent_dir      The parent directory.
+ * @param[in]  directory_name  New directory name.
+ * @param      image_data      CCOS image data.
+ * @param[in]  image_size      CCOS image size.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_t* image_data, size_t image_size);
+
+// TODO: remove directory recursively
 
 #endif  // CCOS_IMAGE_H
