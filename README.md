@@ -8,6 +8,7 @@ ccos_disk_tool [ -i image | -h ] OPTIONS [-v]
 Examples:
 ccos_disk_tool -i image -p [-s]
 ccos_disk_tool -i image -d
+ccos_disk_tool -i image -y dir_name
 ccos_disk_tool -i image -a file -n name [-l]
 ccos_disk_tool -i src_image -c name -t dest_image [-l]
 ccos_disk_tool -i image -r file -n name [-l]
@@ -23,6 +24,7 @@ OPTIONS:
                          (80-column compatible, no dates)
 -d, --dump-dir           Dump image contents into the current directory
 -a, --add-file FILE      Add file to the image
+-y, --create-dir NAME    Create new directory
 -r, --replace-file FILE  Replace file in the image with the given
                          file, save changes to IMAGE.out
 -c, --copy-file NAME     Copy file from one image to another
