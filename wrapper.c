@@ -632,9 +632,13 @@ int delete_file(const char* path, const char* filename, int in_place) {
 
   if (ccos_delete_file(data, size, file) == -1) {
     fprintf(stderr, "Unable to delete file %s!\n", filename);
+    free(data);
+    return -1;
   }
 
-  return save_image(path, data, size, in_place);
+  int res = save_image(path, data, size, in_place);
+  free(data);
+  return res;
 }
 
 int create_directory(char* path, char* directory_name, uint8_t* image_data, size_t image_size, int in_place) {
