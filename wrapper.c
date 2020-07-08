@@ -51,12 +51,7 @@ static int traverse_ccos_image(ccos_inode_t* dir, uint8_t* data, const char* dir
 
     const ccos_inode_t* inode = dir_contents[i];
 
-    if (inode->header.file_id != inode->content_inode_info.header.file_id) {
-      fprintf(stderr, "Warn: block number mismatch in inode! 0x%hx != 0x%hx\n", inode->header.file_id,
-              inode->content_inode_info.header.file_id);
-    }
-
-    ccos_check_file_checksum(inode);
+    ccos_validate_file(inode);
 
     if (ccos_is_dir(dir_contents[i])) {
       TRACE("%d: directory", i + 1);
@@ -232,7 +227,7 @@ static traverse_callback_result_t dump_dir_tree_on_file(ccos_inode_t* file, cons
 
   char* file_name = short_string_to_string(ccos_get_file_name(file));
   if (file_name == NULL) {
-    fprintf(stderr, "Unable to get filename at file at 0x%x\n", file->header.file_id);
+    fprintf(stderr, "Unable to get filename at file at 0x%x\n", ccos_file_id(file));
     free(abspath);
     return RESULT_ERROR;
   }
@@ -245,7 +240,7 @@ static traverse_callback_result_t dump_dir_tree_on_file(ccos_inode_t* file, cons
   size_t file_size = 0;
   uint8_t* file_data = NULL;
   if (ccos_read_file(file, data, &file_data, &file_size) == -1) {
-    fprintf(stderr, "Unable to dump file at 0x%x: Unable to get file contents!\n", file->header.file_id);
+    fprintf(stderr, "Unable to dump file at 0x%x: Unable to get file contents!\n", ccos_file_id(file));
     if (file_data != NULL) {
       free(file_data);
       return RESULT_ERROR;
@@ -284,7 +279,7 @@ static traverse_callback_result_t dump_dir_tree_on_dir(ccos_inode_t* dir, UNUSED
   char subdir_name[CCOS_MAX_FILE_NAME];
   memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
   if (ccos_parse_file_name(dir, subdir_name, NULL, NULL, NULL) == -1) {
-    fprintf(stderr, "Unable to dump directory at 0x%x: Unable to get directory name!\n", dir->header.file_id);
+    fprintf(stderr, "Unable to dump directory at 0x%x: Unable to get directory name!\n", ccos_file_id(dir));
     return -1;
   }
 
@@ -370,7 +365,7 @@ static traverse_callback_result_t find_file_on_file(ccos_inode_t* file, UNUSED c
                                                     UNUSED const char* dirname, UNUSED int level, void* arg) {
   char* file_name = short_string_to_string(ccos_get_file_name(file));
   if (file_name == NULL) {
-    fprintf(stderr, "Unable to get filename at 0x%x\n", file->header.file_id);
+    fprintf(stderr, "Unable to get filename at 0x%x\n", ccos_file_id(file));
     return RESULT_ERROR;
   }
 

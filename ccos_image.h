@@ -33,83 +33,13 @@ typedef struct {
 } ccos_date_t;
 #pragma pack(pop)
 
-typedef struct {
-  uint16_t file_id;
-  uint16_t file_fragment_index;
-} ccos_block_header_t;
-
-#pragma pack(push, 1)
-typedef struct {
-  ccos_block_header_t header;
-  uint16_t blocks_checksum;  // checksum([block_next ... block_end), file_id, file_fragment_index)
-  uint16_t block_next;       // next block with content blocks. 0xFFFF if not present
-  uint16_t block_current;    // current block with content blocks
-  uint16_t block_prev;       // previous block with content blocks. 0xFFFF if not present
-} ccos_block_data_t;
-#pragma pack(pop)
-
-#pragma pack(push, 1)
-typedef struct {
-  ccos_block_header_t header;
-  uint32_t file_size;
-  uint8_t name_length;
-  char name[CCOS_MAX_FILE_NAME];
-  ccos_date_t creation_date;
-  uint16_t dir_file_id;  // file id of the parent directory
-  ccos_date_t mod_date;
-  ccos_date_t expiration_date;
-  uint32_t machine_ID;  // from InteGRiD Sources OSINCS/WSTYPE.INC
-  uint8_t comp;         // from InteGRiD Sources OSINCS/WSTYPE.INC
-  uint8_t encry;        // from InteGRiD Sources OSINCS/WSTYPE.INC
-  uint8_t protec;       // write-protected ???
-  uint8_t pswd_len;     // unused in 3.0+ ???
-  char pswd[4];         // unused in 3.0+ ???
-  uint32_t dir_length;  // directory size in bytes. Matches file_size for large dirs, but not always
-  uint16_t dir_count;   // number of files in the directory
-  uint8_t pad[6];
-  uint8_t asc;  // from InteGRiD Sources OSINCS/WSTYPE.INC
-  uint8_t uses_8087;
-  uint8_t version_major;
-  uint8_t version_minor;
-  uint32_t system;  // from InteGRiD Sources OSINCS/WSTYPE.INC
-  uint8_t pad2[11];
-  uint8_t version_patch;
-  uint32_t prop_length;  // indicates how much bytes at the beginning of the file are used to store some properties and
-                         // are not part of the file
-  uint8_t rom;           // from InteGRiD Sources OSINCS/WSTYPE.INC
-  uint16_t rom_id;       // from InteGRiD Sources OSINCS/WSTYPE.INC
-  uint16_t mode;         // from InteGRiD Sources OSINCS/WSTYPE.INC
-  char RDB[3];           // from InteGRiD Sources OSINCS/WSTYPE.INC
-  char UDB[20];          // from InteGRiD Sources OSINCS/WSTYPE.INC
-  uint16_t grid_central_use;   // from InteGRiD Sources OSINCS/WSTYPE.INC
-  uint16_t metadata_checksum;  // checksum([file_id ... metadata_checksum))
-  ccos_block_data_t content_inode_info;
-  uint16_t content_blocks[MAX_BLOCKS_IN_INODE];
-  uint32_t block_end;
-} ccos_inode_t;
-#pragma pack(pop)
-
-#pragma pack(push, 1)
-typedef struct {
-  ccos_block_data_t content_inode_info;
-  uint16_t content_blocks[MAX_BLOCKS_IN_CONTENT_INODE];
-  uint64_t block_end;
-} ccos_content_inode_t;
-#pragma pack(pop)
-
-#pragma pack(push, 1)
-typedef struct {
-  ccos_block_header_t header;
-  uint16_t checksum;
-  uint16_t allocated;
-  uint8_t bytes[BITMASK_SIZE];
-  uint32_t block_end;
-} ccos_bitmask_t;
-#pragma pack(pop)
+typedef struct ccos_inode_t_ ccos_inode_t;
 
 typedef enum { UNKNOWN, DATA, EMPTY } block_type_t;
 
 int ccos_check_image(const uint8_t* file_data);
+
+uint16_t ccos_file_id(ccos_inode_t* inode);
 
 /**
  * @brief      Get the file version.
@@ -282,14 +212,16 @@ int ccos_delete_file(uint8_t* image_data, size_t data_size, ccos_inode_t* file);
  * @return     0 on success, -1 otherwise.
  */
 ccos_inode_t* ccos_add_file(ccos_inode_t* dest_directory, uint8_t* file_data, size_t file_size, const char* file_name,
-                  uint8_t* image_data, size_t image_size);
+                            uint8_t* image_data, size_t image_size);
 
 /**
- * @brief      Check file checksums, log to stderr in case of checksum mismatch.
+ * @brief      Check file checksums and file structure, log to stderr in case of malformed file.
  *
  * @param[in]  file  File to check.
+ *
+ * @return     0 on success, -1 otherwise.
  */
-void ccos_check_file_checksum(const ccos_inode_t* file);
+int ccos_validate_file(const ccos_inode_t* file);
 
 /**
  * @brief      Return amount of free space available in the image.

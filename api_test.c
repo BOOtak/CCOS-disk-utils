@@ -3,6 +3,7 @@
 //
 
 #include <ccos_image.h>
+#include <ccos_private.h>
 #include <stdio.h>
 #include <string.h>
 

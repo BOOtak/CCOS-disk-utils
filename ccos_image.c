@@ -41,6 +41,10 @@ int ccos_check_image(const uint8_t* file_data) {
   return 0;
 }
 
+uint16_t ccos_file_id(ccos_inode_t* inode) {
+  return inode->header.file_id;
+}
+
 version_t ccos_get_file_version(ccos_inode_t* file) {
   uint8_t major = file->version_major;
   uint8_t minor = file->version_minor;
@@ -550,18 +554,28 @@ ccos_inode_t* ccos_get_root_dir(uint8_t* data, size_t data_size) {
   return get_inode(superblock, data);
 }
 
-void ccos_check_file_checksum(const ccos_inode_t* file) {
+int ccos_validate_file(const ccos_inode_t* file) {
   uint16_t metadata_checksum = calc_inode_metadata_checksum(file);
   if (metadata_checksum != file->metadata_checksum) {
     fprintf(stderr, "Warn: Invalid metadata checksum: expected 0x%hx, got 0x%hx\n", file->metadata_checksum,
             metadata_checksum);
+    return -1;
   }
 
   uint16_t blocks_checksum = calc_inode_blocks_checksum(file);
   if (blocks_checksum != file->content_inode_info.blocks_checksum) {
     fprintf(stderr, "Warn: Invalid block data checksum: expected 0x%hx, got 0x%hx!\n",
             file->content_inode_info.blocks_checksum, blocks_checksum);
+    return -1;
   }
+
+  if (file->header.file_id != file->content_inode_info.header.file_id) {
+    fprintf(stderr, "Warn: block number mismatch in inode! 0x%hx != 0x%hx\n", file->header.file_id,
+            file->content_inode_info.header.file_id);
+    return -1;
+  }
+
+  return 0;
 }
 
 size_t ccos_calc_free_space(uint8_t* data, size_t data_size) {
