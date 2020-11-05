@@ -37,15 +37,28 @@ typedef struct ccos_inode_t_ ccos_inode_t;
 
 typedef enum { UNKNOWN, DATA, EMPTY } block_type_t;
 
+/**
+ * @brief      Checking image for validity.
+ *
+ * @param[in]  file_data  The file.
+ *
+ * @return     0 if valid, -1 otherwise.
+ */
 int ccos_check_image(const uint8_t* file_data);
 
+/**
+ * @brief      Get the file ID.
+ *
+ * @param[in]  inode  The file.
+ *
+ * @return     The ID of the file.
+ */
 uint16_t ccos_file_id(ccos_inode_t* inode);
 
 /**
  * @brief      Get the file version.
  *
  * @param[in]  file   The file.
- * @param[in]  data   CCOS image data.
  *
  * @return     The version of the file.
  */
@@ -75,7 +88,7 @@ ccos_inode_t* ccos_get_root_dir(uint8_t* data, size_t data_size);
  *
  * @param[in]  dir             Directory inode.
  * @param[in]  data            CCOS image data.
- * @param    nrot0  entry_count     Count of the items in the directory.
+ * @param      entry_count     Count of the items in the directory.
  * @param      entries         Directory contents inodes.
  *
  * @return     0 on success, -1 otherwise.
