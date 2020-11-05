@@ -1,4 +1,4 @@
-#ifndef CCOS_IMAGE_H
+﻿#ifndef CCOS_IMAGE_H
 #define CCOS_IMAGE_H
 
 #include <stddef.h>
@@ -75,7 +75,7 @@ ccos_inode_t* ccos_get_root_dir(uint8_t* data, size_t data_size);
  *
  * @param[in]  dir             Directory inode.
  * @param[in]  data            CCOS image data.
- * @param      entry_count     Count of the items in the directory.
+ * @param    nrot0  entry_count     Count of the items in the directory.
  * @param      entries         Directory contents inodes.
  *
  * @return     0 on success, -1 otherwise.
