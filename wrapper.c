@@ -361,6 +361,73 @@ int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data) {
   return res;
 }
 
+int dump_image_to(const char* path, uint8_t* data, size_t data_size, const char* destpath) {
+  ccos_inode_t* root_dir = ccos_get_root_dir(data, data_size);
+  if (root_dir == NULL) {
+    fprintf(stderr, "Unable to dump image: Unable to get root directory!\n");
+    return -1;
+  }
+
+  return dump_dir_to(path, root_dir, data, destpath);
+}
+
+int dump_dir_to(const char* path, ccos_inode_t* dir, uint8_t* data, const char* destpath) {
+  char* floppy_name = short_string_to_string(ccos_get_file_name(dir));
+  const char* name_trimmed = trim_string(floppy_name, ' ');
+
+  const char* basename = get_basename(path);
+
+  char* dirname = (char*)calloc(sizeof(char), PATH_MAX);
+  if (dirname == NULL) {
+    fprintf(stderr, "Unable to allocate memory for directory name!\n");
+    free(floppy_name);
+    return -1;
+  }
+
+  if (strlen(name_trimmed) == 0) {
+    char* dot_position;
+    if ((dot_position = strchr(basename, '.')) != NULL) {
+      strncpy(dirname, basename, dot_position - basename);
+    } else {
+      strcpy(dirname, basename);
+    }
+  } else {
+    const char* idx = rtrim_string(name_trimmed, ' ');
+    if (idx == NULL) {
+      strcpy(dirname, name_trimmed);
+    } else {
+      strncpy(dirname, name_trimmed, idx - name_trimmed);
+    }
+  }
+
+  free(floppy_name);
+
+  // some directories have '/' in their names, e.g. "GRiD-OS/Windows 113x, 114x v3.1.5D"
+  replace_char_in_place(dirname, '/', '_');
+
+  char* dest = (char*)calloc(sizeof(char), PATH_MAX);
+  if (dirname == NULL) {
+    fprintf(stderr, "Unable to allocate memory for directory name!\n");
+    free(floppy_name);
+    return -1;
+  }
+  strcpy(dest, destpath);
+  strcat(dest, "/");
+  strcat(dest, dirname);
+  free(dirname);
+
+  if (MKDIR(dest, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
+    fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dest, strerror(errno));
+    free(dest);
+    return -1;
+  }
+
+  int res = traverse_ccos_image(dir, data, dest, 0, dump_dir_tree_on_file, dump_dir_tree_on_dir, NULL);
+  free(dest);
+  TRACE("Image dump complete!");
+  return res;
+}
+
 static traverse_callback_result_t find_file_on_file(ccos_inode_t* file, UNUSED const uint8_t* data,
                                                     UNUSED const char* dirname, UNUSED int level, void* arg) {
   char* file_name = short_string_to_string(ccos_get_file_name(file));
