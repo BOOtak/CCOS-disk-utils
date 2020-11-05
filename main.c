@@ -12,6 +12,7 @@ typedef enum {
   MODE_REPLACE_FILE,
   MODE_COPY_FILE,
   MODE_DELETE_FILE,
+  MODE_CREATE_DIRECTORY,
   MODE_ADD_FILE
 } op_mode_t;
 
@@ -21,6 +22,7 @@ static const struct option long_options[] = {{"image", required_argument, NULL, 
                                              {"delete-file", required_argument, NULL, 'z'},
                                              {"target-image", required_argument, NULL, 't'},
                                              {"target-name", required_argument, NULL, 'n'},
+                                             {"create-dir", required_argument, NULL, 'y'},
                                              {"in-place", no_argument, NULL, 'l'},
                                              {"add-file", required_argument, NULL, 'a'},
                                              {"dump-dir", no_argument, NULL, 'd'},
@@ -30,7 +32,7 @@ static const struct option long_options[] = {{"image", required_argument, NULL, 
                                              {"help", no_argument, NULL, 'h'},
                                              {NULL, no_argument, NULL, 0}};
 
-static const char* opt_string = "i:r:n:c:a:t:z:ldpsvh";
+static const char* opt_string = "i:r:n:c:a:t:y:z:ldpsvh";
 
 static void print_usage() {
   fprintf(stderr,
@@ -41,6 +43,7 @@ static void print_usage() {
           "Examples:\n"
           "ccos_disk_tool -i image -p [-s]\n"
           "ccos_disk_tool -i image -d\n"
+          "ccos_disk_tool -i image -y dir_name\n"
           "ccos_disk_tool -i image -a file -n name [-l]\n"
           "ccos_disk_tool -i src_image -c name -t dest_image [-l]\n"
           "ccos_disk_tool -i image -r file -n name [-l]\n"
@@ -56,6 +59,7 @@ static void print_usage() {
           "                         (80-column compatible, no dates)\n"
           "-d, --dump-dir           Dump image contents into the current directory\n"
           "-a, --add-file FILE      Add file to the image\n"
+          "-y, --create-dir NAME    Create new directory\n"
           "-r, --replace-file FILE  Replace file in the image with the given\n"
           "                         file, save changes to IMAGE.out\n"
           "-c, --copy-file NAME     Copy file from one image to another\n"
@@ -63,14 +67,14 @@ static void print_usage() {
           "-z, --delete-file FILE   Delete file from the image\n"
           "-n, --target-name NAME   Replace / delete / copy or add file with the name NAME\n"
           "                         in the image\n"
-          "-l, --in-place           Write changes to the original image\n"
-          );
+          "-l, --in-place           Write changes to the original image\n");
 }
 
 int main(int argc, char** argv) {
   op_mode_t mode = 0;
   char* path = NULL;
   char* filename = NULL;
+  char* dir_name = NULL;
   char* target_name = NULL;
   char* target_image = NULL;
   int in_place = 0;
@@ -123,6 +127,11 @@ int main(int argc, char** argv) {
         filename = optarg;
         break;
       }
+      case 'y': {
+        mode = MODE_CREATE_DIRECTORY;
+        dir_name = optarg;
+        break;
+      }
       case 'z': {
         mode = MODE_DELETE_FILE;
         filename = optarg;
@@ -151,45 +160,35 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  uint16_t superblock = 0;
-  if (ccos_get_superblock(file_contents, file_size, &superblock) == -1) {
+  if (ccos_check_image(file_contents) == -1) {
     fprintf(stderr, "Unable to get superblock: invalid image format!\n");
     free(file_contents);
     return -1;
   }
 
-  TRACE("superblock: 0x%x", superblock);
-
   int res;
   switch (mode) {
     case MODE_PRINT: {
-      res = print_image_info(path, superblock, file_contents, short_format);
-
-      uint16_t* free_blocks = NULL;
-      size_t free_blocks_count = 0;
-      res |= ccos_get_free_blocks(ccos_get_bitmask_block(superblock), file_contents, file_size, &free_blocks_count,
-                                  &free_blocks);
-
+      res = print_image_info(path, file_contents, file_size, short_format);
+      size_t free_bytes = ccos_calc_free_space(file_contents, file_size);
       printf("\n");
-      printf("Free space: %I64d bytes.\n", free_blocks_count * BLOCK_SIZE);
-      free(free_blocks);
-
+      printf("Free space: " SIZE_T " bytes.\n", free_bytes);
       break;
     }
     case MODE_DUMP: {
-      res = dump_dir(path, superblock, file_contents);
+      res = dump_image(path, file_contents, file_size);
       break;
     }
     case MODE_REPLACE_FILE: {
-      res = replace_file(path, filename, target_name, superblock, file_contents, (size_t)file_size, in_place);
+      res = replace_file(path, filename, target_name, file_contents, file_size, in_place);
       break;
     }
     case MODE_COPY_FILE: {
-      res = copy_file(target_image, filename, superblock, file_contents, (size_t)file_size, in_place);
+      res = copy_file(target_image, filename, file_contents, file_size, in_place);
       break;
     }
     case MODE_DELETE_FILE: {
-      res = delete_file(path, filename, superblock, in_place);
+      res = delete_file(path, filename, in_place);
       break;
     }
     case MODE_ADD_FILE: {
@@ -198,8 +197,12 @@ int main(int argc, char** argv) {
         print_usage();
         res = -1;
       } else {
-        res = add_file(path, filename, target_name, superblock, file_contents, file_size, in_place);
+        res = add_file(path, filename, target_name, file_contents, file_size, in_place);
       }
+      break;
+    }
+    case MODE_CREATE_DIRECTORY: {
+      res = create_directory(path, dir_name, file_contents, file_size, in_place);
       break;
     }
     default: {
