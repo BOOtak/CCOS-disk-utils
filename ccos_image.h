@@ -1,4 +1,4 @@
-#ifndef CCOS_IMAGE_H
+﻿#ifndef CCOS_IMAGE_H
 #define CCOS_IMAGE_H
 
 #include <stddef.h>
@@ -37,15 +37,28 @@ typedef struct ccos_inode_t_ ccos_inode_t;
 
 typedef enum { UNKNOWN, DATA, EMPTY } block_type_t;
 
+/**
+ * @brief      Checking image for validity.
+ *
+ * @param[in]  file_data  The file.
+ *
+ * @return     0 if valid, -1 otherwise.
+ */
 int ccos_check_image(const uint8_t* file_data);
 
+/**
+ * @brief      Get the file ID.
+ *
+ * @param[in]  inode  The file.
+ *
+ * @return     The ID of the file.
+ */
 uint16_t ccos_file_id(ccos_inode_t* inode);
 
 /**
  * @brief      Get the file version.
  *
  * @param[in]  file   The file.
- * @param[in]  data   CCOS image data.
  *
  * @return     The version of the file.
  */
