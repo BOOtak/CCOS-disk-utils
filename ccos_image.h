@@ -204,8 +204,8 @@ int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* de
 /**
  * @brief      Delete file in the image.
  *
- * @param      image_data       CCOS image data.
- * @param[in]  data_size  The image size.
+ * @param      image_data  CCOS image data.
+ * @param[in]  data_size   The image size.
  * @param[in]  file        The file to delete.
  *
  * @return     0 on success, -1 otherwise.

@@ -617,7 +617,7 @@ int ccos_parse_file_name(ccos_inode_t* inode, char* basename, char* type, size_t
 }
 
 int ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_t* image_data, size_t image_size) {
-  const char* dir_suffix = "~Subject~";
+  const char* dir_suffix = "~subject~";
 
   char* filename = (char*)calloc(strlen(directory_name) + strlen(dir_suffix) + 1, sizeof(char));
   if (filename == NULL) {

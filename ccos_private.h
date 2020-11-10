@@ -1,4 +1,4 @@
-//
+﻿//
 // Created by kirill on 21.05.2020.
 //
 
@@ -403,7 +403,7 @@ int find_file_index_in_directory_data(ccos_inode_t* file, ccos_inode_t* director
 /**
  * @brief      Checks if the directory is root.
  *
- * @param      file        The directory.
+ * @param      file   The directory.
  *
  * @return     1 if directory is root, 0 otherwise.
  */
