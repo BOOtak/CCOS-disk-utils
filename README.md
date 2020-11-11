@@ -11,6 +11,7 @@ ccos_disk_tool -i image -d
 ccos_disk_tool -i image -y dir_name
 ccos_disk_tool -i image -a file -n name [-l]
 ccos_disk_tool -i src_image -c name -t dest_image [-l]
+ccos_disk_tool -i src_image -e old name -n new name [-l]
 ccos_disk_tool -i image -r file -n name [-l]
 ccos_disk_tool -i image -z name [-l]
 
@@ -28,6 +29,7 @@ OPTIONS:
 -r, --replace-file FILE  Replace file in the image with the given
                          file, save changes to IMAGE.out
 -c, --copy-file NAME     Copy file from one image to another
+-e, --rename-file FILE   Rename file to the name passed with -n option
 -t, --target-name FILE   Path to image to copy file to
 -z, --delete-file FILE   Delete file from the image
 -n, --target-name NAME   Replace / delete / copy or add file with the name NAME

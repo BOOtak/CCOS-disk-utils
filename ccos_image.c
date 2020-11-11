@@ -647,3 +647,22 @@ int ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_
   update_inode_checksums(new_directory);
   return 0;
 }
+
+int ccos_rename_file(ccos_inode_t* file, const char* new_name, uint8_t* image_data, size_t image_size) {
+  char name[CCOS_MAX_FILE_NAME] = {0};
+  char type[CCOS_MAX_FILE_NAME] = {0};
+
+  int res = ccos_parse_file_name(file, name, type, NULL, NULL);
+
+  if (res == -1) {
+    fprintf(stderr, "Unable to rename file: Unable to parse file name!\n");
+    return -1;
+  }
+
+  memset(file->name, 0, CCOS_MAX_FILE_NAME);
+  snprintf(file->name, CCOS_MAX_FILE_NAME, "%s~%s~", new_name, type);
+  file->name_length = strlen(file->name);
+
+  update_inode_checksums(file);
+  return 0;
+}
