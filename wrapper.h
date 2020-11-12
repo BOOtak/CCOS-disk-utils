@@ -138,4 +138,6 @@ int add_file(const char* image_path, const char* file_path, const char* file_nam
  */
 int create_directory(char* path, char* directory_name, uint8_t* file_contents, size_t file_size, int in_place);
 
+int rename_file(char* path, char* file_name, char* new_name, uint8_t* image_data, size_t image_size, int in_place);
+
 #endif  // WRAPPER_H

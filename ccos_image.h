@@ -285,6 +285,8 @@ int ccos_parse_file_name(ccos_inode_t* inode, char* basename, char* type, size_t
  */
 int ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_t* image_data, size_t image_size);
 
+int ccos_rename_file(ccos_inode_t* file, const char* new_name, uint8_t* image_data, size_t image_size);
+
 // TODO: remove directory recursively
 
 #endif  // CCOS_IMAGE_H

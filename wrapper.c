@@ -764,3 +764,42 @@ int create_directory(char* path, char* directory_name, uint8_t* image_data, size
 
   return save_image(path, image_data, image_size, in_place);
 }
+
+int rename_file(char* path, char* file_name, char* new_name, uint8_t* image_data, size_t image_size, int in_place) {
+  if (path == NULL) {
+    fprintf(stderr, "No target image is provided to copy file to!\n");
+    return -1;
+  }
+
+  if (file_name == NULL) {
+    fprintf(stderr, "No file provided to rename!\n");
+    return -1;
+  }
+
+  if (new_name == NULL) {
+    fprintf(stderr, "No new file name provided to rename file to!\n");
+    return -1;
+  }
+
+  ccos_inode_t* root_dir = ccos_get_root_dir(image_data, image_size);
+  if (root_dir == NULL) {
+    fprintf(stderr, "Unable to rename file: Unable to get root directory!\n");
+    return -1;
+  }
+
+  ccos_inode_t* file = NULL;
+  if (find_filename(root_dir, image_data, file_name, &file, 1) != 0) {
+    fprintf(stderr, "Unable to find file %s in the image!\n", file_name);
+    return -1;
+  }
+
+  if (ccos_rename_file(file, new_name, image_data, image_size) == -1) {
+    char* old_file_name = short_string_to_string(ccos_get_file_name(file));
+    fprintf(stderr, "Unable to rename file %s to %s!\n", old_file_name, new_name);
+    free(old_file_name);
+    return -1;
+  }
+
+  int res = save_image(path, image_data, image_size, in_place);
+  return res;
+}
