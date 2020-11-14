@@ -183,10 +183,10 @@ int ccos_set_image_label(uint8_t* data, size_t data_size, const char* label){
     ccos_inode_t* root = ccos_get_root_dir(data, data_size);
     if (strcmp(label, "")){
         sprintf(newlab, " %s", label);
-        return ccos_rename_file(root, newlab);
+        return ccos_rename_file(root, newlab, NULL);
     }
     else{
-        return ccos_rename_file(root, "");
+        return ccos_rename_file(root, "", NULL);
     }
 }
 
