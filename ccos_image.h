@@ -204,8 +204,8 @@ int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* de
 /**
  * @brief      Delete file in the image.
  *
- * @param      image_data       CCOS image data.
- * @param[in]  data_size  The image size.
+ * @param      image_data  CCOS image data.
+ * @param[in]  data_size   The image size.
  * @param[in]  file        The file to delete.
  *
  * @return     0 on success, -1 otherwise.
@@ -285,7 +285,37 @@ int ccos_parse_file_name(ccos_inode_t* inode, char* basename, char* type, size_t
  */
 int ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_t* image_data, size_t image_size);
 
-int ccos_rename_file(ccos_inode_t* file, const char* new_name, uint8_t* image_data, size_t image_size);
+/**
+ * @brief      Rename file and change type.
+ *
+ * @param[in]  file        The file.
+ * @param[in]  new_name    The new name.
+ * @param[in]  new_type    The new type (optional, may be NULL, if you don't want to change it).
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_rename_file(ccos_inode_t* file, const char* new_name, const char* new_type);
+
+/**
+ * @brief      Get label of provided image and return it.
+ *
+ * @param[in]  data               CCOS image data.
+ * @param[in]  data_size          The data size.
+ *
+ * @return     Image label in char*
+ */
+char* ccos_get_image_label(uint8_t* data, size_t data_size);
+
+/**
+ * @brief      Set label of provided image.
+ *
+ * @param[in]  data               CCOS image data.
+ * @param[in]  data_size          The data size.
+ * @param[in]  label              The new label.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_set_image_label(uint8_t* data, size_t data_size, const char* label);
 
 // TODO: remove directory recursively
 
