@@ -17,8 +17,6 @@ typedef struct {
   ccos_inode_t* target_file;
 } find_file_data_t;
 
-struct stat statbuf;
-
 typedef enum { RESULT_OK = 1, RESULT_ERROR, RESULT_BREAK } traverse_callback_result_t;
 
 typedef traverse_callback_result_t (*on_file_t)(ccos_inode_t* file, const uint8_t* data, const char* dirname, int level,
@@ -297,22 +295,11 @@ static traverse_callback_result_t dump_dir_tree_on_dir(ccos_inode_t* dir, UNUSED
   snprintf(subdir, PATH_MAX, "%s/%s", dirname, subdir_name);
 
   int res = MKDIR(subdir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+  free(subdir);
 
   if (res == -1) {
-      if (stat(subdir, &statbuf) != -1) {
-         if (S_ISDIR(statbuf.st_mode)) {
-             TRACE("Directory \"%s\" already exists! Dumping...", subdir);
-         }
-         else {
-             fprintf(stderr, "Unable to create directory \"%s\": %s!\n", subdir, strerror(errno));
-             return RESULT_ERROR;
-         }
-      }
-      else {
-          fprintf(stderr, "Unable to create directory \"%s\": %s!\n", subdir, strerror(errno));
-          return RESULT_ERROR;
-      }
-      free(subdir);
+    fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dirname, strerror(errno));
+    return RESULT_ERROR;
   }
 
   return RESULT_OK;
@@ -363,21 +350,9 @@ int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data) {
   replace_char_in_place(dirname, '/', '_');
 
   if (MKDIR(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
-      if (stat(dirname, &statbuf) != -1) {
-         if (S_ISDIR(statbuf.st_mode)) {
-             TRACE("Directory \"%s\" already exists! Dumping...", dirname);
-         }
-         else {
-             fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dirname, strerror(errno));
-             free(dirname);
-             return -1;
-         }
-      }
-      else {
-          fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dirname, strerror(errno));
-          free(dirname);
-          return -1;
-      }
+    fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dirname, strerror(errno));
+    free(dirname);
+    return -1;
   }
 
   int res = traverse_ccos_image(dir, data, dirname, 0, dump_dir_tree_on_file, dump_dir_tree_on_dir, NULL);
@@ -442,21 +417,9 @@ int dump_dir_to(const char* path, ccos_inode_t* dir, uint8_t* data, const char* 
   free(dirname);
 
   if (MKDIR(dest, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
-      if (stat(dest, &statbuf) != -1) {
-         if (S_ISDIR(statbuf.st_mode)) {
-             TRACE("Directory \"%s\" already exists! Dumping...", dest);
-         }
-         else {
-             fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dest, strerror(errno));
-             free(dest);
-             return -1;
-         }
-      }
-      else {
-          fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dest, strerror(errno));
-          free(dest);
-          return -1;
-      }
+    fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dest, strerror(errno));
+    free(dest);
+    return -1;
   }
 
   int res = traverse_ccos_image(dir, data, dest, 0, dump_dir_tree_on_file, dump_dir_tree_on_dir, NULL);
@@ -793,7 +756,7 @@ int rename_file(char* path, char* file_name, char* new_name, uint8_t* image_data
     return -1;
   }
 
-  if (ccos_rename_file(file, new_name, image_data, image_size) == -1) {
+  if (ccos_rename_file(file, new_name, NULL) == -1) {
     char* old_file_name = short_string_to_string(ccos_get_file_name(file));
     fprintf(stderr, "Unable to rename file %s to %s!\n", old_file_name, new_name);
     free(old_file_name);

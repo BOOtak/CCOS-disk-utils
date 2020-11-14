@@ -167,6 +167,29 @@ int ccos_replace_file(ccos_inode_t* file, const uint8_t* file_data, uint32_t fil
   return 0;
 }
 
+char* ccos_get_image_label(uint8_t* data, size_t data_size){
+    ccos_inode_t* root = ccos_get_root_dir(data, data_size);
+    char* label = short_string_to_string((short_string_t*)&(root->name_length));
+    if (strcmp(label, "")){
+        int sz = strlen(label);
+        memmove(label, label + 1, sz - 1);
+        label[sz - 1] = 0;
+    }
+    return label;
+}
+
+int ccos_set_image_label(uint8_t* data, size_t data_size, const char* label){
+    char newlab[strlen(label)+1];
+    ccos_inode_t* root = ccos_get_root_dir(data, data_size);
+    if (strcmp(label, "")){
+        sprintf(newlab, " %s", label);
+        return ccos_rename_file(root, newlab);
+    }
+    else{
+        return ccos_rename_file(root, "");
+    }
+}
+
 int ccos_get_image_map(const uint8_t* data, size_t data_size, block_type_t** image_map, size_t* free_blocks_count) {
   size_t block_count = data_size / BLOCK_SIZE;
   if (block_count * BLOCK_SIZE != data_size) {
@@ -648,21 +671,34 @@ int ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_
   return 0;
 }
 
-int ccos_rename_file(ccos_inode_t* file, const char* new_name, uint8_t* image_data, size_t image_size) {
+int ccos_rename_file(ccos_inode_t* file, const char* new_name, const char *new_type) {
   char name[CCOS_MAX_FILE_NAME] = {0};
   char type[CCOS_MAX_FILE_NAME] = {0};
 
-  int res = ccos_parse_file_name(file, name, type, NULL, NULL);
+  memset(file->name, 0, CCOS_MAX_FILE_NAME);
 
-  if (res == -1) {
-    fprintf(stderr, "Unable to rename file: Unable to parse file name!\n");
-    return -1;
+  if (!is_root_dir(file)){
+      int res = ccos_parse_file_name(file, name, type, NULL, NULL);
+
+      if (res == -1) {
+        fprintf(stderr, "Unable to rename file: Unable to parse file name!\n");
+        return -1;
+      }
+
+      if (new_type != NULL){
+          snprintf(file->name, CCOS_MAX_FILE_NAME, "%s~%s~", new_name, new_type);
+      }
+      else{
+          snprintf(file->name, CCOS_MAX_FILE_NAME, "%s~%s~", new_name, type);
+      }
+  }
+  else{
+      snprintf(file->name, CCOS_MAX_FILE_NAME, "%s", new_name);
   }
 
-  memset(file->name, 0, CCOS_MAX_FILE_NAME);
-  snprintf(file->name, CCOS_MAX_FILE_NAME, "%s~%s~", new_name, type);
   file->name_length = strlen(file->name);
 
   update_inode_checksums(file);
+
   return 0;
 }
