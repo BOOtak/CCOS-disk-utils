@@ -675,15 +675,14 @@ int ccos_rename_file(ccos_inode_t* file, const char* new_name, const char *new_t
   char name[CCOS_MAX_FILE_NAME] = {0};
   char type[CCOS_MAX_FILE_NAME] = {0};
 
-  memset(file->name, 0, CCOS_MAX_FILE_NAME);
-
   if (!is_root_dir(file)){
       int res = ccos_parse_file_name(file, name, type, NULL, NULL);
-
       if (res == -1) {
         fprintf(stderr, "Unable to rename file: Unable to parse file name!\n");
         return -1;
       }
+
+      memset(file->name, 0, CCOS_MAX_FILE_NAME);
 
       if (new_type != NULL){
           snprintf(file->name, CCOS_MAX_FILE_NAME, "%s~%s~", new_name, new_type);
@@ -693,11 +692,11 @@ int ccos_rename_file(ccos_inode_t* file, const char* new_name, const char *new_t
       }
   }
   else{
+      memset(file->name, 0, CCOS_MAX_FILE_NAME);
       snprintf(file->name, CCOS_MAX_FILE_NAME, "%s", new_name);
   }
 
   file->name_length = strlen(file->name);
-
   update_inode_checksums(file);
 
   return 0;
