@@ -369,6 +369,8 @@ int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data) {
   char* dirname = (char*)calloc(sizeof(char), PATH_MAX);
   if (dirname == NULL) {
     fprintf(stderr, "Unable to allocate memory for directory name!\n");
+    free(floppy_name);
+    free(name_trimmed);
     return -1;
   }
 
@@ -449,6 +451,8 @@ int dump_dir_to(const char* path, ccos_inode_t* dir, uint8_t* data, const char* 
   char* dirname = (char*)calloc(sizeof(char), PATH_MAX);
   if (dirname == NULL) {
     fprintf(stderr, "Unable to allocate memory for directory name!\n");
+    free(floppy_name);
+    free(name_trimmed);
     return -1;
   }
 
