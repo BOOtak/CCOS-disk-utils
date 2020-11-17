@@ -127,6 +127,10 @@ int ccos_is_dir(ccos_inode_t* file) {
     return 0;
   }
 
+  if (strlen(type) != strlen(CCOS_DIR_TYPE)){
+    return 0;
+  }
+
   return strncasecmp(type, CCOS_DIR_TYPE, strlen(CCOS_DIR_TYPE)) == 0;
 }
 
