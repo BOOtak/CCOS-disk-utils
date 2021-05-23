@@ -655,7 +655,8 @@ int ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_
   sprintf(filename, "%s%s", directory_name, dir_suffix);
 
   uint8_t directory_contents = CCOS_DIR_LAST_ENTRY_MARKER;
-  ccos_inode_t* new_directory = ccos_add_file(parent_dir, &directory_contents, 1, filename, image_data, image_size);
+  ccos_inode_t* new_directory =
+      ccos_add_file(parent_dir, &directory_contents, DIR_DEFAULT_SIZE, filename, image_data, image_size);
   free(filename);
 
   if (new_directory == NULL) {

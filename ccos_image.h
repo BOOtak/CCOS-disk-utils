@@ -12,6 +12,7 @@
 #define MAX_BLOCKS_IN_INODE 146
 #define MAX_BLOCKS_IN_CONTENT_INODE 246
 #define BITMASK_SIZE 500
+#define DIR_DEFAULT_SIZE 0x1F8
 
 typedef struct {
   uint8_t major;
