@@ -410,6 +410,17 @@ int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* de
 // - Find all file blocks; clear them and mark as free
 // - Clear all file content inode blocks and mark as free
 int ccos_delete_file(uint8_t* image_data, size_t data_size, ccos_inode_t* file) {
+  if (ccos_is_dir(file)) {
+      TRACE("Recursively deleting files in the directory %*s (0x%x)", file->name_length,
+            file->name, file->header.file_id);
+      uint16_t files = 0;
+      ccos_inode_t** content = NULL;
+      ccos_get_dir_contents(file, image_data, &files, &content);
+      for (int c = 0; c < files; c++) {
+          ccos_delete_file(image_data, data_size, content[c]);
+      }
+  }
+	
   ccos_inode_t* parent_dir = ccos_get_parent_dir(file, image_data);
 
   TRACE("Reading contents of the directory %*s (0x%x)", parent_dir->name_length, parent_dir->name,
