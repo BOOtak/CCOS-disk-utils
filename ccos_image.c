@@ -654,13 +654,14 @@ int ccos_parse_file_name(ccos_inode_t* inode, char* basename, char* type, size_t
   return parse_file_name((const short_string_t*)&(inode->name_length), basename, type, name_length, type_length);
 }
 
-int ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_t* image_data, size_t image_size) {
+ccos_inode_t* ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_t* image_data,
+                              size_t image_size) {
   const char* dir_suffix = "~subject~";
 
   char* filename = (char*)calloc(strlen(directory_name) + strlen(dir_suffix) + 1, sizeof(char));
   if (filename == NULL) {
     fprintf(stderr, "Unable to create directory: Unable to allocate memory for directory name!\n");
-    return -1;
+    return NULL;
   }
 
   sprintf(filename, "%s%s", directory_name, dir_suffix);
@@ -671,7 +672,7 @@ int ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_
   free(filename);
 
   if (new_directory == NULL) {
-    return -1;
+    return NULL;
   }
 
   // I have no idea what I'm doing. I'm filling different fields of newly created file to match Programs~Subject~ from
@@ -684,7 +685,7 @@ int ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_
   new_directory->pswd[3] = '\xC7';
 
   update_inode_checksums(new_directory);
-  return 0;
+  return new_directory;
 }
 
 int ccos_rename_file(ccos_inode_t* file, const char* new_name, const char *new_type) {

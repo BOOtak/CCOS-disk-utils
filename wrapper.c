@@ -790,7 +790,7 @@ int create_directory(char* path, char* directory_name, uint8_t* image_data, size
     return -1;
   }
 
-  if (ccos_create_dir(root_dir, directory_name, image_data, image_size) == -1) {
+  if (ccos_create_dir(root_dir, directory_name, image_data, image_size) == NULL) {
     fprintf(stderr, "Unable to create directory!\n");
     return -1;
   }

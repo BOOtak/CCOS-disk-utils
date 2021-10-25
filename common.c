@@ -5,6 +5,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
+int (*trace)(FILE* stream, const char* format, ...);
+
 int trace_silent(UNUSED FILE* stream, UNUSED const char* format, ...) {
   return 0;
 }
