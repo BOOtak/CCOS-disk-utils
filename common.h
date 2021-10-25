@@ -25,7 +25,7 @@
     }                                                                               \
   } while (0)
 
-int (*trace)(FILE* stream, const char* format, ...);
+extern int (*trace)(FILE* stream, const char* format, ...);
 
 int trace_silent(FILE* stream, const char* format, ...);
 
