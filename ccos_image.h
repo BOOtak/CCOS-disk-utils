@@ -223,7 +223,7 @@ int ccos_delete_file(uint8_t* image_data, size_t data_size, ccos_inode_t* file);
  * @param      image_data      CCOS image data.
  * @param[in]  image_size      Image size.
  *
- * @return     0 on success, -1 otherwise.
+ * @return     Newly created file inode on success, NULL otherwise.
  */
 ccos_inode_t* ccos_add_file(ccos_inode_t* dest_directory, uint8_t* file_data, size_t file_size, const char* file_name,
                             uint8_t* image_data, size_t image_size);
@@ -282,9 +282,10 @@ int ccos_parse_file_name(ccos_inode_t* inode, char* basename, char* type, size_t
  * @param      image_data      CCOS image data.
  * @param[in]  image_size      CCOS image size.
  *
- * @return     0 on success, -1 otherwise.
+ * @return     Newly created directory inode on success, NULL otherwise.
  */
-int ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_t* image_data, size_t image_size);
+ccos_inode_t* ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_t* image_data,
+                              size_t image_size);
 
 /**
  * @brief      Rename file and change type.
