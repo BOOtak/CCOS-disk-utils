@@ -419,6 +419,7 @@ int ccos_delete_file(uint8_t* image_data, size_t data_size, ccos_inode_t* file) 
       for (int c = 0; c < files; c++) {
           ccos_delete_file(image_data, data_size, content[c]);
       }
+      free(content);
   }
 	
   ccos_inode_t* parent_dir = ccos_get_parent_dir(file, image_data);
