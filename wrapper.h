@@ -25,6 +25,18 @@ int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data);
  */
 int dump_image(const char* path, uint8_t* data, size_t data_size);
 
+
+/**
+ * @brief      Dumps file to directory from CCOS disk image.
+ *
+ * @param[in]  path_to_dir      The path to CCOS image.
+ * @param[in]  file             The file.
+ * @param[in]  image_data       CCOS image data.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int dump_file(const char* path_to_dir, ccos_inode_t* file, uint8_t* image_data);
+
 /**
  * @brief      Dumps a directory recursively from CCOS disk image to a custom folder.
  *
