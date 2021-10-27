@@ -798,3 +798,21 @@ int is_root_dir(ccos_inode_t* file) {
   // In CCOS, root directory's parent file id it its own file id.
   return file->header.file_id == file->dir_file_id;
 }
+
+int change_date(ccos_inode_t* file, ccos_date_t new_date, int type) {
+
+  if (!is_root_dir(file)){
+      if (type == 1)
+          file->creation_date = new_date;
+      else if (type == 2)
+          file->mod_date = new_date;
+      else if (type == 3)
+          file->expiration_date = new_date;
+      else
+          return -1;
+      update_inode_checksums(file);
+      return 0;
+  }
+
+  return -1;
+}

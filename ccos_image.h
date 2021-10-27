@@ -142,6 +142,36 @@ ccos_date_t ccos_get_mod_date(ccos_inode_t* file);
 ccos_date_t ccos_get_exp_date(ccos_inode_t* file);
 
 /**
+ * @brief      Сhanges the creation date of a file or folder.
+ *
+ * @param      file      The file or the directory.
+ * @param      new_date  The new date variable.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_set_creation_date(ccos_inode_t* file, ccos_date_t new_date);
+
+/**
+ * @brief      Сhanges the modification date of a file or folder.
+ *
+ * @param      file      The file or the directory.
+ * @param      new_date  The new date variable.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_set_mod_date(ccos_inode_t* file, ccos_date_t new_date);
+
+/**
+ * @brief      Сhanges the expiration date of a file or folder.
+ *
+ * @param      file      The file or the directory.
+ * @param      new_date  The new date variable.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_set_exp_date(ccos_inode_t* file, ccos_date_t new_date);
+
+/**
  * @brief      Replace file in the CCOS image data.
  *
  * @param[in]  file        The file to replace.

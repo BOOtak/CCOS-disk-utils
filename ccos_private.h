@@ -409,4 +409,15 @@ int find_file_index_in_directory_data(ccos_inode_t* file, ccos_inode_t* director
  */
 int is_root_dir(ccos_inode_t* file);
 
+/**
+ * @brief      Сhanges the date of a file or folder.
+ *
+ * @param      file      The file or the directory.
+ * @param      new_date  The new date variable.
+ * @param      type      Date type to replace (1 - creation, 2 - modification, 3 - expiration).
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int change_date(ccos_inode_t* file, ccos_date_t new_date, int type);
+
 #endif  // CCOS_DISK_TOOL_CCOS_PRIVATE_H
