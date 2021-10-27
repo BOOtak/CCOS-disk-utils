@@ -297,7 +297,6 @@ static traverse_callback_result_t dump_dir_tree_on_dir(ccos_inode_t* dir, UNUSED
   snprintf(subdir, PATH_MAX, "%s/%s", dirname, subdir_name);
 
   int res = MKDIR(subdir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-  free(subdir);
 
   if (res == -1) {
       if (stat(subdir, &statbuf) != -1) {
@@ -306,16 +305,19 @@ static traverse_callback_result_t dump_dir_tree_on_dir(ccos_inode_t* dir, UNUSED
          }
          else {
              fprintf(stderr, "Unable to create directory \"%s\": %s!\n", subdir, strerror(errno));
+             free(subdir);
              return RESULT_ERROR;
          }
       }
       else {
           fprintf(stderr, "Unable to create directory \"%s\": %s!\n", subdir, strerror(errno));
+          free(subdir);
           return RESULT_ERROR;
       }
-      free(subdir);
+
   }
 
+  free(subdir);
   return RESULT_OK;
 }
 
