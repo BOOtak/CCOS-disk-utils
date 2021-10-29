@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define FAT_MBR_END_OF_SECTOR_MARKER 0xAA55
 #define OPCODE_NOP 0x90
@@ -585,9 +586,16 @@ ccos_inode_t* ccos_add_file(ccos_inode_t* dest_directory, uint8_t* file_data, si
   new_file->name_length = strlen(file_name);
   strncpy(new_file->name, file_name, strlen(file_name));
 
-  new_file->creation_date = dest_directory->creation_date;
-  new_file->mod_date = dest_directory->mod_date;
-  new_file->expiration_date = dest_directory->expiration_date;
+  time_t posix_time;
+  time(&posix_time);
+  struct tm* time_struct;
+  time_struct = localtime(&posix_time);
+
+  new_file->creation_date = (ccos_date_t){time_struct->tm_year+1900, time_struct->tm_mon+1,
+          time_struct->tm_mday, time_struct->tm_hour, time_struct->tm_min,
+          time_struct->tm_sec, 0,time_struct->tm_wday, time_struct->tm_yday};
+  new_file->mod_date = new_file->creation_date;
+  new_file->expiration_date = (ccos_date_t){};
 
   TRACE("Writing file 0x%lx", new_file->header.file_id);
   if (ccos_write_file(new_file, image_data, image_size, file_data, file_size) == -1) {
