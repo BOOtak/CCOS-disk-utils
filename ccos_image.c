@@ -593,7 +593,7 @@ ccos_inode_t* ccos_add_file(ccos_inode_t* dest_directory, uint8_t* file_data, si
 
   new_file->creation_date = (ccos_date_t){time_struct->tm_year+1900, time_struct->tm_mon+1,
           time_struct->tm_mday, time_struct->tm_hour, time_struct->tm_min,
-          time_struct->tm_sec, 0,time_struct->tm_wday, time_struct->tm_yday};
+          time_struct->tm_sec, 0, time_struct->tm_wday, time_struct->tm_yday};
   new_file->mod_date = new_file->creation_date;
   new_file->expiration_date = (ccos_date_t){};
 
