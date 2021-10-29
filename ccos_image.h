@@ -66,6 +66,16 @@ uint16_t ccos_file_id(ccos_inode_t* inode);
 version_t ccos_get_file_version(ccos_inode_t* file);
 
 /**
+ * @brief      Set the file version.
+ *
+ * @param[in]  file          The file.
+ * @param      new_version   The new version to set.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_set_file_version(ccos_inode_t* file, version_t new_version);
+
+/**
  * @brief      Get the name of the file.
  *
  * @param[in]  file   File inode.

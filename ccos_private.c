@@ -800,7 +800,6 @@ int is_root_dir(ccos_inode_t* file) {
 }
 
 int change_date(ccos_inode_t* file, ccos_date_t new_date, int type) {
-
   if (!is_root_dir(file)){
       if (type == 1)
           file->creation_date = new_date;

@@ -53,6 +53,18 @@ version_t ccos_get_file_version(ccos_inode_t* file) {
   return version;
 }
 
+int ccos_set_file_version(ccos_inode_t* file, version_t new_version) {
+  if (!is_root_dir(file)){
+    file->version_major = new_version.major;
+    file->version_minor = new_version.minor;
+    file->version_patch = new_version.patch;
+    update_inode_checksums(file);
+    return 0;
+  }
+
+  return -1;
+}
+
 short_string_t* ccos_get_file_name(const ccos_inode_t* file) {
   return (short_string_t*)&(file->name_length);
 }
