@@ -359,6 +359,4 @@ char* ccos_get_image_label(uint8_t* data, size_t data_size);
  */
 int ccos_set_image_label(uint8_t* data, size_t data_size, const char* label);
 
-// TODO: remove directory recursively
-
 #endif  // CCOS_IMAGE_H
