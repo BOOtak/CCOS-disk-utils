@@ -87,15 +87,15 @@ ccos_date_t ccos_get_exp_date(ccos_inode_t* file) {
 }
 
 int ccos_set_creation_date(ccos_inode_t* file, ccos_date_t new_date) {
-  return change_date(file, new_date, 1);
+  return change_date(file, new_date, CREATED);
 }
 
 int ccos_set_mod_date(ccos_inode_t* file, ccos_date_t new_date) {
-  return change_date(file, new_date, 2);
+  return change_date(file, new_date, MODIF);
 }
 
 int ccos_set_exp_date(ccos_inode_t* file, ccos_date_t new_date) {
-  return change_date(file, new_date, 3);
+  return change_date(file, new_date, EXPIR);
 }
 
 int ccos_get_dir_contents(ccos_inode_t* dir, uint8_t* data, uint16_t* entry_count, ccos_inode_t*** entries) {

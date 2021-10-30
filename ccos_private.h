@@ -106,6 +106,8 @@ typedef struct {
   ccos_inode_t* file;
 } parsed_directory_element_t;
 
+typedef enum { CREATED, MODIF, EXPIR } date_type_t;
+
 /**
  * @brief      Calculate checksum as it done in Compass's BIOS.
  *
@@ -414,10 +416,10 @@ int is_root_dir(ccos_inode_t* file);
  *
  * @param      file      The file or the directory.
  * @param      new_date  The new date variable.
- * @param      type      Date type to replace (1 - creation, 2 - modification, 3 - expiration).
+ * @param      type      Date type to replace (CREATED - creation, MODIF - modification, EXPIR - expiration).
  *
  * @return     0 on success, -1 otherwise.
  */
-int change_date(ccos_inode_t* file, ccos_date_t new_date, int type);
+int change_date(ccos_inode_t* file, ccos_date_t new_date, date_type_t type);
 
 #endif  // CCOS_DISK_TOOL_CCOS_PRIVATE_H
