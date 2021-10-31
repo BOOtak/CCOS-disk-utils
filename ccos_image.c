@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define FAT_MBR_END_OF_SECTOR_MARKER 0xAA55
 #define OPCODE_NOP 0x90
@@ -53,6 +54,18 @@ version_t ccos_get_file_version(ccos_inode_t* file) {
   return version;
 }
 
+int ccos_set_file_version(ccos_inode_t* file, version_t new_version) {
+  if (!is_root_dir(file)){
+    file->version_major = new_version.major;
+    file->version_minor = new_version.minor;
+    file->version_patch = new_version.patch;
+    update_inode_checksums(file);
+    return 0;
+  }
+
+  return -1;
+}
+
 short_string_t* ccos_get_file_name(const ccos_inode_t* file) {
   return (short_string_t*)&(file->name_length);
 }
@@ -71,6 +84,18 @@ ccos_date_t ccos_get_mod_date(ccos_inode_t* file) {
 
 ccos_date_t ccos_get_exp_date(ccos_inode_t* file) {
   return file->expiration_date;
+}
+
+int ccos_set_creation_date(ccos_inode_t* file, ccos_date_t new_date) {
+  return change_date(file, new_date, CREATED);
+}
+
+int ccos_set_mod_date(ccos_inode_t* file, ccos_date_t new_date) {
+  return change_date(file, new_date, MODIF);
+}
+
+int ccos_set_exp_date(ccos_inode_t* file, ccos_date_t new_date) {
+  return change_date(file, new_date, EXPIR);
 }
 
 int ccos_get_dir_contents(ccos_inode_t* dir, uint8_t* data, uint16_t* entry_count, ccos_inode_t*** entries) {
@@ -561,9 +586,16 @@ ccos_inode_t* ccos_add_file(ccos_inode_t* dest_directory, uint8_t* file_data, si
   new_file->name_length = strlen(file_name);
   strncpy(new_file->name, file_name, strlen(file_name));
 
-  new_file->creation_date = dest_directory->creation_date;
-  new_file->mod_date = dest_directory->mod_date;
-  new_file->expiration_date = dest_directory->expiration_date;
+  time_t posix_time;
+  time(&posix_time);
+  struct tm* time_struct;
+  time_struct = localtime(&posix_time);
+
+  new_file->creation_date = (ccos_date_t){time_struct->tm_year+1900, time_struct->tm_mon+1,
+          time_struct->tm_mday, time_struct->tm_hour, time_struct->tm_min,
+          time_struct->tm_sec, 0, time_struct->tm_wday, time_struct->tm_yday};
+  new_file->mod_date = new_file->creation_date;
+  new_file->expiration_date = (ccos_date_t){};
 
   TRACE("Writing file 0x%lx", new_file->header.file_id);
   if (ccos_write_file(new_file, image_data, image_size, file_data, file_size) == -1) {

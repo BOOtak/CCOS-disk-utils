@@ -66,6 +66,16 @@ uint16_t ccos_file_id(ccos_inode_t* inode);
 version_t ccos_get_file_version(ccos_inode_t* file);
 
 /**
+ * @brief      Set the file version.
+ *
+ * @param[in]  file          The file.
+ * @param      new_version   The new version to set.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_set_file_version(ccos_inode_t* file, version_t new_version);
+
+/**
  * @brief      Get the name of the file.
  *
  * @param[in]  file   File inode.
@@ -140,6 +150,36 @@ ccos_date_t ccos_get_mod_date(ccos_inode_t* file);
  * @return     The expiry date of a file at a given inode.
  */
 ccos_date_t ccos_get_exp_date(ccos_inode_t* file);
+
+/**
+ * @brief      Сhanges the creation date of a file or folder.
+ *
+ * @param      file      The file or the directory.
+ * @param      new_date  The new date variable.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_set_creation_date(ccos_inode_t* file, ccos_date_t new_date);
+
+/**
+ * @brief      Сhanges the modification date of a file or folder.
+ *
+ * @param      file      The file or the directory.
+ * @param      new_date  The new date variable.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_set_mod_date(ccos_inode_t* file, ccos_date_t new_date);
+
+/**
+ * @brief      Сhanges the expiration date of a file or folder.
+ *
+ * @param      file      The file or the directory.
+ * @param      new_date  The new date variable.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int ccos_set_exp_date(ccos_inode_t* file, ccos_date_t new_date);
 
 /**
  * @brief      Replace file in the CCOS image data.
