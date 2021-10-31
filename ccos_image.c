@@ -751,3 +751,22 @@ int ccos_rename_file(ccos_inode_t* file, const char* new_name, const char *new_t
 
   return 0;
 }
+
+uint8_t* ccos_create_new_image(size_t* image_size) {
+  if (*image_size == 0) {
+    *image_size = BLOCK_SIZE * BLOCKS_IN_IMAGE;
+  }
+  uint8_t* data = (uint8_t*)calloc(*image_size, sizeof(uint8_t));
+  if (data == NULL) {
+    fprintf(stderr, "Unable to create new image: unable to allocate memory: %s!\n", strerror(errno));
+    return NULL;
+  }
+
+  if (format_image(data, *image_size) == -1) {
+    fprintf(stderr, "Unable to create new image: unable to format image!\n");
+    free(data);
+    return NULL;
+  }
+
+  return data;
+}

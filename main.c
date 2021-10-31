@@ -15,6 +15,7 @@ typedef enum {
   MODE_CREATE_DIRECTORY,
   MODE_ADD_FILE,
   MODE_RENAME_FILE,
+  MODE_CREATE_BLANK,
 } op_mode_t;
 
 static const struct option long_options[] = {{"image", required_argument, NULL, 'i'},
@@ -32,9 +33,10 @@ static const struct option long_options[] = {{"image", required_argument, NULL, 
                                              {"short-format", no_argument, NULL, 's'},
                                              {"verbose", no_argument, NULL, 'v'},
                                              {"help", no_argument, NULL, 'h'},
+                                             {"create-new", no_argument, NULL, 'w'},
                                              {NULL, no_argument, NULL, 0}};
 
-static const char* opt_string = "i:r:n:c:e:a:t:y:z:ldpsvh";
+static const char* opt_string = "i:r:n:c:e:a:t:y:z:ldpsvhw";
 
 static void print_usage() {
   fprintf(stderr,
@@ -51,12 +53,14 @@ static void print_usage() {
           "ccos_disk_tool -i src_image -e old name -n new name [-l]\n"
           "ccos_disk_tool -i image -r file -n name [-l]\n"
           "ccos_disk_tool -i image -z name [-l]\n"
+          "ccos_disk_tool -i image --create-new\n"
           "\n"
           "-i, --image IMAGE        Path to GRiD OS floppy RAW image\n"
           "-h, --help               Show this message\n"
           "-v, --verbose            Verbose output\n"
           "\n"
           "OPTIONS:\n"
+          "-w, --create-new         Create new blank image\n"
           "-p, --print-contents     Print image contents\n"
           "-s, --short-format       Use short format in printing contents\n"
           "                         (80-column compatible, no dates)\n"
@@ -150,6 +154,10 @@ int main(int argc, char** argv) {
         target_image = optarg;
         break;
       }
+      case 'w': {
+        mode = MODE_CREATE_BLANK;
+        break;
+      }
       case 'v': {
         trace_init(1);
         break;
@@ -159,6 +167,10 @@ int main(int argc, char** argv) {
         return 0;
       }
     }
+  }
+
+  if (mode == MODE_CREATE_BLANK) {
+    return create_blank_image(path);
   }
 
   uint8_t* file_contents = NULL;

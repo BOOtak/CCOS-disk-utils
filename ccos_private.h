@@ -422,4 +422,14 @@ int is_root_dir(ccos_inode_t* file);
  */
 int change_date(ccos_inode_t* file, ccos_date_t new_date, date_type_t type);
 
+/**
+ * @brief       Create CCOS filesystem in the given image.
+ *
+ * @param       image_data    CCOS image data.
+ * @param       image_size    Image size
+ *
+ * @return      0 on success, -1 otherwise
+ */
+int format_image(uint8_t* image_data, size_t image_size);
+
 #endif  // CCOS_DISK_TOOL_CCOS_PRIVATE_H

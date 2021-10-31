@@ -14,12 +14,14 @@ ccos_disk_tool -i src_image -c name -t dest_image [-l]
 ccos_disk_tool -i src_image -e old name -n new name [-l]
 ccos_disk_tool -i image -r file -n name [-l]
 ccos_disk_tool -i image -z name [-l]
+ccos_disk_tool -i image --create-new
 
 -i, --image IMAGE        Path to GRiD OS floppy RAW image
 -h, --help               Show this message
 -v, --verbose            Verbose output
 
 OPTIONS:
+-w, --create-new         Create new blank image
 -p, --print-contents     Print image contents
 -s, --short-format       Use short format in printing contents
                          (80-column compatible, no dates)
@@ -38,6 +40,14 @@ OPTIONS:
 ```
 
 ## Examples
+
+### Create new empty image `test.img`
+
+For now, new image size defaults to 360k
+
+```
+$ ./ccos_disk_tool -i test.img --create-new
+```
 
 ### List files in the image in short format
 ```

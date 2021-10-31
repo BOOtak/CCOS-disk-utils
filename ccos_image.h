@@ -8,6 +8,9 @@
 
 #define BLOCK_SIZE 512
 
+// Should be used only to create new 360k images
+#define BLOCKS_IN_IMAGE 720
+
 #define CCOS_MAX_FILE_NAME 80
 #define MAX_BLOCKS_IN_INODE 146
 #define MAX_BLOCKS_IN_CONTENT_INODE 246
@@ -358,5 +361,14 @@ char* ccos_get_image_label(uint8_t* data, size_t data_size);
  * @return     0 on success, -1 otherwise.
  */
 int ccos_set_image_label(uint8_t* data, size_t data_size, const char* label);
+
+/**
+ * @brief      Create new empty image.
+ *
+ * @param      image_size    Size of the given image. If 0 is passed, it defaults to 360k image.
+ *
+ * @return     Image data on success, NULL otherwise.
+ */
+uint8_t* ccos_create_new_image(size_t* image_size);
 
 #endif  // CCOS_IMAGE_H

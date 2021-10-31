@@ -838,3 +838,19 @@ int rename_file(char* path, char* file_name, char* new_name, uint8_t* image_data
   int res = save_image(path, image_data, image_size, in_place);
   return res;
 }
+
+int create_blank_image(char* path) {
+  if (path == NULL) {
+    fprintf(stderr, "No target image is provided to copy file to!\n");
+    return -1;
+  }
+
+  size_t image_size = 0;
+  uint8_t* image_data = ccos_create_new_image(&image_size);
+  if (image_data == NULL) {
+    fprintf(stderr, "Unable to create blank image!\n");
+    return -1;
+  }
+
+  return save_image(path, image_data, image_size, 1);
+}
