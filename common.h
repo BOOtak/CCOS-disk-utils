@@ -53,8 +53,8 @@ int read_file(const char* path, uint8_t** file_data, size_t* file_size);
  * @param[in]  source_filename  File path to save.
  * @param[in]  data             The file data.
  * @param[in]  data_size        The file size.
- * @param[in]  in_place         If true, override original target image. Otherwise, save new image under {target_image}.out
- * name.
+ * @param[in]  in_place         If true, override original target image. Otherwise, save new image under
+ * {target_image}.out name.
  *
  * @return     0 on success, -1 otherwise.
  */

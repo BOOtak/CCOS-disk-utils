@@ -25,7 +25,6 @@ int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data);
  */
 int dump_image(const char* path, uint8_t* data, size_t data_size);
 
-
 /**
  * @brief      Dumps file to directory from CCOS disk image.
  *
@@ -104,8 +103,7 @@ int replace_file(const char* path, const char* filename, const char* target_name
  *
  * @return     0 on success, -1 otherwise.
  */
-int copy_file(const char* target_image, const char* filename, uint8_t* source_data, size_t source_size,
-              int in_place);
+int copy_file(const char* target_image, const char* filename, uint8_t* source_data, size_t source_size, int in_place);
 
 /**
  * @brief      Delete file in the image.
@@ -118,7 +116,6 @@ int copy_file(const char* target_image, const char* filename, uint8_t* source_da
  * @return     0 on success, -1 otherwise.
  */
 int delete_file(const char* path, const char* filename, int in_place);
-
 
 /**
  * @brief      Add file to the image.
@@ -143,8 +140,8 @@ int add_file(const char* image_path, const char* file_path, const char* file_nam
  * @param[in]  directory_name The name of file to delete.
  * @param[in]  file_contents  CCOS image data.
  * @param[in]  file_size      CCOS image data size.
- * @param[in]  in_place       If true, override original target image. Otherwise, save new image under {target_image}.out
- * name.
+ * @param[in]  in_place       If true, override original target image. Otherwise, save new image under
+ * {target_image}.out name.
  *
  * @return     0 on success, -1 otherwise.
  */

@@ -801,20 +801,17 @@ int is_root_dir(ccos_inode_t* file) {
 
 int change_date(ccos_inode_t* file, ccos_date_t new_date, date_type_t type) {
   if (!is_root_dir(file)) {
-      if (type == CREATED) {
-          file->creation_date = new_date;
-      }
-      else if (type == MODIF) {
-          file->mod_date = new_date;
-      }
-      else if (type == EXPIR) {
-          file->expiration_date = new_date;
-      }
-      else {
-          return -1;
-      }
-      update_inode_checksums(file);
-      return 0;
+    if (type == CREATED) {
+      file->creation_date = new_date;
+    } else if (type == MODIF) {
+      file->mod_date = new_date;
+    } else if (type == EXPIR) {
+      file->expiration_date = new_date;
+    } else {
+      return -1;
+    }
+    update_inode_checksums(file);
+    return 0;
   }
 
   return -1;
@@ -831,17 +828,17 @@ int format_image(uint8_t* data, size_t image_size) {
     fprintf(stderr, "Unable to format image: image_size < superblock offset!\n");
     return -1;
   }
-  
+
   // set superblock
   uint16_t* sb_offset_addr = ((uint16_t*)&(data[CCOS_SUPERBLOCK_ADDR_OFFSET]));
   *sb_offset_addr = superblock;
-  
+
   uint16_t* sb_addr = ((uint16_t*)&(data[sb_offset]));
   *sb_addr = superblock;
-  
+
   // Create bitmask
   ccos_bitmask_t* bitmask = get_bitmask(data, image_size);
-  
+
   bitmask->header.file_id = get_bitmask_block(superblock);
   bitmask->header.file_fragment_index = 0;
 
@@ -850,9 +847,9 @@ int format_image(uint8_t* data, size_t image_size) {
   memset(bitmask->bytes, 0, free_bitmask_count);
   memset(bitmask->bytes + free_bitmask_count, 0xFF, BITMASK_SIZE - free_bitmask_count);
 
-  mark_block(bitmask, superblock - 1, 1);   // mark bitmask block as used
-  mark_block(bitmask, superblock, 1);       // superblock
-  mark_block(bitmask, superblock + 1, 1);   // superblock contents
+  mark_block(bitmask, superblock - 1, 1);  // mark bitmask block as used
+  mark_block(bitmask, superblock, 1);      // superblock
+  mark_block(bitmask, superblock + 1, 1);  // superblock contents
   update_bitmask_checksum(bitmask);
 
   // Format root directory
@@ -888,7 +885,7 @@ int format_image(uint8_t* data, size_t image_size) {
   update_inode_checksums(root_dir);
 
   // Root directory contents
-  ccos_block_header_t* superblock_entry = (ccos_block_header_t*) get_inode(superblock_entry_block, data);
+  ccos_block_header_t* superblock_entry = (ccos_block_header_t*)get_inode(superblock_entry_block, data);
   superblock_entry->file_id = superblock;
   superblock_entry->file_fragment_index = 0;
   ((uint16_t*)superblock_entry)[2] = CCOS_DIR_LAST_ENTRY_MARKER;
