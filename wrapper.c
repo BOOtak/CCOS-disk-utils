@@ -844,5 +844,7 @@ int create_blank_image(char* path) {
     return -1;
   }
 
-  return save_image(path, image_data, image_size, 1);
+  int res = save_image(path, image_data, image_size, 1);
+  free(image_data);
+  return res;
 }
