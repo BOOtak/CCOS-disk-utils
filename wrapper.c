@@ -298,15 +298,11 @@ static traverse_callback_result_t dump_dir_tree_on_dir(ccos_inode_t* dir, UNUSED
 
   int res = MKDIR(subdir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 
+
+
   if (res == -1) {
-    if (stat(subdir, &statbuf) != -1) {
-      if (S_ISDIR(statbuf.st_mode)) {
-        TRACE("Directory \"%s\" already exists! Dumping...", subdir);
-      } else {
-        fprintf(stderr, "Unable to create directory \"%s\": %s!\n", subdir, strerror(errno));
-        free(subdir);
-        return RESULT_ERROR;
-      }
+    if (errno == EEXIST) {
+      TRACE("Directory \"%s\" already exists! Dumping...", subdir);
     } else {
       fprintf(stderr, "Unable to create directory \"%s\": %s!\n", subdir, strerror(errno));
       free(subdir);
@@ -346,27 +342,25 @@ int dump_file(const char* path_to_dir, ccos_inode_t* file, uint8_t* image_data) 
 }
 
 int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data) {
-  char* floppy_name = short_string_to_string(ccos_get_file_name(dir));
-  char* name_trimmed = (char*)calloc(sizeof(char), CCOS_MAX_FILE_NAME);
-
-  if (dir == ccos_get_parent_dir(dir, data)) {
-    if (strcmp(floppy_name, "")) {
-      int sz = strlen(floppy_name);
-      memmove(floppy_name, floppy_name + 1, sz - 1);
-      floppy_name[sz - 1] = 0;
+    char* name_trimmed;
+    if (dir == ccos_get_parent_dir(dir, data)) {
+      name_trimmed = strdup(short_string_to_string(ccos_get_file_name(dir)));
+      if (strcmp(name_trimmed, "")) {
+        int sz = strlen(name_trimmed);
+        memmove(name_trimmed, name_trimmed + 1, sz - 1);
+        name_trimmed[sz - 1] = 0;
+      }
+    } else {
+      name_trimmed = (char*)calloc(sizeof(char), CCOS_MAX_FILE_NAME);
+      char* delim = strchr(ccos_get_file_name(dir)->data, '~');
+      strncpy(name_trimmed, ccos_get_file_name(dir)->data, (delim - ccos_get_file_name(dir)->data));
     }
-    name_trimmed = floppy_name;
-  } else {
-    char* delim = strchr(ccos_get_file_name(dir)->data, '~');
-    strncpy(name_trimmed, ccos_get_file_name(dir)->data, (delim - ccos_get_file_name(dir)->data));
-  }
 
   const char* basename = get_basename(path);
 
   char* dirname = (char*)calloc(sizeof(char), PATH_MAX);
   if (dirname == NULL) {
     fprintf(stderr, "Unable to allocate memory for directory name!\n");
-    free(floppy_name);
     free(name_trimmed);
     return -1;
   }
@@ -387,21 +381,14 @@ int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data) {
     }
   }
 
-  free(floppy_name);
   free(name_trimmed);
 
   // some directories have '/' in their names, e.g. "GRiD-OS/Windows 113x, 114x v3.1.5D"
   replace_char_in_place(dirname, '/', '_');
 
   if (MKDIR(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
-    if (stat(dirname, &statbuf) != -1) {
-      if (S_ISDIR(statbuf.st_mode)) {
-        TRACE("Directory \"%s\" already exists! Dumping...", dirname);
-      } else {
-        fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dirname, strerror(errno));
-        free(dirname);
-        return -1;
-      }
+    if (errno == EEXIST) {
+      TRACE("Directory \"%s\" already exists! Dumping...", dirname);
     } else {
       fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dirname, strerror(errno));
       free(dirname);
@@ -428,7 +415,7 @@ int dump_image_to(const char* path, uint8_t* data, size_t data_size, const char*
 int dump_dir_to(const char* path, ccos_inode_t* dir, uint8_t* data, const char* destpath) {
   char* name_trimmed;
   if (dir == ccos_get_parent_dir(dir, data)) {
-    name_trimmed = short_string_to_string(ccos_get_file_name(dir));
+    name_trimmed = strdup(short_string_to_string(ccos_get_file_name(dir)));
     if (strcmp(name_trimmed, "")) {
       int sz = strlen(name_trimmed);
       memmove(name_trimmed, name_trimmed + 1, sz - 1);
@@ -481,9 +468,13 @@ int dump_dir_to(const char* path, ccos_inode_t* dir, uint8_t* data, const char* 
   free(dirname);
 
   if (MKDIR(dest, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
-    fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dest, strerror(errno));
-    free(dest);
-    return -1;
+    if (errno == EEXIST) {
+      TRACE("Directory \"%s\" already exists! Dumping...", dest);
+    } else {
+      fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dest, strerror(errno));
+      free(dest);
+      return -1;
+    }
   }
 
   int res = traverse_ccos_image(dir, data, dest, 0, dump_dir_tree_on_file, dump_dir_tree_on_dir, NULL);
