@@ -314,7 +314,11 @@ int ccos_write_file(ccos_inode_t* file, uint8_t* image_data, size_t image_size, 
 
   free(blocks);
 
-  ccos_bitmask_t* bitmask = get_bitmask(image_data, image_size);
+  ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(image_data, image_size);
+  if (bitmask_list.length == 0) {
+    fprintf(stderr, "Unable to write to file: invalid bitmask!\n");
+    return -1;
+  }
 
   TRACE("file id 0x%x has %d blocks", file->header.file_id, blocks_count);
   // add extra blocks to the file if it's new size is greater than the old size
@@ -327,7 +331,7 @@ int ccos_write_file(ccos_inode_t* file, uint8_t* image_data, size_t image_size, 
 
     for (int i = 0; i < (out_blocks_count - blocks_count); ++i) {
       TRACE("Adding %d / %d...", i + 1, (out_blocks_count - blocks_count));
-      if (add_block_to_file(file, image_data, bitmask) == CCOS_INVALID_BLOCK) {
+      if (add_block_to_file(file, image_data, &bitmask_list) == CCOS_INVALID_BLOCK) {
         fprintf(stderr, "Unable to allocate more space for the file 0x%x: no space left!\n", file->header.file_id);
         return -1;
       }
@@ -338,7 +342,7 @@ int ccos_write_file(ccos_inode_t* file, uint8_t* image_data, size_t image_size, 
     TRACE("Removing %d blocks from the file", blocks_count - out_blocks_count);
     for (int i = 0; i < (blocks_count - out_blocks_count); ++i) {
       TRACE("Remove %d / %d...", i + 1, (blocks_count - out_blocks_count));
-      if (remove_block_from_file(file, image_data, bitmask) == -1) {
+      if (remove_block_from_file(file, image_data, &bitmask_list) == -1) {
         fprintf(stderr, "Unable to remove block from file at 0x%x!\n", file->header.file_id);
         return -1;
       }
@@ -381,19 +385,19 @@ int ccos_write_file(ccos_inode_t* file, uint8_t* image_data, size_t image_size, 
 // directory
 int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* dest_directory, const uint8_t* src_image,
                    ccos_inode_t* src_file) {
-  ccos_bitmask_t* dest_bitmask = get_bitmask(dest_image, dest_image_size);
-  if (dest_bitmask == NULL) {
-    fprintf(stderr, "Unable to copy file: Unable to find bitmask in destination image!\n");
+  ccos_bitmask_list_t dest_bitmask_list = find_bitmask_blocks(dest_image, dest_image_size);
+  if (dest_bitmask_list.length == 0) {
+    fprintf(stderr, "Unable to copy file: Unable to get bitmask in destination image!\n");
     return -1;
   }
 
   uint16_t free_block = CCOS_INVALID_BLOCK;
-  if ((free_block = get_free_block(dest_bitmask)) == CCOS_INVALID_BLOCK) {
+  if ((free_block = get_free_block(&dest_bitmask_list)) == CCOS_INVALID_BLOCK) {
     fprintf(stderr, "Unable to copy file: no space left!\n");
     return -1;
   }
 
-  mark_block(dest_bitmask, free_block, 1);
+  mark_block(&dest_bitmask_list, free_block, 1);
   ccos_inode_t* new_file = init_inode(free_block, dest_directory->header.file_id, dest_image);
 
   uint8_t* file_data = NULL;
@@ -454,8 +458,8 @@ int ccos_delete_file(uint8_t* image_data, size_t data_size, ccos_inode_t* file) 
   size_t dir_size = 0;
   uint8_t* directory_data = NULL;
 
-  ccos_bitmask_t* bitmask = get_bitmask(image_data, data_size);
-  if (bitmask == NULL) {
+  ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(image_data, data_size);
+  if (bitmask_list.length == 0) {
     fprintf(stderr, "Unable to delete file: Unable to find image bitmask!\n");
     return -1;
   }
@@ -545,38 +549,38 @@ int ccos_delete_file(uint8_t* image_data, size_t data_size, ccos_inode_t* file) 
   }
 
   for (int j = 0; j < blocks_count; ++j) {
-    erase_block(blocks[j], image_data, bitmask);
+    erase_block(blocks[j], image_data, &bitmask_list);
   }
   free(blocks);
 
   while (file->content_inode_info.block_next != CCOS_INVALID_BLOCK) {
-    if (remove_content_inode(file, image_data, bitmask) == -1) {
+    if (remove_content_inode(file, image_data, &bitmask_list) == -1) {
       fprintf(stderr, "Unable to remove content block from the file %*s (0x%x)!\n", file->name_length, file->name,
               file->header.file_id);
       return -1;
     }
   }
 
-  erase_block(file->header.file_id, image_data, bitmask);
+  erase_block(file->header.file_id, image_data, &bitmask_list);
 
   return 0;
 }
 
 ccos_inode_t* ccos_add_file(ccos_inode_t* dest_directory, uint8_t* file_data, size_t file_size, const char* file_name,
                             uint8_t* image_data, size_t image_size) {
-  ccos_bitmask_t* bitmask = get_bitmask(image_data, image_size);
-  if (bitmask == NULL) {
+  ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(image_data, image_size);
+  if (bitmask_list.length == 0) {
     fprintf(stderr, "Unable to add file: Unable to find bitmask in the image!\n");
     return NULL;
   }
 
   uint16_t free_block = CCOS_INVALID_BLOCK;
-  if ((free_block = get_free_block(bitmask)) == CCOS_INVALID_BLOCK) {
+  if ((free_block = get_free_block(&bitmask_list)) == CCOS_INVALID_BLOCK) {
     fprintf(stderr, "Unable to get free block: No space left!\n");
     return NULL;
   }
 
-  mark_block(bitmask, free_block, 1);
+  mark_block(&bitmask_list, free_block, 1);
   ccos_inode_t* new_file = init_inode(free_block, dest_directory->header.file_id, image_data);
 
   TRACE("Filling file info...");
@@ -664,13 +668,13 @@ size_t ccos_calc_free_space(uint8_t* data, size_t data_size) {
   uint16_t* free_blocks = NULL;
   size_t free_blocks_count = 0;
 
-  ccos_bitmask_t* bitmask = get_bitmask(data, data_size);
-  if (bitmask == NULL) {
+  ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(data, data_size);
+  if (bitmask_list.length == 0) {
     fprintf(stderr, "Unable to calculate free space on the image: Unable to find bitmask!\n");
     return -1;
   }
 
-  if (get_free_blocks(bitmask, data_size, &free_blocks_count, &free_blocks) == -1) {
+  if (get_free_blocks(&bitmask_list, data_size, &free_blocks_count, &free_blocks) == -1) {
     fprintf(stderr, "Unable to calculate free space: Unable to get free blocks!\n");
     if (free_blocks != NULL) {
       free(free_blocks);

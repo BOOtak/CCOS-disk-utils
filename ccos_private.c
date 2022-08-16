@@ -18,6 +18,9 @@
 #define CCOS_SUPERBLOCK_ADDR_OFFSET 0x20
 #define CCOS_DEFAULT_SUPERBLOCK 0x121
 
+#define CCOS_BITMASK_ADDR_OFFSET 0x1E
+#define CCOS_DEFAULT_BITMASK 0x120
+
 #define CCOS_CONTENT_BLOCKS_END_MARKER 0xFFFF
 
 uint16_t calc_checksum(const uint8_t* data, uint16_t data_size) {
@@ -189,42 +192,75 @@ int get_file_blocks(const ccos_inode_t* file, const uint8_t* data, size_t* block
   return 0;
 }
 
-uint16_t get_bitmask_block(uint16_t superblock) {
-  if (superblock > 0) {
-    return superblock - 1;
-  } else {
-    fprintf(stderr, "Unable to get bitmask block: invalid superblock %x!\n", superblock);
-    return CCOS_INVALID_BLOCK;
-  }
-}
-
 ccos_bitmask_t* get_bitmask(uint8_t* data, size_t data_size) {
-  uint16_t superblock = CCOS_INVALID_BLOCK;
-  if (get_superblock(data, data_size, &superblock) == -1) {
-    fprintf(stderr, "Unable to get image bitmask: Invalid superblock!\n");
+  uint16_t bitmask_block = *((uint16_t*)&(data[CCOS_BITMASK_ADDR_OFFSET]));
+  if (bitmask_block == 0) {
+    bitmask_block = CCOS_DEFAULT_BITMASK;
+  }
+
+  uint32_t blocks_in_image = data_size / BLOCK_SIZE;
+  if (bitmask_block > blocks_in_image) {
+    fprintf(stderr, "Invalid bitmask block! (Bitmask: 0x%x, but only 0x%x blocks in the image).\n", bitmask_block,
+            blocks_in_image);
     return NULL;
   }
 
-  uint16_t bitmask_block = get_bitmask_block(superblock);
-  if (bitmask_block == CCOS_INVALID_BLOCK) {
-    fprintf(stderr, "Unable to get image bitmask: Invalid bitmask block!\n");
+  uint32_t addr = bitmask_block * BLOCK_SIZE;
+  uint16_t block_header = *(uint16_t*)&(data[addr]);
+  if (block_header != bitmask_block) {
+    fprintf(stderr, "Invalid image: Block header 0x%x mismatches bitmask 0x%x!\n", block_header, bitmask_block);
     return NULL;
   }
 
+  TRACE("Bitmask: 0x%x", bitmask_block);
   uint32_t address = bitmask_block * BLOCK_SIZE;
   return (ccos_bitmask_t*)&(data[address]);
 }
 
-uint16_t get_free_block(const ccos_bitmask_t* bitmask) {
-  for (int i = 0; i < BITMASK_SIZE; ++i) {
-    if (bitmask->bytes[i] != 0xFF) {
-      uint8_t byte = bitmask->bytes[i];
-      for (int j = 0; j < 8; ++j) {
-        if (!(byte & 1u)) {
-          return i * 8 + j;
-        }
+ccos_bitmask_list_t find_bitmask_blocks(uint8_t* data, size_t data_size) {
+  ccos_bitmask_list_t result = {0};
+  ccos_bitmask_t* first_bitmask_block = get_bitmask(data, data_size);
+  if (first_bitmask_block == NULL) {
+    fprintf(stderr, "Unable to get bitmask blocks: No bitmask in image!\n");
+    return result;
+  }
 
-        byte = byte >> 1u;
+  uint16_t bitmask_id = first_bitmask_block->header.file_id;
+  uint32_t bitmask_addr = bitmask_id * BLOCK_SIZE;
+
+  for (size_t i = 0; i < MAX_BITMASK_BLOCKS_IN_IMAGE; i++) {
+    uint32_t offset = bitmask_addr + i * BLOCK_SIZE;
+    ccos_block_header_t* header = (ccos_block_header_t*)&(data[offset]);
+    if (header->file_id == bitmask_id) {
+      if (header->file_fragment_index != i) {
+        fprintf(stderr, "WARN: 0x%x: Invalid bitmask fragment index: expected: " SIZE_T "; actual: %d!\n", offset, i,
+                header->file_fragment_index);
+      }
+
+      result.bitmask_blocks[i] = (ccos_bitmask_t*)header;
+    } else {
+      // previous block was the last bitnmask block
+      result.length = i;
+      break;
+    }
+  }
+
+  return result;
+}
+
+// TODO: move to the separate file
+uint16_t get_free_block(const ccos_bitmask_list_t* bitmask_list) {
+  for (size_t block = 0; block < bitmask_list->length; block++) {
+    for (int i = 0; i < BITMASK_SIZE; ++i) {
+      if (bitmask_list->bitmask_blocks[block]->bytes[i] != 0xFF) {
+        uint8_t byte = bitmask_list->bitmask_blocks[block]->bytes[i];
+        for (int j = 0; j < 8; ++j) {
+          if (!(byte & 1u)) {
+            return (block * BITMASK_SIZE * 8) + i * 8 + j;
+          }
+
+          byte = byte >> 1u;
+        }
       }
     }
   }
@@ -232,19 +268,33 @@ uint16_t get_free_block(const ccos_bitmask_t* bitmask) {
   return CCOS_INVALID_BLOCK;
 }
 
-void mark_block(ccos_bitmask_t* bitmask, uint16_t block, uint8_t mode) {
+void mark_block(ccos_bitmask_list_t* bitmask_list, uint16_t block, uint8_t mode) {
   TRACE("Mark block %x as %s...", block, mode ? "used" : "free");
 
-  uint8_t* byte = &(bitmask->bytes[block >> 3u]);
-  if (mode) {
-    *byte = *byte | (1u << (block & 0b111u));
-    bitmask->allocated += 1;
-  } else {
-    *byte = *byte & ~(1u << (block & 0b111u));
-    bitmask->allocated -= 1;
+  if (block >= bitmask_list->length * BLOCKS_IN_BITMASK) {
+    fprintf(stderr, "Unable to mark block 0x%x: out of bitmask bounds of %lx!\n", block,
+            bitmask_list->length * BITMASK_SIZE * 8);
+    return;
   }
 
-  update_bitmask_checksum(bitmask);
+  size_t bitmask_index = (block + BLOCKS_IN_BITMASK - 1) / BLOCKS_IN_BITMASK;
+  uint8_t* byte = &(bitmask_list->bitmask_blocks[bitmask_index]->bytes[block >> 3u]);
+  if (mode) {
+    *byte = *byte | (1u << (block & 0b111u));
+  } else {
+    *byte = *byte & ~(1u << (block & 0b111u));
+  }
+
+  for (size_t i = 0; i < bitmask_list->length; i++) {
+    if (mode) {
+      // all bitmasks should have same "allocated" value (?)
+      bitmask_list->bitmask_blocks[i]->allocated += 1;
+    } else {
+      bitmask_list->bitmask_blocks[i]->allocated -= 1;
+    }
+
+    update_bitmask_checksum(bitmask_list->bitmask_blocks[i]);
+  }
 }
 
 ccos_inode_t* init_inode(uint16_t block, uint16_t parent_dir_block, uint8_t* image_data) {
@@ -266,19 +316,19 @@ ccos_inode_t* init_inode(uint16_t block, uint16_t parent_dir_block, uint8_t* ima
   return inode;
 }
 
-ccos_content_inode_t* add_content_inode(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bitmask) {
+ccos_content_inode_t* add_content_inode(ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list) {
   ccos_block_data_t* content_inode_info = &(file->content_inode_info);
   ccos_content_inode_t* last_content_inode = get_last_content_inode(file, data);
   if (last_content_inode != NULL) {
     content_inode_info = &(last_content_inode->content_inode_info);
   }
 
-  uint16_t new_block = get_free_block(bitmask);
+  uint16_t new_block = get_free_block(bitmask_list);
   if (new_block == CCOS_INVALID_BLOCK) {
     fprintf(stderr, "Unable to allocate new content inode: No free space!\n");
     return NULL;
   }
-  mark_block(bitmask, new_block, 1);
+  mark_block(bitmask_list, new_block, 1);
 
   ccos_content_inode_t* content_inode = get_content_inode(new_block, data);
 
@@ -313,14 +363,14 @@ ccos_content_inode_t* get_last_content_inode(const ccos_inode_t* file, const uin
   return NULL;
 }
 
-void erase_block(uint16_t block, uint8_t* image, ccos_bitmask_t* bitmask) {
+void erase_block(uint16_t block, uint8_t* image, ccos_bitmask_list_t* bitmask_list) {
   uint32_t address = block * BLOCK_SIZE;
   memset(&image[address], 0, BLOCK_SIZE);
   *(uint32_t*)&(image[address]) = CCOS_EMPTY_BLOCK_MARKER;
-  mark_block(bitmask, block, 0);
+  mark_block(bitmask_list, block, 0);
 }
 
-int remove_content_inode(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bitmask) {
+int remove_content_inode(ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list) {
   if (file->content_inode_info.block_next == CCOS_INVALID_BLOCK) {
     fprintf(stderr, "Unable to remove content inode: no content inodes found in file %*s (0x%x)!\n", file->name_length,
             file->name, file->header.file_id);
@@ -331,7 +381,7 @@ int remove_content_inode(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bitm
   ccos_block_data_t* prev_block_data = &(file->content_inode_info);
   ccos_content_inode_t* last_content_inode = get_last_content_inode(file, data);
 
-  erase_block(last_content_inode->content_inode_info.block_current, data, bitmask);
+  erase_block(last_content_inode->content_inode_info.block_current, data, bitmask_list);
 
   prev_block_data->block_next = CCOS_INVALID_BLOCK;
   if (prev_inode != NULL) {
@@ -344,7 +394,7 @@ int remove_content_inode(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bitm
 }
 
 // remove last content block from the file
-int remove_block_from_file(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bitmask) {
+int remove_block_from_file(ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list) {
   uint16_t* content_blocks = file->content_blocks;
   ccos_content_inode_t* last_content_inode = get_last_content_inode(file, data);
   int content_blocks_count = MAX_BLOCKS_IN_INODE;
@@ -372,12 +422,12 @@ int remove_block_from_file(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bi
   }
 
   if (last_content_block != CCOS_INVALID_BLOCK) {
-    erase_block(last_content_block, data, bitmask);
+    erase_block(last_content_block, data, bitmask_list);
     *(uint16_t*)&(content_blocks[last_content_block_index - 1]) = CCOS_INVALID_BLOCK;
   }
 
   if (last_content_block_index <= 1) {
-    if (remove_content_inode(file, data, bitmask) == -1) {
+    if (remove_content_inode(file, data, bitmask_list) == -1) {
       fprintf(stderr, "Unable to remove content inode after freeing block at file 0x%x!\n", file->header.file_id);
       return -1;
     }
@@ -393,7 +443,7 @@ int remove_block_from_file(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bi
 }
 
 // get new block from empty blocks, modify it's header properly, reference it in the inode
-uint16_t add_block_to_file(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bitmask) {
+uint16_t add_block_to_file(ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list) {
   ccos_content_inode_t* last_content_inode = NULL;
 
   uint16_t* content_blocks = file->content_blocks;
@@ -425,14 +475,14 @@ uint16_t add_block_to_file(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bi
     last_content_block = content_blocks[last_content_block_index - 1];
   }
 
-  uint16_t new_block = get_free_block(bitmask);
+  uint16_t new_block = get_free_block(bitmask_list);
   if (new_block == CCOS_INVALID_BLOCK) {
     fprintf(stderr, "Unable to allocate new content block: No free space!\n");
     return CCOS_INVALID_BLOCK;
   }
 
   TRACE("Allocating content block 0x%x for file id 0x%x.", new_block, file->header.file_id);
-  mark_block(bitmask, new_block, 1);
+  mark_block(bitmask_list, new_block, 1);
 
   TRACE("Last content block is 0x%x", last_content_block);
   uint32_t new_block_address = new_block * BLOCK_SIZE;
@@ -455,7 +505,7 @@ uint16_t add_block_to_file(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bi
     TRACE("Allocating new content inode for 0x%x...", file->header.file_id);
     // we're run out of space for content blocks; we should allocate next content inode
 
-    ccos_content_inode_t* new_content_inode = add_content_inode(file, data, bitmask);
+    ccos_content_inode_t* new_content_inode = add_content_inode(file, data, bitmask_list);
     if (new_content_inode == NULL) {
       fprintf(stderr, "Unable to append new content inode to the file: no free space!\n");
       return CCOS_INVALID_BLOCK;
@@ -755,17 +805,32 @@ int get_block_data(uint16_t block, const uint8_t* data, const uint8_t** start, s
   return 0;
 }
 
-int get_free_blocks(ccos_bitmask_t* bitmask, size_t data_size, size_t* free_blocks_count, uint16_t** free_blocks) {
+int get_free_blocks(ccos_bitmask_list_t* bitmask_list, size_t data_size, size_t* free_blocks_count,
+                    uint16_t** free_blocks) {
   size_t free_count = 0;
   size_t block_count = data_size / BLOCK_SIZE;
 
-  uint16_t checksum = calc_bitmask_checksum(bitmask);
-  if (bitmask->checksum != checksum) {
-    fprintf(stderr, "Warn: bitmask checksum mismatch! Expected: 0x%x, got: 0x%x!\n", bitmask->checksum, checksum);
+  // sanity checks
+  int allocated_info[MAX_BITMASK_BLOCKS_IN_IMAGE];
+  for (size_t i = 0; i < bitmask_list->length; i++) {
+    allocated_info[i] = bitmask_list->bitmask_blocks[i]->allocated;
+    uint16_t checksum = calc_bitmask_checksum(bitmask_list->bitmask_blocks[i]);
+    if (bitmask_list->bitmask_blocks[i]->checksum != checksum) {
+      fprintf(stderr, "Warn: bitmask #" SIZE_T " checksum mismatch! Expected: 0x%x, got: 0x%x!\n", i,
+              bitmask_list->bitmask_blocks[i]->checksum, checksum);
+    }
+
+    for (size_t j = 0; j < i; j++) {
+      if (allocated_info[i] != allocated_info[j]) {
+        fprintf(stderr, "Warn: bitmask blocks allocated value mismatch: #" SIZE_T " has %d; #" SIZE_T " has %d!\n", i,
+                allocated_info[i], j, allocated_info[j]);
+      }
+    }
   }
 
-  TRACE("Allocated: %d, total: %d", bitmask->allocated, block_count);
-  *free_blocks_count = block_count - bitmask->allocated;
+  // We use first block to get allocated info
+  TRACE("Allocated: %d, total: %d", bitmask_list->bitmask_blocks[0]->allocated, block_count);
+  *free_blocks_count = block_count - bitmask_list->bitmask_blocks[0]->allocated;
   TRACE("Free blocks: %d", *free_blocks_count);
   *free_blocks = (uint16_t*)calloc(*free_blocks_count, sizeof(uint16_t));
   if (*free_blocks == NULL) {
@@ -774,20 +839,25 @@ int get_free_blocks(ccos_bitmask_t* bitmask, size_t data_size, size_t* free_bloc
     return -1;
   }
 
-  for (int i = 0; i < BITMASK_SIZE; ++i) {
-    if (bitmask->bytes[i] != 0xFF) {
-      uint8_t byte = bitmask->bytes[i];
-      for (int j = 0; j < 8; ++j) {
-        if (!(byte & 1u)) {
-          (*free_blocks)[free_count++] = i * 8 + j;
+  for (size_t block = 0; block < bitmask_list->length; block++) {
+    for (int i = 0; i < BITMASK_SIZE; ++i) {
+      if (bitmask_list->bitmask_blocks[block]->bytes[i] != 0xFF) {
+        uint8_t byte = bitmask_list->bitmask_blocks[block]->bytes[i];
+        for (int j = 0; j < 8; ++j) {
+          if (!(byte & 1u)) {
+            free_count++;
+            if (free_count < *free_blocks_count) {
+              (*free_blocks)[free_count] = (block * BLOCKS_IN_BITMASK) + i * 8 + j;
+            }
+          }
+          byte = byte >> 1u;
         }
-        byte = byte >> 1u;
       }
     }
   }
 
   if (free_count != *free_blocks_count) {
-    fprintf(stderr, "Warn: free block count (" SIZE_T ") mismatches found free blocks count (" SIZE_T ")!\n",
+    fprintf(stderr, "Warn: free block count (" SIZE_T ") mismatches found free blocks (" SIZE_T ")!\n",
             *free_blocks_count, free_count);
   }
 
@@ -837,20 +907,38 @@ int format_image(uint8_t* data, size_t image_size) {
   *sb_addr = superblock;
 
   // Create bitmask
-  ccos_bitmask_t* bitmask = get_bitmask(data, image_size);
-
-  bitmask->header.file_id = get_bitmask_block(superblock);
-  bitmask->header.file_fragment_index = 0;
-
   size_t free_blocks = image_size / BLOCK_SIZE;
   size_t free_bitmask_count = free_blocks / 8;
-  memset(bitmask->bytes, 0, free_bitmask_count);
-  memset(bitmask->bytes + free_bitmask_count, 0xFF, BITMASK_SIZE - free_bitmask_count);
+  // How many bitmask blocks we need for the given image size?
+  size_t bitmask_blocks_count = (free_bitmask_count + BITMASK_SIZE - 1) / BITMASK_SIZE;
+  // How many blocks we mark as free at the last bitmask block?
+  size_t free_bitmask_remainder = BITMASK_SIZE - (bitmask_blocks_count * BITMASK_SIZE - free_bitmask_count);
+  uint16_t bitmask_file_id = superblock - bitmask_blocks_count;
 
-  mark_block(bitmask, superblock - 1, 1);  // mark bitmask block as used
-  mark_block(bitmask, superblock, 1);      // superblock
-  mark_block(bitmask, superblock + 1, 1);  // superblock contents
-  update_bitmask_checksum(bitmask);
+  uint16_t* bitmask_offset_addr = ((uint16_t*)&(data[CCOS_BITMASK_ADDR_OFFSET]));
+  *bitmask_offset_addr = bitmask_file_id;
+
+  for (size_t i = bitmask_blocks_count; i > 0; i--) {
+    uint16_t bitmask_block = superblock - i;
+    ccos_bitmask_t* bitmask = (ccos_bitmask_t*)&(data[bitmask_block]);
+    bitmask->header.file_id = bitmask_file_id;
+    bitmask->header.file_fragment_index = bitmask_blocks_count - i;
+
+    if (i == 1) {
+      // last block
+      memset(bitmask->bytes, 0, free_bitmask_remainder);
+      memset(bitmask->bytes + free_bitmask_remainder, 0xFF, BITMASK_SIZE - free_bitmask_remainder);
+    } else {
+      memset(bitmask->bytes, 0, BITMASK_SIZE);
+    }
+  }
+
+  ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(data, image_size);
+  for (size_t j = bitmask_blocks_count; j > 0; j--) {
+    mark_block(&bitmask_list, superblock - j, 1);  // mark bitmask blocks as used
+  }
+  mark_block(&bitmask_list, superblock, 1);      // superblock
+  mark_block(&bitmask_list, superblock + 1, 1);  // superblock contents
 
   // Format root directory
   ccos_inode_t* root_dir = (ccos_inode_t*)sb_addr;

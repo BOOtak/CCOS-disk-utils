@@ -95,6 +95,13 @@ typedef struct {
 
 #pragma pack(push, 1)
 typedef struct {
+  size_t length;
+  ccos_bitmask_t* bitmask_blocks[MAX_BITMASK_BLOCKS_IN_IMAGE];
+} ccos_bitmask_list_t;
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+typedef struct {
   uint16_t block;
   uint8_t name_length;
 } dir_entry_t;
@@ -210,32 +217,31 @@ ccos_inode_t* get_inode(uint16_t block, const uint8_t* data);
 int get_file_blocks(const ccos_inode_t* file, const uint8_t* data, size_t* blocks_count, uint16_t** blocks);
 
 /**
- * @brief      Find bitmask section in the CCOS image and return it.
+ * @brief Get all bitmask blocks from the image.
  *
- * @param      data       CCOS image data.
- * @param[in]  data_size  Image data size.
- *
- * @return     The bitmask on success, NULL otherwise.
+ * @param data
+ * @param data_size
+ * @return ccos_bitmask_list_t
  */
-ccos_bitmask_t* get_bitmask(uint8_t* data, size_t data_size);
+ccos_bitmask_list_t find_bitmask_blocks(uint8_t* data, size_t data_size);
 
 /**
  * @brief      Find available free block in the image and return it's number.
  *
- * @param[in]  bitmask  CCOS image bitmask.
+ * @param[in]  bitmask_list  List of CCOS image bitmask blocks.
  *
  * @return     The free block on success, CCOS_INVALID_BLOCK if no free space in the image.
  */
-uint16_t get_free_block(const ccos_bitmask_t* bitmask);
+uint16_t get_free_block(const ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Mark block in the bitmask as free or used.
  *
- * @param      bitmask  CCOS image bitmask.
+ * @param      bitmask_list  List of CCOS image bitmask blocks.
  * @param[in]  block    The number of the block.
  * @param[in]  mode     The mode (0 for free, 1 for used).
  */
-void mark_block(ccos_bitmask_t* bitmask, uint16_t block, uint8_t mode);
+void mark_block(ccos_bitmask_list_t* bitmask_list, uint16_t block, uint8_t mode);
 
 /**
  * @brief      Initialize inode at the given block.
@@ -253,11 +259,11 @@ ccos_inode_t* init_inode(uint16_t block, uint16_t parent_dir_block, uint8_t* ima
  *
  * @param      file     The file to add content inode to.
  * @param      data     CCOS image data.
- * @param      bitmask  CCOS image bitmask.
+ * @param      bitmask_list  List of CCOS image bitmask blocks.
  *
  * @return     New content inode on success, NULL otherwise.
  */
-ccos_content_inode_t* add_content_inode(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bitmask);
+ccos_content_inode_t* add_content_inode(ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Get content inode at the given block number.
@@ -284,42 +290,42 @@ ccos_content_inode_t* get_last_content_inode(const ccos_inode_t* file, const uin
  *
  * @param[in]  block    Block number.
  * @param      image    CCOS image data.
- * @param      bitmask  CCOS image bitmask.
+ * @param      bitmask_list  List of CCOS image bitmask blocks.
  */
-void erase_block(uint16_t block, uint8_t* image, ccos_bitmask_t* bitmask);
+void erase_block(uint16_t block, uint8_t* image, ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Removes the last content inode from the file's content inodes list, and erases this content inode block.
  *
  * @param      file     The file.
  * @param      data     CCOS image data.
- * @param      bitmask  CCOS image bitmask.
+ * @param      bitmask_list  List of CCOS image bitmask blocks.
  *
  * @return     0 on success, -1 otherwise.
  */
-int remove_content_inode(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bitmask);
+int remove_content_inode(ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Removes last content block from the file.
  *
  * @param      file     The file.
  * @param      data     CCOS image data.
- * @param      bitmask  CCOS image bitmask.
+ * @param      bitmask_list  List of CCOS image bitmask blocks.
  *
  * @return     0 on success, -1 otherwise.
  */
-int remove_block_from_file(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bitmask);
+int remove_block_from_file(ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Adds content block to the file.
  *
  * @param      file     The file.
  * @param      data     CCOS image data.
- * @param      bitmask  CCOS image bitmask.
+ * @param      bitmask_list  List of CCOS image bitmask blocks.
  *
  * @return     { description_of_the_return_value }
  */
-uint16_t add_block_to_file(ccos_inode_t* file, uint8_t* data, ccos_bitmask_t* bitmask);
+uint16_t add_block_to_file(ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Add new file entry to the list of files in the given directory.
@@ -390,14 +396,15 @@ int get_block_data(uint16_t block, const uint8_t* data, const uint8_t** start, s
 /**
  * @brief      Return info about free blocks in a CCOS image.
  *
- * @param[in]  bitmask            Image bitmask.
+ * @param[in]  bitmask_list       List of CCOS image bitmask blocks.
  * @param[in]  data_size          Image size.
  * @param      free_blocks_count  Pointer to free blocks count.
  * @param      free_blocks        Pointer to the free blocks array.
  *
  * @return     0 on success, -1 otherwise.
  */
-int get_free_blocks(ccos_bitmask_t* bitmask, size_t data_size, size_t* free_blocks_count, uint16_t** free_blocks);
+int get_free_blocks(ccos_bitmask_list_t* bitmask_list, size_t data_size, size_t* free_blocks_count,
+                    uint16_t** free_blocks);
 
 int find_file_index_in_directory_data(ccos_inode_t* file, ccos_inode_t* directory,
                                       parsed_directory_element_t* elements);

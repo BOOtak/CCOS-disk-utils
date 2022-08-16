@@ -15,7 +15,11 @@
 #define MAX_BLOCKS_IN_INODE 146
 #define MAX_BLOCKS_IN_CONTENT_INODE 246
 #define BITMASK_SIZE 500
+#define BLOCKS_IN_BITMASK (BITMASK_SIZE * 8)
 #define DIR_DEFAULT_SIZE 0x1F8
+
+// Block number is 2 bytes => max blocks = 65535; each bitmask stores 4000 blocks => we need 17 bitmask blocks max
+#define MAX_BITMASK_BLOCKS_IN_IMAGE 17
 
 typedef struct {
   uint8_t major;
