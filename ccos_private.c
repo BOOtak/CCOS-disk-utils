@@ -277,7 +277,7 @@ void mark_block(ccos_bitmask_list_t* bitmask_list, uint16_t block, uint8_t mode)
     return;
   }
 
-  size_t bitmask_index = (block + BLOCKS_IN_BITMASK - 1) / BLOCKS_IN_BITMASK;
+  size_t bitmask_index = block / BLOCKS_IN_BITMASK;
   uint8_t* byte = &(bitmask_list->bitmask_blocks[bitmask_index]->bytes[block >> 3u]);
   if (mode) {
     *byte = *byte | (1u << (block & 0b111u));
