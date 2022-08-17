@@ -337,13 +337,16 @@ ccos_inode_t* ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_na
 /**
  * @brief      Rename file and change type.
  *
+ * @param      image_data      CCOS image data.
+ * @param[in]  image_size      CCOS image size.
  * @param[in]  file        The file.
  * @param[in]  new_name    The new name.
  * @param[in]  new_type    The new type (optional, may be NULL, if you don't want to change it).
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_rename_file(ccos_inode_t* file, const char* new_name, const char* new_type);
+int ccos_rename_file(uint8_t* image_data, size_t image_size, ccos_inode_t* file,
+                     const char* new_name, const char* new_type);
 
 /**
  * @brief      Get label of provided image and return it.

@@ -352,6 +352,18 @@ int add_file_to_directory(ccos_inode_t* directory, ccos_inode_t* file, uint8_t* 
  */
 int add_file_entry_to_dir_contents(ccos_inode_t* directory, uint8_t* image_data, size_t image_size, ccos_inode_t* file);
 
+
+/**
+ * @brief      Delete file entry from the parent directory.
+ *
+ * @param      file        The file.
+ * @param[in]  image_data  CCOS image data.
+ * @param[in]  image_size  CCOS image size.
+ *
+ * @return     0 on success, -1 otherwise.
+ */
+int delete_file_from_parent_dir(ccos_inode_t* file, uint8_t* image_data, size_t image_size);
+
 /**
  * @brief      Perse CCOS file name and return it's basename and it's type.
  *
