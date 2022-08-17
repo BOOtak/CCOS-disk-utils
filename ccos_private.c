@@ -273,11 +273,12 @@ void mark_block(ccos_bitmask_list_t* bitmask_list, uint16_t block, uint8_t mode)
 
   if (block >= bitmask_list->length * BLOCKS_IN_BITMASK) {
     fprintf(stderr, "Unable to mark block 0x%x: out of bitmask bounds of %lx!\n", block,
-            bitmask_list->length * BITMASK_SIZE * 8);
+            bitmask_list->length * BLOCKS_IN_BITMASK);
     return;
   }
 
   size_t bitmask_index = block / BLOCKS_IN_BITMASK;
+  block = block - (bitmask_index * BLOCKS_IN_BITMASK);
   uint8_t* byte = &(bitmask_list->bitmask_blocks[bitmask_index]->bytes[block >> 3u]);
   if (mode) {
     *byte = *byte | (1u << (block & 0b111u));
