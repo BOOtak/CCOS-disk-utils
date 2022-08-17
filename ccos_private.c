@@ -724,6 +724,95 @@ int add_file_entry_to_dir_contents(ccos_inode_t* directory, uint8_t* image_data,
   return 0;
 }
 
+int delete_file_from_parent_dir(ccos_inode_t* file, uint8_t* image_data, size_t image_size) {
+    ccos_inode_t* parent_dir = ccos_get_parent_dir(file, image_data);
+
+    TRACE("Reading contents of the directory %*s (0x%x)", parent_dir->name_length, parent_dir->name,
+          parent_dir->header.file_id);
+
+    size_t dir_size = 0;
+    uint8_t* directory_data = NULL;
+
+    if (ccos_read_file(parent_dir, image_data, &directory_data, &dir_size) == -1) {
+      fprintf(stderr, "Unable to read directory contents at directory id 0x%x\n", parent_dir->header.file_id);
+      return -1;
+    }
+
+    parsed_directory_element_t* elements = NULL;
+    if (parse_directory_data(image_data, directory_data, dir_size, parent_dir->dir_count, &elements) == -1) {
+      fprintf(stderr, "Unable to add file to directory files list: Unable to parse directory data!\n");
+      free(directory_data);
+      return -1;
+    }
+
+    // Find place of the file to delete in directory data
+    int i = find_file_index_in_directory_data(file, parent_dir, elements);
+    if ((i < parent_dir->dir_count) && (file->name_length == elements[i].file->name_length) &&
+        !(strncasecmp(file->name, elements[i].file->name, file->name_length))) {
+      TRACE("File is found!");
+    } else {
+      fprintf(stderr, "Unable to find file \"%*s\" in directory \"%*s\"!\n", file->name_length, file->name,
+              parent_dir->name_length, parent_dir->name);
+      free(directory_data);
+      free(elements);
+      return -1;
+    }
+
+    int entry_to_delete_is_last = i == (parent_dir->dir_count - 1);
+
+    // If we remove last entry, mark the one before it as last.
+    if (entry_to_delete_is_last) {
+      if (parent_dir->dir_count == 1) {
+        directory_data[0] = CCOS_DIR_LAST_ENTRY_MARKER;
+      } else {
+        directory_data[elements[i - 1].offset + elements[i - 1].size] = CCOS_DIR_LAST_ENTRY_MARKER;
+      }
+    }
+
+    // |  <------------- elements[i].size -------------->  |            |
+    // |  .-- elements[i].offset                           |            |  .-- elements[i+1].offset
+    // |  V                                                |            |  V
+    // |  00  01  |   02    | 03 04 05 ... NN |    NN+1    |    NN+2    |  +3  +4  |   +5    |
+    // |----------|---------|-----------------|------------|------------|----------|---------|
+    // | file id  |  name   |      name       |  reversed  | last entry | file id  |  name   |
+    // |          | length  |                 |  length    |    flag    |          | length  |
+    size_t next_entry_offset = elements[i].offset + elements[i].size + sizeof(uint8_t);
+
+    if (parent_dir->dir_count > 1) {
+      memmove(directory_data + elements[i].offset, directory_data + next_entry_offset, dir_size - next_entry_offset);
+    }
+
+    // Zero last bytes at the end of dir contents. It's not necessary if you have last entry marker set correctly, but
+    // it'll help read image in HEX editor if removed dir entry will be nice and zeroed.
+    size_t shrink_size = elements[i].size + sizeof(uint8_t);
+    memset(directory_data + dir_size - shrink_size, 0, shrink_size);
+    size_t new_dir_size = dir_size - shrink_size;
+
+    // Write dir contents back with old size to overwrite bytes at the end of dir with zeroes.
+    int res = ccos_write_file(parent_dir, image_data, image_size, directory_data, dir_size);
+
+    // Do that once more with new size to clear freed up content block.
+    if (res != -1) {
+      res = ccos_write_file(parent_dir, image_data, image_size, directory_data, new_dir_size);
+    }
+
+    free(directory_data);
+    free(elements);
+
+    if (res == -1) {
+      fprintf(stderr, "Unable to update directory contents of dir with id=0x%x!\n", parent_dir->header.file_id);
+      return -1;
+    }
+
+    parent_dir->file_size = new_dir_size;
+    parent_dir->dir_length = new_dir_size;
+    parent_dir->dir_count = parent_dir->dir_count - 1;
+
+    update_inode_checksums(parent_dir);
+
+    return 0;
+}
+
 int find_file_index_in_directory_data(ccos_inode_t* file, ccos_inode_t* directory,
                                       parsed_directory_element_t* elements) {
   char basename[CCOS_MAX_FILE_NAME] = {0};

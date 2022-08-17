@@ -811,7 +811,7 @@ int rename_file(char* path, char* file_name, char* new_name, uint8_t* image_data
     return -1;
   }
 
-  if (ccos_rename_file(file, new_name, NULL) == -1) {
+  if (ccos_rename_file(image_data, image_size, file, new_name, NULL) == -1) {
     char* old_file_name = short_string_to_string(ccos_get_file_name(file));
     fprintf(stderr, "Unable to rename file %s to %s!\n", old_file_name, new_name);
     free(old_file_name);
