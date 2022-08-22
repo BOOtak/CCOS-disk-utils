@@ -1010,7 +1010,7 @@ int format_image(uint8_t* data, size_t image_size) {
 
   for (size_t i = bitmask_blocks_count; i > 0; i--) {
     uint16_t bitmask_block = superblock - i;
-    ccos_bitmask_t* bitmask = (ccos_bitmask_t*)&(data[bitmask_block]);
+    ccos_bitmask_t* bitmask = ((ccos_bitmask_t*)&(data[bitmask_block * BLOCK_SIZE]));
     bitmask->header.file_id = bitmask_file_id;
     bitmask->header.file_fragment_index = bitmask_blocks_count - i;
 
