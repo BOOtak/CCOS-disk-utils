@@ -31,11 +31,6 @@ int read_file(const char* path, uint8_t** file_data, size_t* file_size) {
     return -1;
   }
 
-  if (!S_ISREG(st.st_mode)) {
-    fprintf(stderr, "Unable to open \"%s\": not a file!\n", path);
-    return -1;
-  }
-
   FILE* f = fopen(path, "rb");
   if (f == NULL) {
     fprintf(stderr, "Unable to open %s: %s!\n", path, strerror(errno));
