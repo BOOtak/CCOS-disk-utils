@@ -384,7 +384,7 @@ int parse_file_name(const short_string_t* file_name, char* basename, char* type,
  * @param      image_data           CCOS image data.
  * @param[in]  directory_data       Directory raw contents.
  * @param[in]  directory_data_size  Directory contents size.
- * @param[in]  entry_count          Nunber of files in the directory.
+ * @param[in]  entry_count          Number of files in the directory.
  * @param      entries              Array of files located in the directory.
  *
  * @return     0 on success, -1 otherwise.
