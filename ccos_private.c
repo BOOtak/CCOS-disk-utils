@@ -134,7 +134,7 @@ int get_file_blocks(const ccos_inode_t* file, const uint8_t* data, size_t* block
   for (int i = 0; i < MAX_BLOCKS_IN_INODE; ++i) {
     uint16_t content_block = file->content_blocks[i];
     if (content_block == CCOS_CONTENT_BLOCKS_END_MARKER) {
-      break;
+      continue;
     }
 
     (*blocks)[real_blocks_count++] = content_block;
@@ -166,7 +166,7 @@ int get_file_blocks(const ccos_inode_t* file, const uint8_t* data, size_t* block
       for (int i = 0; i < MAX_BLOCKS_IN_CONTENT_INODE; ++i) {
         uint16_t content_block = content_inode->content_blocks[i];
         if (content_block == CCOS_CONTENT_BLOCKS_END_MARKER) {
-          break;
+          continue;
         }
 
         extra_blocks[extra_blocks_count++] = content_block;
