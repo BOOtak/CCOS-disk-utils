@@ -6,14 +6,23 @@
 
 #include "string_utils.h"
 
-#define BLOCK_SIZE 512
+#define BUBBLE_MEMORY
 
-// Should be used only to create new 360k images
+#ifdef BUBBLE_MEMORY
+  #define BLOCK_SIZE 0x100 //512
+  #define LOGICAL_BLOCK_SIZE BLOCK_SIZE - 4 //  4 bytes for fID and fSN
+#else
+    #define BLOCK_SIZE 0x200
+    #define LOGICAL_BLOCK_SIZE BLOCK_SIZE - 8 //  4 bytes for fID and fSN and 4 more bytes at the end in case of 512
+#endif
+  // Should be used only to create new 360k images
 #define BLOCKS_IN_IMAGE 720
 
 #define CCOS_MAX_FILE_NAME 80
-#define MAX_BLOCKS_IN_INODE 146
-#define MAX_BLOCKS_IN_CONTENT_INODE 246
+#define MAX_DESCRIPTOR_LENGTH 200 // from WSTYPE.INC
+#define BLOCK_DATA_T_SIZE 12 // sizeof(ccos_block_data_t)
+#define MAX_BLOCKS_IN_INODE (LOGICAL_BLOCK_SIZE - MAX_DESCRIPTOR_LENGTH - BLOCK_DATA_T_SIZE )/2  //for 512 byte blocks 146
+#define MAX_BLOCKS_IN_CONTENT_INODE (BLOCK_SIZE - BLOCK_DATA_T_SIZE )/2  //for 512 byte blocks 246
 #define BITMASK_SIZE 500
 #define BLOCKS_IN_BITMASK (BITMASK_SIZE * 8)
 #define DIR_DEFAULT_SIZE 0x1F8

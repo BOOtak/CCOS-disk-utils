@@ -19,10 +19,13 @@
 #define CCOS_BLOCK_SUFFIX_LENGTH 0x4
 #define CCOS_BLOCK_DATA_SIZE (BLOCK_SIZE - (CCOS_DATA_OFFSET + CCOS_BLOCK_SUFFIX_LENGTH))
 
+#pragma pack(push, 1)
 typedef struct {
   uint16_t file_id;
   uint16_t file_fragment_index;
 } ccos_block_header_t;
+#pragma pack(pop)
+
 
 #pragma pack(push, 1)
 typedef struct {
@@ -71,7 +74,6 @@ typedef struct ccos_inode_t_ {
   uint16_t metadata_checksum;  // checksum([file_id ... metadata_checksum))
   ccos_block_data_t content_inode_info;
   uint16_t content_blocks[MAX_BLOCKS_IN_INODE];
-  uint32_t block_end;
 } ccos_inode_t;
 #pragma pack(pop)
 
@@ -79,7 +81,8 @@ typedef struct ccos_inode_t_ {
 typedef struct {
   ccos_block_data_t content_inode_info;
   uint16_t content_blocks[MAX_BLOCKS_IN_CONTENT_INODE];
-  uint64_t block_end;
+  // uint64_t block_end;
+  uint32_t block_end;
 } ccos_content_inode_t;
 #pragma pack(pop)
 

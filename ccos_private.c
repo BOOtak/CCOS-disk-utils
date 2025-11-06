@@ -5,6 +5,7 @@
 #include "ccos_private.h"
 
 #include <errno.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,10 +17,10 @@
  * at the offset 0x20. Sometimes though, it doesn't. In such cases we assume that superblock is # 0x121.
  */
 #define CCOS_SUPERBLOCK_ADDR_OFFSET 0x20
-#define CCOS_DEFAULT_SUPERBLOCK 0x121
+#define CCOS_DEFAULT_SUPERBLOCK 0x3fe //0x121
 
 #define CCOS_BITMASK_ADDR_OFFSET 0x1E
-#define CCOS_DEFAULT_BITMASK 0x120
+#define CCOS_DEFAULT_BITMASK (CCOS_DEFAULT_SUPERBLOCK-1) //0x120
 
 #define CCOS_CONTENT_BLOCKS_END_MARKER 0xFFFF
 
@@ -42,21 +43,26 @@ uint16_t calc_inode_metadata_checksum(const ccos_inode_t* inode) {
 }
 
 uint16_t calc_inode_blocks_checksum(const ccos_inode_t* inode) {
+  uint16_t cs_size = sizeof(ccos_inode_t) - offsetof(ccos_inode_t, content_inode_info) - offsetof(ccos_block_data_t, block_next);
+  // printf("checksum_size = %d %x\n",cs_size,cs_size);
   uint16_t blocks_checksum =
-      calc_checksum((const uint8_t*)&(inode->content_inode_info.block_next),
-                    offsetof(ccos_inode_t, block_end) - offsetof(ccos_inode_t, content_inode_info) -
-                        offsetof(ccos_block_data_t, block_next));
+      calc_checksum((const uint8_t*)&(inode->content_inode_info.block_next), cs_size);
   blocks_checksum += inode->content_inode_info.header.file_id;
   blocks_checksum += inode->content_inode_info.header.file_fragment_index;
 
   return blocks_checksum;
 }
 
+
+
 uint16_t calc_content_inode_checksum(const ccos_content_inode_t* content_inode) {
+  uint16_t cs_size = sizeof(ccos_content_inode_t) - offsetof(ccos_content_inode_t, content_inode_info) - offsetof(ccos_block_data_t, block_next) -8;
+
+  const uint8_t *cs_start = (const uint8_t*)&(content_inode->content_inode_info.block_next);
+  printf("checksum_size = %d %x %x\n",cs_size,cs_size,(void*)cs_start-(void*)content_inode);
   uint16_t blocks_checksum =
-      calc_checksum((const uint8_t*)&(content_inode->content_inode_info.block_next),
-                    offsetof(ccos_content_inode_t, block_end) - offsetof(ccos_content_inode_t, content_inode_info) -
-                        offsetof(ccos_block_data_t, block_next));
+  calc_checksum(cs_start,cs_size);
+
   blocks_checksum += content_inode->content_inode_info.header.file_id;
   blocks_checksum += content_inode->content_inode_info.header.file_fragment_index;
 
