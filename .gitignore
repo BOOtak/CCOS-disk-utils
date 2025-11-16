@@ -42,7 +42,12 @@
 *.idb
 *.pdb
 
+# JetBrains
+.idea/
+Testing/
+
 # CMake artifacts
+.cmake/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake

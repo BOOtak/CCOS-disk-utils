@@ -1,54 +1,14 @@
 ﻿#ifndef CCOS_IMAGE_H
 #define CCOS_IMAGE_H
 
-#include <stddef.h>
-#include <stdint.h>
-
+#include "ccos_structure.h"
 #include "string_utils.h"
-
-#define BUBBLE_MEMORY
-
-#ifdef BUBBLE_MEMORY
-  #define BLOCK_SIZE 0x100 //512
-  #define LOGICAL_BLOCK_SIZE BLOCK_SIZE - 4 //  4 bytes for fID and fSN
-#else
-    #define BLOCK_SIZE 0x200
-    #define LOGICAL_BLOCK_SIZE BLOCK_SIZE - 8 //  4 bytes for fID and fSN and 4 more bytes at the end in case of 512
-#endif
-  // Should be used only to create new 360k images
-#define BLOCKS_IN_IMAGE 720
-
-#define CCOS_MAX_FILE_NAME 80
-#define MAX_DESCRIPTOR_LENGTH 200 // from WSTYPE.INC
-#define BLOCK_DATA_T_SIZE 12 // sizeof(ccos_block_data_t)
-#define MAX_BLOCKS_IN_INODE (LOGICAL_BLOCK_SIZE - MAX_DESCRIPTOR_LENGTH - BLOCK_DATA_T_SIZE )/2  //for 512 byte blocks 146
-#define MAX_BLOCKS_IN_CONTENT_INODE (BLOCK_SIZE - BLOCK_DATA_T_SIZE )/2  //for 512 byte blocks 246
-#define BITMASK_SIZE BLOCK_SIZE- 8//500
-#define BLOCKS_IN_BITMASK (BITMASK_SIZE * 8)
-#define DIR_DEFAULT_SIZE LOGICAL_BLOCK_SIZE //0x1F8
-
-// Block number is 2 bytes => max blocks = 65535; each bitmask stores 4000 blocks => we need 17 bitmask blocks max
-#define MAX_BITMASK_BLOCKS_IN_IMAGE 17
 
 typedef struct {
   uint8_t major;
   uint8_t minor;
   uint8_t patch;
 } version_t;
-
-#pragma pack(push, 1)
-typedef struct {
-  uint16_t year;
-  uint8_t month;
-  uint8_t day;
-  uint8_t hour;
-  uint8_t minute;
-  uint8_t second;
-  uint8_t tenthOfSec;
-  uint8_t dayOfWeek;
-  uint16_t dayOfYear;
-} ccos_date_t;
-#pragma pack(pop)
 
 typedef struct ccos_inode_t_ ccos_inode_t;
 
@@ -70,7 +30,7 @@ int ccos_check_image(const uint8_t* file_data);
  *
  * @return     The ID of the file.
  */
-uint16_t ccos_file_id(ccos_inode_t* inode);
+uint16_t ccos_file_id(const ccos_inode_t* inode);
 
 /**
  * @brief      Get the file version.
@@ -79,7 +39,7 @@ uint16_t ccos_file_id(ccos_inode_t* inode);
  *
  * @return     The version of the file.
  */
-version_t ccos_get_file_version(ccos_inode_t* file);
+version_t ccos_get_file_version(const ccos_inode_t* file);
 
 /**
  * @brief      Set the file version.
@@ -108,7 +68,7 @@ short_string_t* ccos_get_file_name(const ccos_inode_t* file);
  *
  * @return     Root directory on success, NULL otherwise.
  */
-ccos_inode_t* ccos_get_root_dir(uint8_t* data, size_t data_size);
+ccos_inode_t* ccos_get_root_dir(ccfs_handle ctx, uint8_t* data, size_t data_size);
 
 /**
  * @brief      Read contents from the directory inode.
@@ -120,7 +80,7 @@ ccos_inode_t* ccos_get_root_dir(uint8_t* data, size_t data_size);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_get_dir_contents(ccos_inode_t* dir, uint8_t* data, uint16_t* entry_count, ccos_inode_t*** entries);
+int ccos_get_dir_contents(ccfs_handle ctx, ccos_inode_t* dir, uint8_t* data, uint16_t* entry_count, ccos_inode_t*** entries);
 
 /**
  * @brief      Determine whether the given inode is a directory's inode.
@@ -129,7 +89,7 @@ int ccos_get_dir_contents(ccos_inode_t* dir, uint8_t* data, uint16_t* entry_coun
  *
  * @return     1 if the given inode belongs to a directory, 0 otherwise.
  */
-int ccos_is_dir(ccos_inode_t* file);
+int ccos_is_dir(const ccos_inode_t* file);
 
 /**
  * @brief      Get the size of a file at a given inode.
@@ -138,7 +98,7 @@ int ccos_is_dir(ccos_inode_t* file);
  *
  * @return     The size of a file at a given inode.
  */
-uint32_t ccos_get_file_size(ccos_inode_t* file);
+uint32_t ccos_get_file_size(const ccos_inode_t* file);
 
 /**
  * @brief      Get the creation date of a file at a given inode.
@@ -147,7 +107,7 @@ uint32_t ccos_get_file_size(ccos_inode_t* file);
  *
  * @return     The creation date of a file at a given inode.
  */
-ccos_date_t ccos_get_creation_date(ccos_inode_t* file);
+ccos_date_t ccos_get_creation_date(const ccos_inode_t* file);
 
 /**
  * @brief      Get the modification date of a file at a given inode.
@@ -156,7 +116,7 @@ ccos_date_t ccos_get_creation_date(ccos_inode_t* file);
  *
  * @return     The modification date of a file at a given inode.
  */
-ccos_date_t ccos_get_mod_date(ccos_inode_t* file);
+ccos_date_t ccos_get_mod_date(const ccos_inode_t* file);
 
 /**
  * @brief      Get the expiry date of a file at a given inode.
@@ -165,7 +125,7 @@ ccos_date_t ccos_get_mod_date(ccos_inode_t* file);
  *
  * @return     The expiry date of a file at a given inode.
  */
-ccos_date_t ccos_get_exp_date(ccos_inode_t* file);
+ccos_date_t ccos_get_exp_date(const ccos_inode_t* file);
 
 /**
  * @brief      Сhanges the creation date of a file or folder.
@@ -207,7 +167,7 @@ int ccos_set_exp_date(ccos_inode_t* file, ccos_date_t new_date);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_replace_file(ccos_inode_t* file, const uint8_t* file_data, uint32_t file_size, uint8_t* image_data);
+int ccos_replace_file(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* file_data, uint32_t file_size, uint8_t* image_data);
 
 /**
  * @brief      Get info about blocks in the image. Traverse all blocks in the CCOS image and return array filled with
@@ -220,7 +180,7 @@ int ccos_replace_file(ccos_inode_t* file, const uint8_t* file_data, uint32_t fil
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_get_image_map(const uint8_t* data, size_t data_size, block_type_t** image_map, size_t* free_blocks_count);
+int ccos_get_image_map(ccfs_handle ctx, const uint8_t* data, size_t data_size, block_type_t** image_map, size_t* free_blocks_count);
 
 /**
  * @brief      Read file contents into memory buffer
@@ -232,7 +192,7 @@ int ccos_get_image_map(const uint8_t* data, size_t data_size, block_type_t** ima
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_read_file(ccos_inode_t* file, const uint8_t* image_data, uint8_t** file_data, size_t* file_size);
+int ccos_read_file(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* image_data, uint8_t** file_data, size_t* file_size);
 
 /**
  * @brief      Get parent directory of the given file.
@@ -242,7 +202,7 @@ int ccos_read_file(ccos_inode_t* file, const uint8_t* image_data, uint8_t** file
  *
  * @return     Parent directory on success, NULL otherwise.
  */
-ccos_inode_t* ccos_get_parent_dir(ccos_inode_t* file, uint8_t* data);
+ccos_inode_t* ccos_get_parent_dir(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data);
 
 /**
  * @brief      Copy file from one CCOS image into another.
@@ -255,8 +215,8 @@ ccos_inode_t* ccos_get_parent_dir(ccos_inode_t* file, uint8_t* data);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* dest_directory, const uint8_t* src_image,
-                   ccos_inode_t* src_file);
+int ccos_copy_file(ccfs_handle ctx, uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* dest_directory,
+                   const uint8_t* src_image, ccos_inode_t* src_file);
 
 /**
  * @brief      Delete file in the image.
@@ -267,7 +227,7 @@ int ccos_copy_file(uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* de
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_delete_file(uint8_t* image_data, size_t data_size, ccos_inode_t* file);
+int ccos_delete_file(ccfs_handle ctx, uint8_t* image_data, size_t data_size, ccos_inode_t* file);
 
 /**
  * @brief      Add new file to the given directory.
@@ -281,7 +241,7 @@ int ccos_delete_file(uint8_t* image_data, size_t data_size, ccos_inode_t* file);
  *
  * @return     Newly created file inode on success, NULL otherwise.
  */
-ccos_inode_t* ccos_add_file(ccos_inode_t* dest_directory, uint8_t* file_data, size_t file_size, const char* file_name,
+ccos_inode_t* ccos_add_file(ccfs_handle ctx, ccos_inode_t* dest_directory, uint8_t* file_data, size_t file_size, const char* file_name,
                             uint8_t* image_data, size_t image_size);
 
 /**
@@ -301,7 +261,7 @@ int ccos_validate_file(const ccos_inode_t* file);
  *
  * @return     Free space in the image, in bytes.
  */
-size_t ccos_calc_free_space(uint8_t* data, size_t data_size);
+size_t ccos_calc_free_space(ccfs_handle ctx, uint8_t* data, size_t data_size);
 
 /**
  * @brief      Overwrite file contents with the given data.
@@ -314,8 +274,8 @@ size_t ccos_calc_free_space(uint8_t* data, size_t data_size);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_write_file(ccos_inode_t* file, uint8_t* image_data, size_t image_size, const uint8_t* file_data,
-                    size_t file_size);
+int ccos_write_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* image_data, size_t image_size,
+                    const uint8_t* file_data, size_t file_size);
 
 /**
  * @brief      Get info about the name of the given file.
@@ -328,7 +288,7 @@ int ccos_write_file(ccos_inode_t* file, uint8_t* image_data, size_t image_size, 
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_parse_file_name(ccos_inode_t* inode, char* basename, char* type, size_t* name_length, size_t* type_length);
+int ccos_parse_file_name(const ccos_inode_t* inode, char* basename, char* type, size_t* name_length, size_t* type_length);
 
 /**
  * @brief      Create directory in the image.
@@ -340,8 +300,8 @@ int ccos_parse_file_name(ccos_inode_t* inode, char* basename, char* type, size_t
  *
  * @return     Newly created directory inode on success, NULL otherwise.
  */
-ccos_inode_t* ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_name, uint8_t* image_data,
-                              size_t image_size);
+ccos_inode_t* ccos_create_dir(ccfs_handle ctx, ccos_inode_t* parent_dir, const char* directory_name,
+                              uint8_t* image_data, size_t image_size);
 
 /**
  * @brief      Rename file and change type.
@@ -354,7 +314,7 @@ ccos_inode_t* ccos_create_dir(ccos_inode_t* parent_dir, const char* directory_na
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_rename_file(uint8_t* image_data, size_t image_size, ccos_inode_t* file,
+int ccos_rename_file(ccfs_handle ctx, uint8_t* image_data, size_t image_size, ccos_inode_t* file,
                      const char* new_name, const char* new_type);
 
 /**
@@ -365,7 +325,7 @@ int ccos_rename_file(uint8_t* image_data, size_t image_size, ccos_inode_t* file,
  *
  * @return     Image label in char*
  */
-char* ccos_get_image_label(uint8_t* data, size_t data_size);
+char* ccos_get_image_label(ccfs_handle ctx, uint8_t* data, size_t data_size);
 
 /**
  * @brief      Set label of provided image.
@@ -376,7 +336,7 @@ char* ccos_get_image_label(uint8_t* data, size_t data_size);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_set_image_label(uint8_t* data, size_t data_size, const char* label);
+int ccos_set_image_label(ccfs_handle ctx, uint8_t* data, size_t data_size, const char* label);
 
 /**
  * @brief      Create new empty image.
@@ -385,6 +345,6 @@ int ccos_set_image_label(uint8_t* data, size_t data_size, const char* label);
  *
  * @return     Image data on success, NULL otherwise.
  */
-uint8_t* ccos_create_new_image(size_t* image_size);
+uint8_t* ccos_create_new_image(ccfs_handle ctx, size_t blocks);
 
 #endif  // CCOS_IMAGE_H

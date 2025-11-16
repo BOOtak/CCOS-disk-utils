@@ -1,10 +1,12 @@
-#include <ccos_image.h>
 #include <common.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <wrapper.h>
+
+#include "ccos_context.h"
+#include "ccos_image.h"
+#include "wrapper.h"
 
 typedef enum {
   MODE_DUMP = 1,
@@ -169,8 +171,13 @@ int main(int argc, char** argv) {
     }
   }
 
+  ccfs_context_t* ctx = malloc(sizeof(ccfs_context_t));
+  ctx->sector_size = 512;
+  ctx->superblock_id = 0;
+  ctx->bitmap_block_id = 0;
+
   if (mode == MODE_CREATE_BLANK) {
-    return create_blank_image(path);
+    return create_blank_image(ctx, path, 720 * 512);
   }
 
   uint8_t* file_contents = NULL;
@@ -190,26 +197,26 @@ int main(int argc, char** argv) {
   int res;
   switch (mode) {
     case MODE_PRINT: {
-      res = print_image_info(path, file_contents, file_size, short_format);
-      size_t free_bytes = ccos_calc_free_space(file_contents, file_size);
+      res = print_image_info(ctx, path, file_contents, file_size, short_format);
+      size_t free_bytes = ccos_calc_free_space(ctx, file_contents, file_size);
       printf("\n");
       printf("Free space: " SIZE_T " bytes.\n", free_bytes);
       break;
     }
     case MODE_DUMP: {
-      res = dump_image(path, file_contents, file_size);
+      res = dump_image(ctx, path, file_contents, file_size);
       break;
     }
     case MODE_REPLACE_FILE: {
-      res = replace_file(path, filename, target_name, file_contents, file_size, in_place);
+      res = replace_file(ctx, path, filename, target_name, file_contents, file_size, in_place);
       break;
     }
     case MODE_COPY_FILE: {
-      res = copy_file(target_image, filename, file_contents, file_size, in_place);
+      res = copy_file(ctx, target_image, filename, file_contents, file_size, in_place);
       break;
     }
     case MODE_DELETE_FILE: {
-      res = delete_file(path, filename, in_place);
+      res = delete_file(ctx, path, filename, in_place);
       break;
     }
     case MODE_ADD_FILE: {
@@ -218,16 +225,16 @@ int main(int argc, char** argv) {
         print_usage();
         res = -1;
       } else {
-        res = add_file(path, filename, target_name, file_contents, file_size, in_place);
+        res = add_file(ctx, path, filename, target_name, file_contents, file_size, in_place);
       }
       break;
     }
     case MODE_CREATE_DIRECTORY: {
-      res = create_directory(path, dir_name, file_contents, file_size, in_place);
+      res = create_directory(ctx, path, dir_name, file_contents, file_size, in_place);
       break;
     }
     case MODE_RENAME_FILE: {
-      res = rename_file(path, filename, target_name, file_contents, file_size, in_place);
+      res = rename_file(ctx, path, filename, target_name, file_contents, file_size, in_place);
       break;
     }
     default: {

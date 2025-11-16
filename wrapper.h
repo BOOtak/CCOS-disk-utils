@@ -12,7 +12,7 @@
  *
  * @return     0 on success, -1 otherwise.
  */
-int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data);
+int dump_dir(ccfs_handle ctx, const char* path, ccos_inode_t* dir, uint8_t* data);
 
 /**
  * @brief      Dumps all files and directories from CCOS disk image.
@@ -23,7 +23,7 @@ int dump_dir(const char* path, ccos_inode_t* dir, uint8_t* data);
  *
  * @return     0 on success, -1 otherwise.
  */
-int dump_image(const char* path, uint8_t* data, size_t data_size);
+int dump_image(ccfs_handle ctx, const char* path, uint8_t* data, size_t data_size);
 
 /**
  * @brief      Dumps file to directory from CCOS disk image.
@@ -34,7 +34,7 @@ int dump_image(const char* path, uint8_t* data, size_t data_size);
  *
  * @return     0 on success, -1 otherwise.
  */
-int dump_file(const char* path_to_dir, ccos_inode_t* file, uint8_t* image_data);
+int dump_file(ccfs_handle ctx, const char* path_to_dir, ccos_inode_t* file, uint8_t* image_data);
 
 /**
  * @brief      Dumps a directory recursively from CCOS disk image to a custom folder.
@@ -46,7 +46,7 @@ int dump_file(const char* path_to_dir, ccos_inode_t* file, uint8_t* image_data);
  *
  * @return     0 on success, -1 otherwise.
  */
-int dump_dir_to(const char* path, ccos_inode_t* dir, uint8_t* data, const char* destpath);
+int dump_dir_to(ccfs_handle ctx, const char* path, ccos_inode_t* dir, uint8_t* data, const char* destpath);
 
 /**
  * @brief      Dumps all files and directories from CCOS disk image to a custom folder.
@@ -58,7 +58,7 @@ int dump_dir_to(const char* path, ccos_inode_t* dir, uint8_t* data, const char* 
  *
  * @return     0 on success, -1 otherwise.
  */
-int dump_image_to(const char* path, uint8_t* data, size_t data_size, const char* destpath);
+int dump_image_to(ccfs_handle ctx, const char* path, uint8_t* data, size_t data_size, const char* destpath);
 
 /**
  * @brief      Prints a CCOS image contents.
@@ -70,7 +70,7 @@ int dump_image_to(const char* path, uint8_t* data, size_t data_size, const char*
  *
  * @return     0 on success, -1 otherwise.
  */
-int print_image_info(const char* path, uint8_t* data, size_t data_size, int short_format);
+int print_image_info(ccfs_handle ctx, const char* path, uint8_t* data, size_t data_size, int short_format);
 
 /**
  * @brief      Replace file in the CCOS image.
@@ -87,7 +87,7 @@ int print_image_info(const char* path, uint8_t* data, size_t data_size, int shor
  *
  * @return     0 on success, -1 otherwise.
  */
-int replace_file(const char* path, const char* filename, const char* target_name, uint8_t* data, size_t data_size,
+int replace_file(ccfs_handle ctx, const char* path, const char* filename, const char* target_name, uint8_t* data, size_t data_size,
                  int in_place);
 
 /**
@@ -103,7 +103,7 @@ int replace_file(const char* path, const char* filename, const char* target_name
  *
  * @return     0 on success, -1 otherwise.
  */
-int copy_file(const char* target_image, const char* filename, uint8_t* source_data, size_t source_size, int in_place);
+int copy_file(ccfs_handle ctx, const char* target_image, const char* filename, uint8_t* source_data, size_t source_size, int in_place);
 
 /**
  * @brief      Delete file in the image.
@@ -115,7 +115,7 @@ int copy_file(const char* target_image, const char* filename, uint8_t* source_da
  *
  * @return     0 on success, -1 otherwise.
  */
-int delete_file(const char* path, const char* filename, int in_place);
+int delete_file(ccfs_handle ctx, const char* path, const char* filename, int in_place);
 
 /**
  * @brief      Add file to the image.
@@ -130,8 +130,8 @@ int delete_file(const char* path, const char* filename, int in_place);
  *
  * @return     0 on success, -1 otherwise.
  */
-int add_file(const char* image_path, const char* file_path, const char* file_name, uint8_t* data, size_t data_size,
-             int in_place);
+int add_file(ccfs_handle ctx, const char* image_path, const char* file_path, const char* file_name,
+             uint8_t* data, size_t data_size, int in_place);
 
 /**
  * @brief      Create directory in the image.
@@ -145,10 +145,10 @@ int add_file(const char* image_path, const char* file_path, const char* file_nam
  *
  * @return     0 on success, -1 otherwise.
  */
-int create_directory(char* path, char* directory_name, uint8_t* file_contents, size_t file_size, int in_place);
+int create_directory(ccfs_handle ctx, char* path, char* directory_name, uint8_t* file_contents, size_t file_size, int in_place);
 
-int rename_file(char* path, char* file_name, char* new_name, uint8_t* image_data, size_t image_size, int in_place);
+int rename_file(ccfs_handle ctx, char* path, char* file_name, char* new_name, uint8_t* image_data, size_t image_size, int in_place);
 
-int create_blank_image(char* path);
+int create_blank_image(ccfs_handle ctx, char* path, size_t size);
 
 #endif  // WRAPPER_H
