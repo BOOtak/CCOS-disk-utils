@@ -48,7 +48,7 @@ static const struct option long_options[] = {{"image", required_argument, NULL, 
                                              {"short-format", no_argument, NULL, 's'},
                                              {"verbose", no_argument, NULL, 'v'},
                                              {"help", no_argument, NULL, 'h'},
-                                             {"create-new", no_argument, NULL, 'w'},
+                                             {"create-new", required_argument, NULL, 'w'},
                                              {NULL, no_argument, NULL, 0}};
 
 static const char* opt_string = "i:r:n:c:e:a:t:y:z:ldpsvhw";
@@ -68,7 +68,7 @@ static void print_usage() {
           "ccos_disk_tool -i src_image -e old name -n new name [-l]\n"
           "ccos_disk_tool -i image -r file -n name [-l]\n"
           "ccos_disk_tool -i image -z name [-l]\n"
-          "ccos_disk_tool -i image --create-new\n"
+          "ccos_disk_tool -i image --create-new 368640\n"
           "\n"
           "-i, --image IMAGE        Path to GRiD OS disk RAW image\n"
           "--sector-size VALUE      Image sector size, default is " TOSTRING(DEFAULT_SECTOR_SIZE) "\n"
@@ -77,7 +77,7 @@ static void print_usage() {
           "-v, --verbose            Verbose output\n"
           "\n"
           "OPTIONS:\n"
-          "-w, --create-new         Create new blank image\n"
+          "-w, --create-new SIZE    Create new blank image with given size\n"
           "-p, --print-contents     Print image contents\n"
           "-s, --short-format       Use short format in printing contents\n"
           "                         (80-column compatible, no dates)\n"
@@ -113,6 +113,7 @@ int main(int argc, char** argv) {
   char* dir_name = NULL;
   char* target_name = NULL;
   char* target_image = NULL;
+  size_t new_image_size = 0;
   int in_place = 0;
   int short_format = 0;
   int opt = 0;
@@ -184,6 +185,13 @@ int main(int argc, char** argv) {
       }
       case 'w': {
         mode = MODE_CREATE_BLANK;
+
+        new_image_size = strtol(optarg, NULL, 10);
+        if (new_image_size <= 0 || new_image_size % ctx->sector_size != 0) {
+          printf("Invalid image size! Value must be positive and a multiple of the sector size\n");
+          return 1;
+        }
+
         break;
       }
       case 'v': {
@@ -222,7 +230,7 @@ int main(int argc, char** argv) {
         path, ctx->sector_size, ctx->superblock_id, ctx->bitmap_block_id);
 
   if (mode == MODE_CREATE_BLANK) {
-    return create_blank_image(ctx, path, 720 * 512);
+    return create_blank_image(ctx, path, new_image_size);
   }
 
   uint8_t* file_contents = NULL;

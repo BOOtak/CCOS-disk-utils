@@ -16,7 +16,7 @@ ccos_disk_tool -i src_image -c name -t dest_image [-l]
 ccos_disk_tool -i src_image -e old name -n new name [-l]
 ccos_disk_tool -i image -r file -n name [-l]
 ccos_disk_tool -i image -z name [-l]
-ccos_disk_tool -i image --create-new
+ccos_disk_tool -i image --create-new 368640
 
 -i, --image IMAGE        Path to GRiD OS disk RAW image
 --sector-size VALUE      Image sector size, default is 512
@@ -25,7 +25,7 @@ ccos_disk_tool -i image --create-new
 -v, --verbose            Verbose output
 
 OPTIONS:
--w, --create-new         Create new blank image
+-w, --create-new SIZE    Create new blank image with given size
 -p, --print-contents     Print image contents
 -s, --short-format       Use short format in printing contents
                          (80-column compatible, no dates)
@@ -40,7 +40,7 @@ OPTIONS:
 -z, --delete-file FILE   Delete file from the image
 -n, --target-name NAME   Replace / delete / copy or add file with the name NAME
                          in the image
--l, --in-place           Write changes to the original imag
+-l, --in-place           Write changes to the original image
 ```
 
 ## Examples
