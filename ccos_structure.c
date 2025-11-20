@@ -17,26 +17,14 @@ SECTOR_SIZE_TO_CONST(bitmask_size,              BITMASK_SIZE);
 SECTOR_SIZE_TO_CONST(bitmask_blocks,            BITMASK_BLOCKS);
 SECTOR_SIZE_TO_CONST(dir_default_size,          DIR_DEFAULT_SIZE);
 
-uint16_t* get_inode_content_blocks(ccfs_handle ctx, ccos_inode_t* inode) {
-  switch (ctx->sector_size) {
-    case 256: return (uint16_t*)&inode->bs256.content_blocks;
-    case 512: return (uint16_t*)&inode->bs512.content_blocks;
-    default: return NULL;
-  }
+uint16_t* get_inode_content_blocks(ccos_inode_t* inode) {
+  return (uint16_t*)&inode->content;
 }
 
-uint16_t* get_content_inode_content_blocks(ccfs_handle ctx, ccos_content_inode_t* inode) {
-  switch (ctx->sector_size) {
-    case 256: return (uint16_t*)&inode->bs256.content_blocks;
-    case 512: return (uint16_t*)&inode->bs512.content_blocks;
-    default: return NULL;
-  }
+uint16_t* get_content_inode_content_blocks(ccos_content_inode_t* inode) {
+  return (uint16_t*)&inode->content;
 }
 
-uint8_t* get_bitmask_bytes(ccfs_handle ctx, ccos_bitmask_t* bitmask) {
-  switch (ctx->sector_size) {
-    case 256: return (uint8_t*)&bitmask->bs256.bytes;
-    case 512: return (uint8_t*)&bitmask->bs512.bytes;
-    default: return NULL;
-  }
+uint8_t* get_bitmask_bytes(ccos_bitmask_t* bitmask) {
+  return (uint8_t*)&bitmask->content;
 }

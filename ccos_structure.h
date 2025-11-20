@@ -127,9 +127,9 @@ typedef struct ccos_inode_t_ {
   ccos_inode_desc_t desc;
   ccos_block_data_t content_inode_info;
   union {
-    struct { uint16_t content_blocks[BS256_INODE_MAX_BLOCKS]; } bs256;
-    struct { uint16_t content_blocks[BS512_INODE_MAX_BLOCKS]; } bs512;
-  };
+    struct { uint16_t blocks[BS256_INODE_MAX_BLOCKS]; } bs256;
+    struct { uint16_t blocks[BS512_INODE_MAX_BLOCKS]; } bs512;
+  } content;
 } ccos_inode_t;
 #pragma pack(pop)
 
@@ -140,14 +140,14 @@ typedef struct {
   ccos_block_data_t content_inode_info;
   union {
     struct {
-      uint16_t content_blocks[BS256_CONTENT_INODE_MAX_BLOCKS];
+      uint16_t blocks[BS256_CONTENT_INODE_MAX_BLOCKS];
       uint8_t padding[BS256_CONTENT_INODE_PADDING];
     } bs256;
     struct {
-      uint16_t content_blocks[BS512_CONTENT_INODE_MAX_BLOCKS];
+      uint16_t blocks[BS512_CONTENT_INODE_MAX_BLOCKS];
       uint8_t padding[BS512_CONTENT_INODE_PADDING];
     } bs512;
-  };
+  } content;
 } ccos_content_inode_t;
 #pragma pack(pop)
 
@@ -167,7 +167,7 @@ typedef struct {
       uint8_t bytes[BS512_BITMASK_SIZE];
       uint8_t padding[BS512_BITMASK_PADDING];
     } bs512;
-  };
+  } content;
 } ccos_bitmask_t;
 #pragma pack(pop)
 
@@ -195,8 +195,8 @@ size_t get_bitmask_size(ccfs_handle ctx);
 size_t get_bitmask_blocks(ccfs_handle ctx);
 size_t get_dir_default_size(ccfs_handle ctx);
 
-uint16_t* get_inode_content_blocks(ccfs_handle ctx, ccos_inode_t* inode);
-uint16_t* get_content_inode_content_blocks(ccfs_handle ctx, ccos_content_inode_t* inode);
-uint8_t* get_bitmask_bytes(ccfs_handle ctx, ccos_bitmask_t* bitmask);
+uint16_t* get_inode_content_blocks(ccos_inode_t* inode);
+uint16_t* get_content_inode_content_blocks(ccos_content_inode_t* inode);
+uint8_t* get_bitmask_bytes(ccos_bitmask_t* bitmask);
 
 #endif  // CCOS_DISK_TOOL_CCOS_STRUCTURE_H

@@ -133,7 +133,7 @@ int get_file_blocks(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* data, si
 
   size_t real_blocks_count = 0;
   
-  uint16_t* file_content_blocks = get_inode_content_blocks(ctx, file);
+  uint16_t* file_content_blocks = get_inode_content_blocks(file);
   for (int i = 0; i < inode_max_blocks; ++i) {
     uint16_t content_block = file_content_blocks[i];
     if (content_block == CCOS_CONTENT_BLOCKS_END_MARKER) {
@@ -165,7 +165,7 @@ int get_file_blocks(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* data, si
         return -1;
       }
 
-      uint16_t* content_blocks = get_content_inode_content_blocks(ctx, content_inode);
+      uint16_t* content_blocks = get_content_inode_content_blocks(content_inode);
 
       size_t extra_blocks_count = 0;
       for (int i = 0; i < content_inode_max_blocks; ++i) {
@@ -266,7 +266,7 @@ uint16_t get_free_block(ccfs_handle ctx, const ccos_bitmask_list_t* bitmask_list
   size_t bitmask_size = get_bitmask_size(ctx);
   for (size_t block = 0; block < bitmask_list->length; block++) {
     for (int i = 0; i < bitmask_size; ++i) {
-      uint8_t* bitmask_bytes = get_bitmask_bytes(ctx, bitmask_list->bitmask_blocks[block]);
+      uint8_t* bitmask_bytes = get_bitmask_bytes(bitmask_list->bitmask_blocks[block]);
       if (bitmask_bytes[i] != 0xFF) {
         uint8_t byte = bitmask_bytes[i];
         for (int j = 0; j < 8; ++j) {
@@ -296,7 +296,7 @@ void mark_block(ccfs_handle ctx, ccos_bitmask_list_t* bitmask_list, uint16_t blo
 
   size_t bitmask_index = block / bitmask_blocks;
   block = block - (bitmask_index * bitmask_blocks);
-  uint8_t* bytes = get_bitmask_bytes(ctx, bitmask_list->bitmask_blocks[bitmask_index]);
+  uint8_t* bytes = get_bitmask_bytes(bitmask_list->bitmask_blocks[bitmask_index]);
   uint8_t* byte = &bytes[block >> 3u];
   if (mode) {
     *byte = *byte | (1u << (block & 0b111u));
@@ -328,7 +328,7 @@ ccos_inode_t* init_inode(ccfs_handle ctx, uint16_t block, uint16_t parent_dir_bl
   inode->content_inode_info.block_prev = CCOS_INVALID_BLOCK;
 
   size_t inode_max_blocks = get_inode_max_blocks(ctx);
-  uint16_t* content_blocks = get_inode_content_blocks(ctx, inode);
+  uint16_t* content_blocks = get_inode_content_blocks(inode);
 
   for (int i = 0; i < inode_max_blocks; ++i) {
     content_blocks[i] = CCOS_CONTENT_BLOCKS_END_MARKER;
@@ -419,11 +419,11 @@ int remove_content_inode(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, cco
 
 // remove last content block from the file
 int remove_block_from_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list) {
-  uint16_t* content_blocks = get_inode_content_blocks(ctx, file);
+  uint16_t* content_blocks = get_inode_content_blocks(file);
   ccos_content_inode_t* last_content_inode = get_last_content_inode(ctx, file, data);
   int content_blocks_count = get_inode_max_blocks(ctx);
   if (last_content_inode != NULL) {
-    content_blocks = get_content_inode_content_blocks(ctx, last_content_inode);
+    content_blocks = get_content_inode_content_blocks(last_content_inode);
     content_blocks_count = get_content_inode_max_blocks(ctx);
   }
 
@@ -472,14 +472,14 @@ uint16_t add_block_to_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, c
 
   size_t block_size = get_block_size(ctx);
 
-  uint16_t* content_blocks = get_inode_content_blocks(ctx, file);
+  uint16_t* content_blocks = get_inode_content_blocks(file);
   size_t max_content_blocks = get_inode_max_blocks(ctx);
 
   int content_blocks_count = max_content_blocks;
   if (file->content_inode_info.block_next != CCOS_INVALID_BLOCK) {
     TRACE("Has content inode!");
     last_content_inode = get_last_content_inode(ctx, file, data);
-    content_blocks = get_content_inode_content_blocks(ctx, last_content_inode);
+    content_blocks = get_content_inode_content_blocks(last_content_inode);
     content_blocks_count = get_content_inode_max_blocks(ctx);
   }
 
@@ -540,7 +540,7 @@ uint16_t add_block_to_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, c
     }
 
     last_content_inode = new_content_inode;
-    content_blocks = get_content_inode_content_blocks(ctx, new_content_inode);
+    content_blocks = get_content_inode_content_blocks(new_content_inode);
     content_blocks_count = get_content_inode_max_blocks(ctx);
     last_content_block_index = 0;
   }
@@ -972,7 +972,7 @@ int get_free_blocks(ccfs_handle ctx, ccos_bitmask_list_t* bitmask_list, size_t d
 
   for (size_t block = 0; block < bitmask_list->length; block++) {
     for (int i = 0; i < get_bitmask_size(ctx); ++i) {
-      uint8_t* bitmaks_bytes = get_bitmask_bytes(ctx, bitmask_list->bitmask_blocks[block]);
+      uint8_t* bitmaks_bytes = get_bitmask_bytes(bitmask_list->bitmask_blocks[block]);
       if (bitmaks_bytes[i] != 0xFF) {
         uint8_t byte = bitmaks_bytes[i];
         for (int j = 0; j < 8; ++j) {
@@ -1054,7 +1054,7 @@ int format_image(ccfs_handle ctx, uint8_t* data, size_t image_size) {
     bitmask->header.file_id = bitmask_file_id;
     bitmask->header.file_fragment_index = bitmask_blocks_count - i;
 
-    uint8_t* bitmask_bytes = get_bitmask_bytes(ctx, bitmask);
+    uint8_t* bitmask_bytes = get_bitmask_bytes(bitmask);
     if (i == 1) {
       // last block
       memset(bitmask_bytes, 0, free_bitmask_remainder);
@@ -1096,7 +1096,7 @@ int format_image(ccfs_handle ctx, uint8_t* data, size_t image_size) {
   root_dir->content_inode_info.block_prev = CCOS_INVALID_BLOCK;
 
   // Fill content blocks
-  uint16_t* content_blocks = get_inode_content_blocks(ctx, root_dir);
+  uint16_t* content_blocks = get_inode_content_blocks(root_dir);
   size_t max_content_blocks = get_inode_max_blocks(ctx);
 
   memset(content_blocks, 0xFF, max_content_blocks);
