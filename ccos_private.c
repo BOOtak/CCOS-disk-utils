@@ -57,9 +57,10 @@ uint16_t calc_content_inode_checksum(const ccos_content_inode_t* content_inode) 
 }
 
 uint16_t calc_bitmask_checksum(ccfs_handle ctx, const ccos_bitmask_t* bitmask) {
-  size_t bitmask_size = get_bitmask_size(ctx);
+  const uint8_t* checksum_data = (const uint8_t*)&bitmask->allocated;
+  uint16_t checksum_data_size = get_bitmask_size(ctx) + sizeof(bitmask->allocated);
 
-  uint16_t checksum = calc_checksum((uint8_t*)&(bitmask->allocated), bitmask_size + sizeof(bitmask->allocated));
+  uint16_t checksum = calc_checksum(checksum_data, checksum_data_size);
   checksum += bitmask->header.file_id;
   checksum += bitmask->header.file_fragment_index;
   
