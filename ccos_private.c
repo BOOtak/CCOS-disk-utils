@@ -11,25 +11,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-/**
- * Superblock is a block which contains root directory description. Usually CCOS disc image contains superblock number
- * at the offset 0x20. Sometimes though, it doesn't. In such cases we assume that superblock is # 0x121.
- */
 #define CCOS_SUPERBLOCK_ADDR_OFFSET 0x20
-#define CCOS_DEFAULT_SUPERBLOCK 0x121
-
 #define CCOS_BITMASK_ADDR_OFFSET 0x1E
-#define CCOS_DEFAULT_BITMASK 0x120
 
 #define CCOS_CONTENT_BLOCKS_END_MARKER 0xFFFF
-
-static uint16_t get_superblock_id(ccfs_handle ctx) {
-  return ctx->superblock_id ? ctx->superblock_id : CCOS_DEFAULT_SUPERBLOCK;
-}
-
-static uint16_t get_bitmask_block_id(ccfs_handle ctx) {
-  return ctx->bitmap_block_id ? ctx->bitmap_block_id : CCOS_DEFAULT_SUPERBLOCK;
-}
 
 uint16_t calc_checksum(const uint8_t* data, uint16_t data_size) {
   uint16_t ret = 0;
@@ -108,28 +93,26 @@ ccos_content_inode_t* get_content_inode(ccfs_handle ctx, uint16_t block, const u
 }
 
 int get_superblock(ccfs_handle ctx, const uint8_t* data, size_t image_size, uint16_t* superblock) {
-  uint16_t res = *((uint16_t*)&(data[CCOS_SUPERBLOCK_ADDR_OFFSET]));
-  if (res == 0) {
-    res = get_superblock_id(ctx);
-  }
+  uint16_t sb = *(uint16_t*)&data[CCOS_SUPERBLOCK_ADDR_OFFSET];
+  if (sb == 0) sb = ctx->superblock_id;
 
   size_t block_size = get_block_size(ctx);
   uint32_t blocks_in_image = image_size / block_size;
 
-  if (res > blocks_in_image) {
-    fprintf(stderr, "Invalid superblock! (Superblock: 0x%x, but only 0x%x blocks in the image).\n", res,
-            blocks_in_image);
+  if (sb > blocks_in_image) {
+    fprintf(stderr, "Invalid superblock! (Superblock: 0x%x, but only 0x%x blocks in the image).\n",
+            sb, blocks_in_image);
     return -1;
   }
 
-  uint32_t addr = res * block_size;
-  uint16_t block_header = *(uint16_t*)&(data[addr]);
-  if (block_header != res) {
-    fprintf(stderr, "Invalid image: Block header 0x%x mismatches superblock 0x%x!\n", block_header, res);
+  uint32_t block_addr = sb * block_size;
+  uint16_t block_header = *(uint16_t*)&data[block_addr];
+  if (block_header != sb) {
+    fprintf(stderr, "Invalid image: Block header 0x%x mismatches superblock 0x%x!\n", block_header, sb);
     return -1;
   }
 
-  *superblock = res;
+  *superblock = sb;
   TRACE("superblock: 0x%x", *superblock);
   return 0;
 }
@@ -220,9 +203,7 @@ static ccos_bitmask_t* get_bitmask(ccfs_handle ctx, uint8_t* data, size_t data_s
   size_t block_size = get_block_size(ctx);
 
   uint16_t bitmask_block = *((uint16_t*)&(data[CCOS_BITMASK_ADDR_OFFSET]));
-  if (bitmask_block == 0) {
-    bitmask_block = CCOS_DEFAULT_BITMASK;
-  }
+  if (bitmask_block == 0) bitmask_block = ctx->bitmap_block_id;
 
   uint32_t blocks_in_image = data_size / block_size;
   if (bitmask_block > blocks_in_image) {
@@ -1036,7 +1017,7 @@ int format_image(ccfs_handle ctx, uint8_t* data, size_t image_size) {
   size_t block_size = get_block_size(ctx);
   size_t bitmask_size = get_bitmask_size(ctx);
 
-  uint16_t superblock = get_superblock_id(ctx);
+  uint16_t superblock = ctx->superblock_id;
 
   size_t sb_offset = block_size * superblock;
   if (sb_offset >= image_size) {

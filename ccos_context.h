@@ -4,8 +4,8 @@
 #include <stdint.h>
 
 typedef enum {
-  SECTOR_SIZE_BUBBLE_MEMORY,  // 256 byte
-  SECTOR_SIZE_EXTERNAL_DISK,  // 512 byte
+  SECTOR_SIZE_BUBBLE_MEMORY = 256,
+  SECTOR_SIZE_EXTERNAL_DISK = 512,
 } ccos_sector_size_t;
 
 typedef struct {

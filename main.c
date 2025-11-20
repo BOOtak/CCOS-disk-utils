@@ -1,12 +1,23 @@
-#include <common.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "common.h"
 #include "ccos_context.h"
 #include "ccos_image.h"
 #include "wrapper.h"
+
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
+#define SECTOR_SIZE_OPT  2000
+#define SUPERBLOCK_OPT   2001
+
+#define DEFAULT_SECTOR_SIZE   512
+#define DEFAULT_SUPERBLOCK    0x121
+#define DEFAULT_BITMAP_BLOCK  (DEFAULT_SUPERBLOCK - 1)
+
 
 typedef enum {
   MODE_DUMP = 1,
@@ -21,6 +32,8 @@ typedef enum {
 } op_mode_t;
 
 static const struct option long_options[] = {{"image", required_argument, NULL, 'i'},
+                                             {"sector-size", required_argument, NULL, SECTOR_SIZE_OPT},
+                                             {"superblock", required_argument, NULL, SUPERBLOCK_OPT},
                                              {"replace-file", required_argument, NULL, 'r'},
                                              {"copy-file", required_argument, NULL, 'c'},
                                              {"rename-file", required_argument, NULL, 'e'},
@@ -58,6 +71,8 @@ static void print_usage() {
           "ccos_disk_tool -i image --create-new\n"
           "\n"
           "-i, --image IMAGE        Path to GRiD OS floppy RAW image\n"
+          "--sector-size VALUE      Image sector size, default is " TOSTRING(DEFAULT_SECTOR_SIZE) "\n"
+          "--superblock HEX         Superblock number, default is " TOSTRING(DEFAULT_SUPERBLOCK) "\n"
           "-h, --help               Show this message\n"
           "-v, --verbose            Verbose output\n"
           "\n"
@@ -80,9 +95,20 @@ static void print_usage() {
           "-l, --in-place           Write changes to the original image\n");
 }
 
+ccfs_context_t* default_ccos_context() {
+  ccfs_context_t* ctx = malloc(sizeof(ccfs_context_t));
+
+  ctx->sector_size = DEFAULT_SECTOR_SIZE;
+  ctx->superblock_id = DEFAULT_SUPERBLOCK;
+  ctx->bitmap_block_id = DEFAULT_BITMAP_BLOCK;
+
+  return ctx;
+}
+
 int main(int argc, char** argv) {
   op_mode_t mode = 0;
   char* path = NULL;
+  ccfs_context_t* ctx = default_ccos_context();
   char* filename = NULL;
   char* dir_name = NULL;
   char* target_name = NULL;
@@ -168,13 +194,33 @@ int main(int argc, char** argv) {
         print_usage();
         return 0;
       }
+      case SECTOR_SIZE_OPT: {
+        long sector_size = strtol(optarg, NULL, 10);
+        if (sector_size == SECTOR_SIZE_BUBBLE_MEMORY ||
+            sector_size == SECTOR_SIZE_EXTERNAL_DISK) {
+          ctx->sector_size = sector_size;
+          break;
+        } else {
+          printf("Invalid sector size! Allowed only 256 or 512\n");
+          return 1;
+        }
+      }
+      case SUPERBLOCK_OPT: {
+        long value = strtol(optarg, NULL, 16);
+        if (0 < value && value < 0xFFFF) {
+          ctx->superblock_id = value;
+          ctx->bitmap_block_id = value - 1;
+          break;
+        } else {
+          printf("Invalid superblock! Value must be in range 0x0001-0xFFFE\n");
+          return 1;
+        }
+      }
     }
   }
 
-  ccfs_context_t* ctx = malloc(sizeof(ccfs_context_t));
-  ctx->sector_size = 512;
-  ctx->superblock_id = 0;
-  ctx->bitmap_block_id = 0;
+  TRACE("Use image '%s' with sector size %d, superblock %#x, bitmap block %#x",
+        path, ctx->sector_size, ctx->superblock_id, ctx->bitmap_block_id);
 
   if (mode == MODE_CREATE_BLANK) {
     return create_blank_image(ctx, path, 720 * 512);
