@@ -54,13 +54,13 @@ version_t ccos_get_file_version(const ccos_inode_t* file) {
   return version;
 }
 
-int ccos_set_file_version(ccos_inode_t* file, version_t new_version) {
+int ccos_set_file_version(ccfs_handle ctx, ccos_inode_t* file, version_t new_version) {
   if (is_root_dir(file)) return -1;
 
   file->desc.version_major = new_version.major;
   file->desc.version_minor = new_version.minor;
   file->desc.version_patch = new_version.patch;
-  update_inode_checksums(file);
+  update_inode_checksums(ctx, file);
 
   return 0;
 }
@@ -85,16 +85,16 @@ ccos_date_t ccos_get_exp_date(const ccos_inode_t* file) {
   return file->desc.expiration_date;
 }
 
-int ccos_set_creation_date(ccos_inode_t* file, ccos_date_t new_date) {
-  return change_date(file, new_date, CREATED);
+int ccos_set_creation_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date) {
+  return change_date(ctx, file, new_date, CREATED);
 }
 
-int ccos_set_mod_date(ccos_inode_t* file, ccos_date_t new_date) {
-  return change_date(file, new_date, MODIF);
+int ccos_set_mod_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date) {
+  return change_date(ctx, file, new_date, MODIF);
 }
 
-int ccos_set_exp_date(ccos_inode_t* file, ccos_date_t new_date) {
-  return change_date(file, new_date, EXPIR);
+int ccos_set_exp_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date) {
+  return change_date(ctx, file, new_date, EXPIR);
 }
 
 int ccos_get_dir_contents(ccfs_handle ctx, ccos_inode_t* dir, uint8_t* data, uint16_t* entry_count, ccos_inode_t*** entries) {
@@ -379,7 +379,7 @@ int ccos_write_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* image_data, si
     file->desc.dir_length = written;
   }
   file->desc.file_size = written;
-  update_inode_checksums(file);
+  update_inode_checksums(ctx, file);
   return 0;
 }
 
@@ -557,7 +557,7 @@ ccos_inode_t* ccos_get_root_dir(ccfs_handle ctx, uint8_t* data, size_t data_size
   return get_inode(ctx, superblock, data);
 }
 
-int ccos_validate_file(const ccos_inode_t* file) {
+int ccos_validate_file(ccfs_handle ctx, const ccos_inode_t* file) {
   uint16_t metadata_checksum = calc_inode_metadata_checksum(file);
   if (metadata_checksum != file->desc.metadata_checksum) {
     fprintf(stderr, "Warn: Invalid metadata checksum: expected 0x%hx, got 0x%hx\n",
@@ -565,7 +565,7 @@ int ccos_validate_file(const ccos_inode_t* file) {
     return -1;
   }
 
-  uint16_t blocks_checksum = calc_inode_blocks_checksum(file);
+  uint16_t blocks_checksum = calc_inode_blocks_checksum(ctx, file);
   if (blocks_checksum != file->content_inode_info.blocks_checksum) {
     fprintf(stderr, "Warn: Invalid block data checksum: expected 0x%hx, got 0x%hx!\n",
             file->content_inode_info.blocks_checksum, blocks_checksum);
@@ -648,7 +648,7 @@ ccos_inode_t* ccos_create_dir(ccfs_handle ctx, ccos_inode_t* parent_dir, const c
   new_directory->desc.pswd[2] = '\x47';
   new_directory->desc.pswd[3] = '\xC7';
 
-  update_inode_checksums(new_directory);
+  update_inode_checksums(ctx, new_directory);
   return new_directory;
 }
 
@@ -688,7 +688,7 @@ int ccos_rename_file(ccfs_handle ctx, uint8_t* image_data, size_t image_size, cc
     memset(file->desc.name, 0, CCOS_MAX_FILE_NAME);
     snprintf(file->desc.name, CCOS_MAX_FILE_NAME, "%s", new_name);
     file->desc.name_length = strlen(file->desc.name);
-    update_inode_checksums(file);
+    update_inode_checksums(ctx, file);
   }
 
   return 0;

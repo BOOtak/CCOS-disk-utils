@@ -51,7 +51,7 @@ static int traverse_ccos_image(ccfs_handle ctx, ccos_inode_t* dir, uint8_t* data
 
     const ccos_inode_t* inode = dir_contents[i];
 
-    ccos_validate_file(inode);
+    ccos_validate_file(ctx, inode);
 
     if (ccos_is_dir(dir_contents[i])) {
       TRACE("%d: directory", i + 1);

@@ -49,7 +49,7 @@ version_t ccos_get_file_version(const ccos_inode_t* file);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_set_file_version(ccos_inode_t* file, version_t new_version);
+int ccos_set_file_version(ccfs_handle ctx, ccos_inode_t* file, version_t new_version);
 
 /**
  * @brief      Get the name of the file.
@@ -135,7 +135,7 @@ ccos_date_t ccos_get_exp_date(const ccos_inode_t* file);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_set_creation_date(ccos_inode_t* file, ccos_date_t new_date);
+int ccos_set_creation_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date);
 
 /**
  * @brief      Сhanges the modification date of a file or folder.
@@ -145,7 +145,7 @@ int ccos_set_creation_date(ccos_inode_t* file, ccos_date_t new_date);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_set_mod_date(ccos_inode_t* file, ccos_date_t new_date);
+int ccos_set_mod_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date);
 
 /**
  * @brief      Сhanges the expiration date of a file or folder.
@@ -155,7 +155,7 @@ int ccos_set_mod_date(ccos_inode_t* file, ccos_date_t new_date);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_set_exp_date(ccos_inode_t* file, ccos_date_t new_date);
+int ccos_set_exp_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date);
 
 /**
  * @brief      Replace file in the CCOS image data.
@@ -251,7 +251,7 @@ ccos_inode_t* ccos_add_file(ccfs_handle ctx, ccos_inode_t* dest_directory, uint8
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_validate_file(const ccos_inode_t* file);
+int ccos_validate_file(ccfs_handle ctx, const ccos_inode_t* file);
 
 /**
  * @brief      Return amount of free space available in the image.

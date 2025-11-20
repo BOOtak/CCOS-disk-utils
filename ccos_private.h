@@ -43,7 +43,7 @@ uint16_t calc_inode_metadata_checksum(const ccos_inode_t* inode);
  *
  * @return     The file blocks section checksum.
  */
-uint16_t calc_inode_blocks_checksum(const ccos_inode_t* inode);
+uint16_t calc_inode_blocks_checksum(ccfs_handle ctx, const ccos_inode_t* inode);
 
 /**
  * @brief      Calculates the checksum of the content inode.
@@ -52,7 +52,7 @@ uint16_t calc_inode_blocks_checksum(const ccos_inode_t* inode);
  *
  * @return     The content inode checksum.
  */
-uint16_t calc_content_inode_checksum(const ccos_content_inode_t* content_inode);
+uint16_t calc_content_inode_checksum(ccfs_handle ctx, const ccos_content_inode_t* content_inode);
 
 /**
  * @brief      Calculates the checksum of image's bitmask.
@@ -68,14 +68,14 @@ uint16_t calc_bitmask_checksum(ccfs_handle ctx, const ccos_bitmask_t* bitmask);
  *
  * @param      inode  The inode.
  */
-void update_inode_checksums(ccos_inode_t* inode);
+void update_inode_checksums(ccfs_handle ctx, ccos_inode_t* inode);
 
 /**
  * @brief      Recalculate checksum of the content inode.
  *
  * @param      content_inode  The content inode.
  */
-void update_content_inode_checksums(ccos_content_inode_t* content_inode);
+void update_content_inode_checksums(ccfs_handle ctx, ccos_content_inode_t* content_inode);
 
 /**
  * @brief      Re-calculate and update CCOS image bitmask checksum.
@@ -344,7 +344,7 @@ int is_root_dir(const ccos_inode_t* file);
  *
  * @return     0 on success, -1 otherwise.
  */
-int change_date(ccos_inode_t* file, ccos_date_t new_date, date_type_t type);
+int change_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date, date_type_t type);
 
 /**
  * @brief       Create CCOS filesystem in the given image.

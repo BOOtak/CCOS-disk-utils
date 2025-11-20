@@ -31,25 +31,29 @@ uint16_t calc_checksum(const uint8_t* data, uint16_t data_size) {
 }
 
 uint16_t calc_inode_metadata_checksum(const ccos_inode_t* inode) {
-  return calc_checksum((const uint8_t*)&(inode->header), offsetof(ccos_inode_t, desc) + offsetof(ccos_inode_desc_t, metadata_checksum));
+  return calc_checksum((const uint8_t*)inode, offsetof(ccos_inode_t, desc) + offsetof(ccos_inode_desc_t, metadata_checksum));
 }
 
-uint16_t calc_inode_blocks_checksum(const ccos_inode_t* inode) {
-  uint16_t cs_size = sizeof(ccos_inode_t) - offsetof(ccos_inode_t, content_inode_info) - offsetof(ccos_block_data_t, block_next);
-  uint16_t blocks_checksum = calc_checksum((const uint8_t*)&(inode->content_inode_info.block_next), cs_size);
+uint16_t calc_inode_blocks_checksum(ccfs_handle ctx, const ccos_inode_t* inode) {
+  const size_t start_offset = offsetof(ccos_inode_t, content_inode_info) + offsetof(ccos_block_data_t, block_next);
+
+  const uint8_t* checksum_data = (const uint8_t*)&inode->content_inode_info.block_next;
+  uint16_t checksum_data_size = get_block_size(ctx) - start_offset;
+
+  uint16_t blocks_checksum = calc_checksum(checksum_data, checksum_data_size);
   blocks_checksum += inode->content_inode_info.header.file_id;
   blocks_checksum += inode->content_inode_info.header.file_fragment_index;
 
   return blocks_checksum;
 }
 
-uint16_t calc_content_inode_checksum(const ccos_content_inode_t* content_inode) {
-  // FIXME: why - 8?
-  uint16_t cs_size = sizeof(ccos_content_inode_t) - offsetof(ccos_content_inode_t, content_inode_info) - offsetof(ccos_block_data_t, block_next) - 8;
+uint16_t calc_content_inode_checksum(ccfs_handle ctx, const ccos_content_inode_t* content_inode) {
+  const size_t start_offset = offsetof(ccos_content_inode_t, content_inode_info) + offsetof(ccos_block_data_t, block_next);
 
-  const uint8_t *cs_start = (const uint8_t*)&(content_inode->content_inode_info.block_next);
-  uint16_t blocks_checksum = calc_checksum(cs_start,cs_size);
+  const uint8_t *checksum_data = (const uint8_t*)&content_inode->content_inode_info.block_next;
+  uint16_t checksum_data_size = get_block_size(ctx) - start_offset - 8;
 
+  uint16_t blocks_checksum = calc_checksum(checksum_data, checksum_data_size);
   blocks_checksum += content_inode->content_inode_info.header.file_id;
   blocks_checksum += content_inode->content_inode_info.header.file_fragment_index;
 
@@ -67,13 +71,13 @@ uint16_t calc_bitmask_checksum(ccfs_handle ctx, const ccos_bitmask_t* bitmask) {
   return checksum;
 }
 
-void update_inode_checksums(ccos_inode_t* inode) {
+void update_inode_checksums(ccfs_handle ctx, ccos_inode_t* inode) {
   inode->desc.metadata_checksum = calc_inode_metadata_checksum(inode);
-  inode->content_inode_info.blocks_checksum = calc_inode_blocks_checksum(inode);
+  inode->content_inode_info.blocks_checksum = calc_inode_blocks_checksum(ctx, inode);
 }
 
-void update_content_inode_checksums(ccos_content_inode_t* content_inode) {
-  content_inode->content_inode_info.blocks_checksum = calc_content_inode_checksum(content_inode);
+void update_content_inode_checksums(ccfs_handle ctx, ccos_content_inode_t* content_inode) {
+  content_inode->content_inode_info.blocks_checksum = calc_content_inode_checksum(ctx, content_inode);
 }
 
 void update_bitmask_checksum(ccfs_handle ctx, ccos_bitmask_t* bitmask) {
@@ -147,7 +151,7 @@ int get_file_blocks(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* data, si
     for (;;) {
       TRACE("Processing extra block 0x%lx...", file->content_inode_info.block_next);
 
-      uint16_t checksum = calc_content_inode_checksum(content_inode);
+      uint16_t checksum = calc_content_inode_checksum(ctx, content_inode);
 
       if (checksum != content_inode->content_inode_info.blocks_checksum) {
         fprintf(stderr, "Warn: Blocks checksum mismatch: expected 0x%04hx, got 0x%04hx\n",
@@ -330,7 +334,7 @@ ccos_inode_t* init_inode(ccfs_handle ctx, uint16_t block, uint16_t parent_dir_bl
     content_blocks[i] = CCOS_CONTENT_BLOCKS_END_MARKER;
   }
 
-  update_inode_checksums(inode);
+  update_inode_checksums(ctx, inode);
   return inode;
 }
 
@@ -359,11 +363,11 @@ ccos_content_inode_t* add_content_inode(ccfs_handle ctx, ccos_inode_t* file, uin
 
   content_inode_info->block_next = new_block;
 
-  update_content_inode_checksums(content_inode);
+  update_content_inode_checksums(ctx, content_inode);
   if (last_content_inode != NULL) {
-    update_content_inode_checksums(last_content_inode);
+    update_content_inode_checksums(ctx, last_content_inode);
   } else {
-    update_inode_checksums(file);
+    update_inode_checksums(ctx, file);
   }
 
   return content_inode;
@@ -405,9 +409,9 @@ int remove_content_inode(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, cco
 
   prev_block_data->block_next = CCOS_INVALID_BLOCK;
   if (prev_inode != NULL) {
-    update_content_inode_checksums(prev_inode);
+    update_content_inode_checksums(ctx, prev_inode);
   } else {
-    update_inode_checksums(file);
+    update_inode_checksums(ctx, file);
   }
 
   return 0;
@@ -454,9 +458,9 @@ int remove_block_from_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, c
   }
 
   if (last_content_inode != NULL) {
-    update_content_inode_checksums(last_content_inode);
+    update_content_inode_checksums(ctx, last_content_inode);
   } else {
-    update_inode_checksums(file);
+    update_inode_checksums(ctx, file);
   }
 
   return 0;
@@ -548,9 +552,9 @@ uint16_t add_block_to_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, c
     content_blocks[last_content_block_index + 1] = CCOS_INVALID_BLOCK;
   }
 
-  update_inode_checksums(file);
+  update_inode_checksums(ctx, file);
   if (last_content_inode != NULL) {
-    update_content_inode_checksums(last_content_inode);
+    update_content_inode_checksums(ctx, last_content_inode);
   }
 
   return new_block;
@@ -566,8 +570,8 @@ int add_file_to_directory(ccfs_handle ctx, ccos_inode_t* directory, ccos_inode_t
   file->desc.dir_file_id = directory->header.file_id;
   directory->desc.dir_count += 1;
 
-  update_inode_checksums(file);
-  update_inode_checksums(directory);
+  update_inode_checksums(ctx, file);
+  update_inode_checksums(ctx, directory);
 
   return 0;
 }
@@ -842,7 +846,7 @@ int delete_file_from_parent_dir(ccfs_handle ctx, ccos_inode_t* file, uint8_t* im
     parent_dir->desc.dir_length = new_dir_size;
     parent_dir->desc.dir_count -= 1;
 
-    update_inode_checksums(parent_dir);
+    update_inode_checksums(ctx, parent_dir);
 
     return 0;
 }
@@ -997,7 +1001,7 @@ int is_root_dir(const ccos_inode_t* file) {
   return file->header.file_id == file->desc.dir_file_id;
 }
 
-int change_date(ccos_inode_t* file, ccos_date_t new_date, date_type_t type) {
+int change_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date, date_type_t type) {
   if (is_root_dir(file)) return -1;
 
   if (type == CREATED) {
@@ -1009,7 +1013,7 @@ int change_date(ccos_inode_t* file, ccos_date_t new_date, date_type_t type) {
   } else {
     return -1;
   }
-  update_inode_checksums(file);
+  update_inode_checksums(ctx, file);
   return 0;
 }
 
@@ -1100,7 +1104,7 @@ int format_image(ccfs_handle ctx, uint8_t* data, size_t image_size) {
   uint16_t superblock_entry_block = superblock + 1;
   content_blocks[0] = superblock_entry_block;
 
-  update_inode_checksums(root_dir);
+  update_inode_checksums(ctx, root_dir);
 
   // Root directory contents
   ccos_block_header_t* superblock_entry = (ccos_block_header_t*)get_inode(ctx, superblock_entry_block, data);
