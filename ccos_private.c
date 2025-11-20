@@ -36,8 +36,7 @@ uint16_t calc_inode_metadata_checksum(const ccos_inode_t* inode) {
 
 uint16_t calc_inode_blocks_checksum(const ccos_inode_t* inode) {
   uint16_t cs_size = sizeof(ccos_inode_t) - offsetof(ccos_inode_t, content_inode_info) - offsetof(ccos_block_data_t, block_next);
-  uint16_t blocks_checksum =
-      calc_checksum((const uint8_t*)&(inode->content_inode_info.block_next), cs_size);
+  uint16_t blocks_checksum = calc_checksum((const uint8_t*)&(inode->content_inode_info.block_next), cs_size);
   blocks_checksum += inode->content_inode_info.header.file_id;
   blocks_checksum += inode->content_inode_info.header.file_fragment_index;
 

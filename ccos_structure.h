@@ -1,23 +1,31 @@
 #ifndef CCOS_DISK_TOOL_CCOS_STRUCTURE_H
 #define CCOS_DISK_TOOL_CCOS_STRUCTURE_H
 
-#include <stdint.h>
 #include <stddef.h>
+#include <stdint.h>
 #include "ccos_context.h"
+
+#if __STDC_VERSION__ >= 201112L
+#include <assert.h>
+#else
+#define static_assert(...)
+#endif
+
+#define INODE_BLOCKS_OFFSET (sizeof(ccos_block_header_t) + sizeof(ccos_inode_desc_t) + sizeof(ccos_block_data_t))
 
 #define BUBMEM_BLOCK_SIZE            256
 #define BUBMEM_LOG_BLOCK_SIZE        (BUBMEM_BLOCK_SIZE - sizeof(ccos_block_header_t))
-#define BUBMEM_INODE_MAX_BLOCKS      ((BUBMEM_BLOCK_SIZE - sizeof(ccos_inode_desc_t) - sizeof(ccos_block_data_t)) / 2)
-#define BUBMEM_CONTENT_MAX_BLOCKS    ((BUBMEM_BLOCK_SIZE - sizeof(ccos_block_data_t)) / 2)
-#define BUBMEM_BITMASK_SIZE          (BUBMEM_BLOCK_SIZE - 8)
+#define BUBMEM_INODE_MAX_BLOCKS      ((BUBMEM_BLOCK_SIZE - INODE_BLOCKS_OFFSET) / 2)
+#define BUBMEM_CONTENT_MAX_BLOCKS    ((BUBMEM_LOG_BLOCK_SIZE - sizeof(ccos_block_data_t)) / 2)
+#define BUBMEM_BITMASK_SIZE          (BUBMEM_BLOCK_SIZE - sizeof(ccos_block_header_t) - 4 - 4)
 #define BUBMEM_BITMASK_BLOCKS        (BUBMEM_BITMASK_SIZE * 8)
 #define BUBMEM_DIR_DEFAULT_SIZE      BUBMEM_LOG_BLOCK_SIZE
 
 #define EXTDISK_BLOCK_SIZE          512
 #define EXTDISK_LOG_BLOCK_SIZE      (EXTDISK_BLOCK_SIZE - sizeof(ccos_block_header_t) - 4)
-#define EXTDISK_INODE_MAX_BLOCKS    ((EXTDISK_BLOCK_SIZE - sizeof(ccos_inode_desc_t) - sizeof(ccos_block_data_t)) / 2)
-#define EXTDISK_CONTENT_MAX_BLOCKS  ((EXTDISK_BLOCK_SIZE - sizeof(ccos_block_data_t)) / 2)
-#define EXTDISK_BITMASK_SIZE        (EXTDISK_BLOCK_SIZE - 8)
+#define EXTDISK_INODE_MAX_BLOCKS    ((EXTDISK_BLOCK_SIZE - INODE_BLOCKS_OFFSET) / 2)
+#define EXTDISK_CONTENT_MAX_BLOCKS  ((EXTDISK_LOG_BLOCK_SIZE - sizeof(ccos_block_data_t)) / 2)
+#define EXTDISK_BITMASK_SIZE        (EXTDISK_BLOCK_SIZE - sizeof(ccos_block_header_t) - 4 - 4)
 #define EXTDISK_BITMASK_BLOCKS      (EXTDISK_BITMASK_SIZE * 8)
 #define EXTDISK_DIR_DEFAULT_SIZE    EXTDISK_LOG_BLOCK_SIZE
 
@@ -56,6 +64,8 @@ typedef struct {
 } ccos_block_header_t;
 #pragma pack(pop)
 
+static_assert(sizeof(ccos_block_header_t) == 4, "bad block header size");
+
 #pragma pack(push, 1)
 typedef struct {
   ccos_block_header_t header;
@@ -65,6 +75,8 @@ typedef struct {
   uint16_t block_prev;       // previous block with content blocks. 0xFFFF if not present
 } ccos_block_data_t;
 #pragma pack(pop)
+
+static_assert(sizeof(ccos_block_data_t) == 12, "bad block data size");
 
 #pragma pack(push, 1)
 typedef struct {
@@ -103,6 +115,8 @@ typedef struct {
 } ccos_inode_desc_t;
 #pragma pack(pop)
 
+static_assert(sizeof(ccos_inode_desc_t) == 200, "bad descriptor size");
+
 #pragma pack(push, 1)
 typedef struct ccos_inode_t_ {
   ccos_block_header_t header;
@@ -114,6 +128,8 @@ typedef struct ccos_inode_t_ {
   };
 } ccos_inode_t;
 #pragma pack(pop)
+
+static_assert(sizeof(ccos_inode_t) == 512, "bad inode size");
 
 #pragma pack(push, 1)
 typedef struct {
@@ -131,6 +147,8 @@ typedef struct {
 } ccos_content_inode_t;
 #pragma pack(pop)
 
+static_assert(sizeof(ccos_content_inode_t) == 512, "bad inode size");
+
 #pragma pack(push, 1)
 typedef struct {
   ccos_block_header_t header;
@@ -143,6 +161,8 @@ typedef struct {
   uint32_t block_end;
 } ccos_bitmask_t;
 #pragma pack(pop)
+
+static_assert(sizeof(ccos_bitmask_t) == 512, "bad bitmask size");
 
 #pragma pack(push, 1)
 typedef struct {
