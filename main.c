@@ -55,7 +55,7 @@ static const char* opt_string = "i:r:n:c:e:a:t:y:z:ldpsvhw";
 
 static void print_usage() {
   fprintf(stderr,
-          "This is a tool for manipulating GRiD OS floppy images.\n"
+          "This is a tool for manipulating GRiD OS disk images.\n"
           "Usage:\n"
           "ccos_disk_tool [ -i image | -h ] OPTIONS [-v]\n"
           "\n"
@@ -70,7 +70,7 @@ static void print_usage() {
           "ccos_disk_tool -i image -z name [-l]\n"
           "ccos_disk_tool -i image --create-new\n"
           "\n"
-          "-i, --image IMAGE        Path to GRiD OS floppy RAW image\n"
+          "-i, --image IMAGE        Path to GRiD OS disk RAW image\n"
           "--sector-size VALUE      Image sector size, default is " TOSTRING(DEFAULT_SECTOR_SIZE) "\n"
           "--superblock HEX         Superblock number, default is " TOSTRING(DEFAULT_SUPERBLOCK) "\n"
           "-h, --help               Show this message\n"

@@ -185,8 +185,8 @@ int print_image_info(ccfs_handle ctx, const char* path, uint8_t* data, size_t da
     return -1;
   }
 
-  char* floppy_name = short_string_to_string(ccos_get_file_name(root_dir));
-  const char* name_trimmed = trim_string(floppy_name, ' ');
+  char* disk_name = short_string_to_string(ccos_get_file_name(root_dir));
+  const char* name_trimmed = trim_string(disk_name, ' ');
 
   char* basename = strrchr(path, '/');
   if (basename == NULL) {
@@ -200,12 +200,12 @@ int print_image_info(ccfs_handle ctx, const char* path, uint8_t* data, size_t da
   if (strlen(name_trimmed) == 0) {
     printf("No description\n");
   } else {
-    printf("%s\n", floppy_name);
+    printf("%s\n", disk_name);
   }
   print_frame(strlen(basename) + 2);
   printf("\n");
 
-  free(floppy_name);
+  free(disk_name);
 
   if (short_format) {
     printf("%-*s%-*s%-*s%-*s\n", 32, "File name", 24, "File type", 14, "File size", 10, "Version");

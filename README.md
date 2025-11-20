@@ -1,7 +1,9 @@
 # CCOS-disk-utils
+
 Set of tools for manipulating GRiD OS (CCOS) disk images
 
 ## Usage
+
 ```
 ccos_disk_tool [ -i image | -h ] OPTIONS [-v]
 
@@ -16,7 +18,9 @@ ccos_disk_tool -i image -r file -n name [-l]
 ccos_disk_tool -i image -z name [-l]
 ccos_disk_tool -i image --create-new
 
--i, --image IMAGE        Path to GRiD OS floppy RAW image
+-i, --image IMAGE        Path to GRiD OS disk RAW image
+--sector-size VALUE      Image sector size, default is 512
+--superblock HEX         Superblock number, default is 0x121
 -h, --help               Show this message
 -v, --verbose            Verbose output
 
@@ -36,10 +40,21 @@ OPTIONS:
 -z, --delete-file FILE   Delete file from the image
 -n, --target-name NAME   Replace / delete / copy or add file with the name NAME
                          in the image
--l, --in-place           Write changes to the original image
+-l, --in-place           Write changes to the original imag
 ```
 
 ## Examples
+
+### Working with bubble memory images or other non-standard images
+
+To read bubble memory images, you will need to:
+
+- Set the sector size to 256 bytes using the `--sector-size` option
+- Set the superblock number to 0x3fe using the `--superblock` option
+
+We don't know if bubble memory always has these file system parameters,
+or if there could be external drives with such parameters.
+Therefore, setting these parameters remains the user's responsibility.
 
 ### Create new empty image `test.img`
 
@@ -50,6 +65,7 @@ $ ./ccos_disk_tool -i test.img --create-new
 ```
 
 ### List files in the image in short format
+
 ```
 $ ./ccos_disk_tool.exe -i CCOS315.IMG -p -s
 -------------

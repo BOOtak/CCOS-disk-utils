@@ -26,7 +26,7 @@ static int is_imd_image(const uint8_t* data) {
 
 int ccos_check_image(const uint8_t* file_data) {
   if (is_fat_image(file_data)) {
-    fprintf(stderr, "FAT floppy image is found; return.\n");
+    fprintf(stderr, "FAT image is found; return.\n");
     return -1;
   }
 
