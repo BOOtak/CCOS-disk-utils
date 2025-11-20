@@ -196,8 +196,7 @@ int main(int argc, char** argv) {
       }
       case SECTOR_SIZE_OPT: {
         long sector_size = strtol(optarg, NULL, 10);
-        if (sector_size == SECTOR_SIZE_BUBBLE_MEMORY ||
-            sector_size == SECTOR_SIZE_EXTERNAL_DISK) {
+        if (sector_size == 256 || sector_size == 512) {
           ctx->sector_size = sector_size;
           break;
         } else {

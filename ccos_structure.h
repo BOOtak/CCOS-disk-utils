@@ -13,21 +13,23 @@
 
 #define INODE_BLOCKS_OFFSET (sizeof(ccos_block_header_t) + sizeof(ccos_inode_desc_t) + sizeof(ccos_block_data_t))
 
-#define BUBMEM_BLOCK_SIZE            256
-#define BUBMEM_LOG_BLOCK_SIZE        (BUBMEM_BLOCK_SIZE - sizeof(ccos_block_header_t))
-#define BUBMEM_INODE_MAX_BLOCKS      ((BUBMEM_BLOCK_SIZE - INODE_BLOCKS_OFFSET) / 2)
-#define BUBMEM_CONTENT_MAX_BLOCKS    ((BUBMEM_LOG_BLOCK_SIZE - sizeof(ccos_block_data_t)) / 2)
-#define BUBMEM_BITMASK_SIZE          (BUBMEM_BLOCK_SIZE - sizeof(ccos_block_header_t) - 4 - 4)
-#define BUBMEM_BITMASK_BLOCKS        (BUBMEM_BITMASK_SIZE * 8)
-#define BUBMEM_DIR_DEFAULT_SIZE      BUBMEM_LOG_BLOCK_SIZE
+#define BS256_BLOCK_SIZE                (256)
+#define BS256_LOG_BLOCK_SIZE            (BS256_BLOCK_SIZE - sizeof(ccos_block_header_t))
+#define BS256_INODE_MAX_BLOCKS          ((BS256_BLOCK_SIZE - INODE_BLOCKS_OFFSET) / 2)
+#define BS256_CONTENT_INODE_PADDING     (4)
+#define BS256_CONTENT_INODE_MAX_BLOCKS  ((BS256_BLOCK_SIZE - sizeof(ccos_block_data_t) - BS256_CONTENT_INODE_PADDING) / 2)
+#define BS256_BITMASK_SIZE              (BS256_BLOCK_SIZE - sizeof(ccos_block_header_t) - 2 - 2 - 4)  // - checksum - allocated - padding
+#define BS256_BITMASK_BLOCKS            (BS256_BITMASK_SIZE * 8)
+#define BS256_DIR_DEFAULT_SIZE          BS256_LOG_BLOCK_SIZE
 
-#define EXTDISK_BLOCK_SIZE          512
-#define EXTDISK_LOG_BLOCK_SIZE      (EXTDISK_BLOCK_SIZE - sizeof(ccos_block_header_t) - 4)
-#define EXTDISK_INODE_MAX_BLOCKS    ((EXTDISK_BLOCK_SIZE - INODE_BLOCKS_OFFSET) / 2)
-#define EXTDISK_CONTENT_MAX_BLOCKS  ((EXTDISK_LOG_BLOCK_SIZE - sizeof(ccos_block_data_t)) / 2)
-#define EXTDISK_BITMASK_SIZE        (EXTDISK_BLOCK_SIZE - sizeof(ccos_block_header_t) - 4 - 4)
-#define EXTDISK_BITMASK_BLOCKS      (EXTDISK_BITMASK_SIZE * 8)
-#define EXTDISK_DIR_DEFAULT_SIZE    EXTDISK_LOG_BLOCK_SIZE
+#define BS512_BLOCK_SIZE                512
+#define BS512_LOG_BLOCK_SIZE            (BS512_BLOCK_SIZE - sizeof(ccos_block_header_t) - 4)
+#define BS512_INODE_MAX_BLOCKS          ((BS512_BLOCK_SIZE - INODE_BLOCKS_OFFSET) / 2)
+#define BS512_CONTENT_INODE_PADDING     (8)
+#define BS512_CONTENT_INODE_MAX_BLOCKS  ((BS512_BLOCK_SIZE - sizeof(ccos_block_data_t) - BS512_CONTENT_INODE_PADDING) / 2)
+#define BS512_BITMASK_SIZE              (BS512_BLOCK_SIZE - sizeof(ccos_block_header_t) - 2 - 2 - 4)  // - checksum - allocated - padding
+#define BS512_BITMASK_BLOCKS            (BS512_BITMASK_SIZE * 8)
+#define BS512_DIR_DEFAULT_SIZE          BS512_LOG_BLOCK_SIZE
 
 // Block number is 2 bytes => max blocks = 65535; each bitmask stores 4000 blocks => we need 17 bitmask blocks max
 #define MAX_BITMASK_BLOCKS_IN_IMAGE 17
@@ -123,8 +125,8 @@ typedef struct ccos_inode_t_ {
   ccos_inode_desc_t desc;
   ccos_block_data_t content_inode_info;
   union {
-    struct { uint16_t content_blocks[BUBMEM_INODE_MAX_BLOCKS];  } bs256;
-    struct { uint16_t content_blocks[EXTDISK_INODE_MAX_BLOCKS]; } bs512;
+    struct { uint16_t content_blocks[BS256_INODE_MAX_BLOCKS];  } bs256;
+    struct { uint16_t content_blocks[BS512_INODE_MAX_BLOCKS]; } bs512;
   };
 } ccos_inode_t;
 #pragma pack(pop)
@@ -136,12 +138,12 @@ typedef struct {
   ccos_block_data_t content_inode_info;
   union {
     struct {
-      uint16_t content_blocks[BUBMEM_CONTENT_MAX_BLOCKS];
-      uint32_t block_end;
+      uint16_t content_blocks[BS256_CONTENT_INODE_MAX_BLOCKS];
+      uint8_t padding[BS256_CONTENT_INODE_PADDING];
     } bs256;
     struct {
-      uint16_t content_blocks[EXTDISK_CONTENT_MAX_BLOCKS];
-      uint64_t block_end;
+      uint16_t content_blocks[BS512_CONTENT_INODE_MAX_BLOCKS];
+      uint8_t padding[BS512_CONTENT_INODE_PADDING];
     } bs512;
   };
 } ccos_content_inode_t;
@@ -155,10 +157,10 @@ typedef struct {
   uint16_t checksum;
   uint16_t allocated;
   union {
-    struct { uint8_t bytes[BUBMEM_BITMASK_SIZE];  } bs256;
-    struct { uint8_t bytes[EXTDISK_BITMASK_SIZE]; } bs512;
+    struct { uint8_t bytes[BS256_BITMASK_SIZE];  } bs256;
+    struct { uint8_t bytes[BS512_BITMASK_SIZE]; } bs512;
   };
-  uint32_t block_end;
+  uint32_t padding;
 } ccos_bitmask_t;
 #pragma pack(pop)
 
