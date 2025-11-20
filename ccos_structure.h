@@ -190,6 +190,7 @@ typedef struct {
 size_t get_block_size(ccfs_handle ctx);
 size_t get_log_block_size(ccfs_handle ctx);
 size_t get_inode_max_blocks(ccfs_handle ctx);
+size_t get_content_inode_padding(ccfs_handle ctx);
 size_t get_content_inode_max_blocks(ccfs_handle ctx);
 size_t get_bitmask_size(ccfs_handle ctx);
 size_t get_bitmask_blocks(ccfs_handle ctx);

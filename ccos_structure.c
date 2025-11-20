@@ -12,6 +12,7 @@
 SECTOR_SIZE_TO_CONST(block_size,                BLOCK_SIZE);
 SECTOR_SIZE_TO_CONST(log_block_size,            LOG_BLOCK_SIZE);
 SECTOR_SIZE_TO_CONST(inode_max_blocks,          INODE_MAX_BLOCKS);
+SECTOR_SIZE_TO_CONST(content_inode_padding,     CONTENT_INODE_PADDING);
 SECTOR_SIZE_TO_CONST(content_inode_max_blocks,  CONTENT_INODE_MAX_BLOCKS);
 SECTOR_SIZE_TO_CONST(bitmask_size,              BITMASK_SIZE);
 SECTOR_SIZE_TO_CONST(bitmask_blocks,            BITMASK_BLOCKS);

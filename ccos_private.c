@@ -51,7 +51,7 @@ uint16_t calc_content_inode_checksum(ccfs_handle ctx, const ccos_content_inode_t
   const size_t start_offset = offsetof(ccos_content_inode_t, content_inode_info) + offsetof(ccos_block_data_t, block_next);
 
   const uint8_t *checksum_data = (const uint8_t*)&content_inode->content_inode_info.block_next;
-  uint16_t checksum_data_size = get_block_size(ctx) - start_offset - 8;
+  uint16_t checksum_data_size = get_block_size(ctx) - start_offset - get_content_inode_padding(ctx);
 
   uint16_t blocks_checksum = calc_checksum(checksum_data, checksum_data_size);
   blocks_checksum += content_inode->content_inode_info.header.file_id;
