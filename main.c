@@ -244,9 +244,10 @@ int main(int argc, char** argv) {
   switch (mode) {
     case MODE_PRINT: {
       res = print_image_info(ctx, path, file_contents, file_size, short_format);
-      size_t free_bytes = ccos_calc_free_space(ctx, file_contents, file_size);
-      printf("\n");
-      printf("Free space: " SIZE_T " bytes.\n", free_bytes);
+      if (res == 0) {
+        size_t free_bytes = ccos_calc_free_space(ctx, file_contents, file_size);
+        printf("Free space: " SIZE_T " bytes.\n", free_bytes);
+      }
       break;
     }
     case MODE_DUMP: {
