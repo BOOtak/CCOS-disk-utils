@@ -265,8 +265,8 @@ int ccos_read_file(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* image_dat
   // correct number is dir_length.
   if (ccos_is_dir(file)) {
     if (file->desc.file_size != file->desc.dir_length) {
-      fprintf(stderr, "Warn: dir_length != file_size (%d != %d), fallback to dir_length.\n",
-              file->desc.dir_length, file->desc.file_size);
+      TRACE("dir_length != file_size (%d != %d), fallback to dir_length.\n",
+            file->desc.dir_length, file->desc.file_size);
       *file_size = file->desc.dir_length;
     }
   }
