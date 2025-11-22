@@ -2,10 +2,10 @@
 
 #define SECTOR_SIZE_TO_CONST(name, X) \
   size_t get_##name (ccfs_handle ctx) { \
-    switch (ctx->sector_size) { \
+    switch (ctx->sector_size) {    \
       case 256: return BS256_##X;  \
-      case 512: return BS512_##X; \
-      default: return SIZE_MAX; \
+      case 512: return BS512_##X;  \
+      default:  return SIZE_MAX;   \
     } \
   }
 

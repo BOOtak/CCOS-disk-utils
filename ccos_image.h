@@ -44,8 +44,9 @@ version_t ccos_get_file_version(const ccos_inode_t* file);
 /**
  * @brief      Set the file version.
  *
+ * @param[in]  ctx           Filesystem context handle.
  * @param[in]  file          The file.
- * @param      new_version   The new version to set.
+ * @param[in]  new_version   The new version to set.
  *
  * @return     0 on success, -1 otherwise.
  */
@@ -63,6 +64,7 @@ short_string_t* ccos_get_file_name(const ccos_inode_t* file);
 /**
  * @brief      Get root directory of the given image.
  *
+ * @param[in]  ctx        Filesystem context handle.
  * @param      data       CCOS image data.
  * @param[in]  data_size  Image data size.
  *
@@ -73,6 +75,7 @@ ccos_inode_t* ccos_get_root_dir(ccfs_handle ctx, uint8_t* data, size_t data_size
 /**
  * @brief      Read contents from the directory inode.
  *
+ * @param[in]  ctx             Filesystem context handle.
  * @param[in]  dir             Directory inode.
  * @param[in]  data            CCOS image data.
  * @param      entry_count     Count of the items in the directory.
@@ -128,8 +131,9 @@ ccos_date_t ccos_get_mod_date(const ccos_inode_t* file);
 ccos_date_t ccos_get_exp_date(const ccos_inode_t* file);
 
 /**
- * @brief      Сhanges the creation date of a file or folder.
+ * @brief      Changes the creation date of a file or folder.
  *
+ * @param[in]  ctx       Filesystem context handle.
  * @param      file      The file or the directory.
  * @param      new_date  The new date variable.
  *
@@ -138,8 +142,9 @@ ccos_date_t ccos_get_exp_date(const ccos_inode_t* file);
 int ccos_set_creation_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date);
 
 /**
- * @brief      Сhanges the modification date of a file or folder.
+ * @brief      Changes the modification date of a file or folder.
  *
+ * @param[in]  ctx       Filesystem context handle.
  * @param      file      The file or the directory.
  * @param      new_date  The new date variable.
  *
@@ -148,8 +153,9 @@ int ccos_set_creation_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_
 int ccos_set_mod_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date);
 
 /**
- * @brief      Сhanges the expiration date of a file or folder.
+ * @brief      Changes the expiration date of a file or folder.
  *
+ * @param[in]  ctx       Filesystem context handle.
  * @param      file      The file or the directory.
  * @param      new_date  The new date variable.
  *
@@ -160,6 +166,7 @@ int ccos_set_exp_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date)
 /**
  * @brief      Replace file in the CCOS image data.
  *
+ * @param[in]  ctx         Filesystem context handle.
  * @param[in]  file        The file to replace.
  * @param[in]  file_data   The new file contents.
  * @param[in]  file_size   The new file size (it should match old file size).
@@ -173,6 +180,7 @@ int ccos_replace_file(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* file_d
  * @brief      Get info about blocks in the image. Traverse all blocks in the CCOS image and return array filled with
  * corresponding block types.
  *
+ * @param[in]  ctx                Filesystem context handle.
  * @param[in]  data               CCOS image data.
  * @param[in]  data_size          The data size.
  * @param      image_map          Block types array.
@@ -183,8 +191,9 @@ int ccos_replace_file(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* file_d
 int ccos_get_image_map(ccfs_handle ctx, const uint8_t* data, size_t data_size, block_type_t** image_map, size_t* free_blocks_count);
 
 /**
- * @brief      Read file contents into memory buffer
+ * @brief      Read file contents into memory buffer.
  *
+ * @param[in]  ctx         Filesystem context handle.
  * @param[in]  file        File to read.
  * @param[in]  image_data  CCOS image data.
  * @param      file_data   The file data.
@@ -197,6 +206,7 @@ int ccos_read_file(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* image_dat
 /**
  * @brief      Get parent directory of the given file.
  *
+ * @param[in]  ctx   Filesystem context handle.
  * @param      file  The file.
  * @param      data  CCOS image data.
  *
@@ -207,6 +217,7 @@ ccos_inode_t* ccos_get_parent_dir(ccfs_handle ctx, ccos_inode_t* file, uint8_t* 
 /**
  * @brief      Copy file from one CCOS image into another.
  *
+ * @param[in]  ctx              Filesystem context handle.
  * @param      dest_image       The destination CCOS image.
  * @param[in]  dest_image_size  The destination image size.
  * @param      dest_directory   The directory in the destination image to copy file to.
@@ -221,7 +232,8 @@ int ccos_copy_file(ccfs_handle ctx, uint8_t* dest_image, size_t dest_image_size,
 /**
  * @brief      Delete file in the image.
  *
- * @param      image_data  CCOS image data.
+ * @param[in]  ctx         Filesystem context handle.
+ * @param[in]  image_data  CCOS image data.
  * @param[in]  data_size   The image size.
  * @param[in]  file        The file to delete.
  *
@@ -232,7 +244,8 @@ int ccos_delete_file(ccfs_handle ctx, uint8_t* image_data, size_t data_size, cco
 /**
  * @brief      Add new file to the given directory.
  *
- * @param[in]  dest_directory  The destination directory to add file to.
+ * @param[in]  ctx             Filesystem context handle.
+ * @param      dest_directory  The destination directory to add file to.
  * @param[in]  file_data       File data.
  * @param[in]  file_size       File data size.
  * @param[in]  file_name       File name.
@@ -247,6 +260,7 @@ ccos_inode_t* ccos_add_file(ccfs_handle ctx, ccos_inode_t* dest_directory, uint8
 /**
  * @brief      Check file checksums and file structure, log to stderr in case of malformed file.
  *
+ * @param[in]  ctx   Filesystem context handle.
  * @param[in]  file  File to check.
  *
  * @return     0 on success, -1 otherwise.
@@ -256,6 +270,7 @@ int ccos_validate_file(ccfs_handle ctx, const ccos_inode_t* file);
 /**
  * @brief      Return amount of free space available in the image.
  *
+ * @param[in]  ctx        Filesystem context handle.
  * @param      data       CCOS image data.
  * @param[in]  data_size  Data size.
  *
@@ -266,6 +281,7 @@ size_t ccos_calc_free_space(ccfs_handle ctx, uint8_t* data, size_t data_size);
 /**
  * @brief      Overwrite file contents with the given data.
  *
+ * @param[in]  ctx         Filesystem context handle.
  * @param      file        The file.
  * @param      image_data  CCOS image data.
  * @param[in]  image_size  Image data size.
@@ -293,6 +309,7 @@ int ccos_parse_file_name(const ccos_inode_t* inode, char* basename, char* type, 
 /**
  * @brief      Create directory in the image.
  *
+ * @param[in]  ctx             Filesystem context handle.
  * @param      parent_dir      The parent directory.
  * @param[in]  directory_name  New directory name.
  * @param      image_data      CCOS image data.
@@ -306,11 +323,12 @@ ccos_inode_t* ccos_create_dir(ccfs_handle ctx, ccos_inode_t* parent_dir, const c
 /**
  * @brief      Rename file and change type.
  *
- * @param      image_data      CCOS image data.
+ * @param[in]  ctx             Filesystem context handle.
+ * @param      image_data      CCCOS image data.
  * @param[in]  image_size      CCOS image size.
- * @param[in]  file        The file.
- * @param[in]  new_name    The new name.
- * @param[in]  new_type    The new type (optional, may be NULL, if you don't want to change it).
+ * @param      file            The file.
+ * @param[in]  new_name        The new name.
+ * @param[in]  new_type        The new type (optional, may be NULL, if you don't want to change it).
  *
  * @return     0 on success, -1 otherwise.
  */
@@ -320,6 +338,7 @@ int ccos_rename_file(ccfs_handle ctx, uint8_t* image_data, size_t image_size, cc
 /**
  * @brief      Get label of provided image and return it.
  *
+ * @param[in]  ctx                Filesystem context handle.
  * @param[in]  data               CCOS image data.
  * @param[in]  data_size          The data size.
  *
@@ -330,6 +349,7 @@ char* ccos_get_image_label(ccfs_handle ctx, uint8_t* data, size_t data_size);
 /**
  * @brief      Set label of provided image.
  *
+ * @param[in]  ctx                Filesystem context handle.
  * @param[in]  data               CCOS image data.
  * @param[in]  data_size          The data size.
  * @param[in]  label              The new label.
@@ -341,7 +361,8 @@ int ccos_set_image_label(ccfs_handle ctx, uint8_t* data, size_t data_size, const
 /**
  * @brief      Create new empty image.
  *
- * @param      image_size    Size of the given image. If 0 is passed, it defaults to 360k image.
+ * @param[in]  ctx     Filesystem context handle.
+ * @param[in]  blocks  Number of blocks in the image.
  *
  * @return     Image data on success, NULL otherwise.
  */

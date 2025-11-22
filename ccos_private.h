@@ -39,6 +39,7 @@ uint16_t calc_inode_metadata_checksum(const ccos_inode_t* inode);
 /**
  * @brief      Calculates the checksum of file blocks section.
  *
+ * @param[in]  ctx    Filesystem context handle.
  * @param[in]  inode  The file.
  *
  * @return     The file blocks section checksum.
@@ -48,6 +49,7 @@ uint16_t calc_inode_blocks_checksum(ccfs_handle ctx, const ccos_inode_t* inode);
 /**
  * @brief      Calculates the checksum of the content inode.
  *
+ * @param[in]  ctx            Filesystem context handle.
  * @param[in]  content_inode  The content inode.
  *
  * @return     The content inode checksum.
@@ -57,6 +59,7 @@ uint16_t calc_content_inode_checksum(ccfs_handle ctx, const ccos_content_inode_t
 /**
  * @brief      Calculates the checksum of image's bitmask.
  *
+ * @param[in]  ctx      Filesystem context handle.
  * @param[in]  bitmask  CCOS image bitmask.
  *
  * @return     The bitmask checksum.
@@ -66,6 +69,7 @@ uint16_t calc_bitmask_checksum(ccfs_handle ctx, const ccos_bitmask_t* bitmask);
 /**
  * @brief      Recalculate checksums of the inode.
  *
+ * @param[in]  ctx    Filesystem context handle.
  * @param      inode  The inode.
  */
 void update_inode_checksums(ccfs_handle ctx, ccos_inode_t* inode);
@@ -73,6 +77,7 @@ void update_inode_checksums(ccfs_handle ctx, ccos_inode_t* inode);
 /**
  * @brief      Recalculate checksum of the content inode.
  *
+ * @param[in]  ctx            Filesystem context handle.
  * @param      content_inode  The content inode.
  */
 void update_content_inode_checksums(ccfs_handle ctx, ccos_content_inode_t* content_inode);
@@ -80,6 +85,7 @@ void update_content_inode_checksums(ccfs_handle ctx, ccos_content_inode_t* conte
 /**
  * @brief      Re-calculate and update CCOS image bitmask checksum.
  *
+ * @param[in]  ctx      Filesystem context handle.
  * @param      bitmask  CCOS image bitmask.
  */
 void update_bitmask_checksum(ccfs_handle ctx, ccos_bitmask_t* bitmask);
@@ -87,6 +93,7 @@ void update_bitmask_checksum(ccfs_handle ctx, ccos_bitmask_t* bitmask);
 /**
  * @brief      Find a superblock (i.e. the inode with the root directory description) in a CCOS filesystem image.
  *
+ * @param[in]  ctx         Filesystem context handle.
  * @param[in]  data        CCOS image data.
  * @param[in]  image_size  The image size.
  * @param      superblock  The superblock to return.
@@ -99,6 +106,7 @@ int get_superblock(ccfs_handle ctx, const uint8_t* data, size_t image_size, uint
 /**
  * @brief      Get the CCOS filesystem inode at the given block.
  *
+ * @param[in]  ctx    Filesystem context handle.
  * @param[in]  block  The block number of the inode.
  * @param[in]  data   CCOS image data.
  *
@@ -109,7 +117,8 @@ ccos_inode_t* get_inode(ccfs_handle ctx, uint16_t block, const uint8_t* data);
 /**
  * @brief      Parse an inode and return the list of the file content blocks.
  *
- * @param[in]  file         Inode first block number.
+ * @param[in]  ctx           Filesystem context handle.
+ * @param[in]  file          Inode first block number.
  * @param[in]  data          CCOS image data.
  * @param      blocks_count  The file content blocks count.
  * @param      blocks        The file content block numbers.
@@ -119,17 +128,20 @@ ccos_inode_t* get_inode(ccfs_handle ctx, uint16_t block, const uint8_t* data);
 int get_file_blocks(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* data, size_t* blocks_count, uint16_t** blocks);
 
 /**
- * @brief Get all bitmask blocks from the image.
+ * @brief      Get all bitmask blocks from the image.
  *
- * @param data
- * @param data_size
- * @return ccos_bitmask_list_t
+ * @param[in]  ctx        Filesystem context handle.
+ * @param[in]  data       CCOS image data.
+ * @param[in]  data_size  Image data size.
+ *
+ * @return     List of CCOS image bitmask blocks.
  */
 ccos_bitmask_list_t find_bitmask_blocks(ccfs_handle ctx, uint8_t* data, size_t data_size);
 
 /**
  * @brief      Find available free block in the image and return it's number.
  *
+ * @param[in]  ctx           Filesystem context handle.
  * @param[in]  bitmask_list  List of CCOS image bitmask blocks.
  *
  * @return     The free block on success, CCOS_INVALID_BLOCK if no free space in the image.
@@ -139,18 +151,20 @@ uint16_t get_free_block(ccfs_handle ctx, const ccos_bitmask_list_t* bitmask_list
 /**
  * @brief      Mark block in the bitmask as free or used.
  *
+ * @param[in]  ctx           Filesystem context handle.
  * @param      bitmask_list  List of CCOS image bitmask blocks.
- * @param[in]  block    The number of the block.
- * @param[in]  mode     The mode (0 for free, 1 for used).
+ * @param[in]  block         The number of the block.
+ * @param[in]  mode          The mode (0 for free, 1 for used).
  */
 void mark_block(ccfs_handle ctx, ccos_bitmask_list_t* bitmask_list, uint16_t block, uint8_t mode);
 
 /**
  * @brief      Initialize inode at the given block.
  *
- * @param[in]  block       The block to create inode at.
- * @param[in]  parent_dir_block  The parent dir block
- * @param      image_data  CCOS image data.
+ * @param[in]  ctx               Filesystem context handle.
+ * @param[in]  block             The block to create inode at.
+ * @param[in]  parent_dir_block  The parent dir block.
+ * @param      image_data        CCOS image data.
  *
  * @return     Pointer to the newly created inode on success, NULL otherwise.
  */
@@ -159,8 +173,9 @@ ccos_inode_t* init_inode(ccfs_handle ctx, uint16_t block, uint16_t parent_dir_bl
 /**
  * @brief      Adds a new content inode (block with file block data) to the content inode list of the given file.
  *
- * @param      file     The file to add content inode to.
- * @param      data     CCOS image data.
+ * @param[in]  ctx           Filesystem context handle.
+ * @param      file          The file to add content inode to.
+ * @param      data          CCOS image data.
  * @param      bitmask_list  List of CCOS image bitmask blocks.
  *
  * @return     New content inode on success, NULL otherwise.
@@ -170,6 +185,7 @@ ccos_content_inode_t* add_content_inode(ccfs_handle ctx, ccos_inode_t* file, uin
 /**
  * @brief      Get content inode at the given block number.
  *
+ * @param[in]  ctx    Filesystem context handle.
  * @param[in]  block  Block number.
  * @param[in]  data   CCOS image data.
  *
@@ -180,6 +196,7 @@ ccos_content_inode_t* get_content_inode(ccfs_handle ctx, uint16_t block, const u
 /**
  * @brief      Gets the last content inode in the content inode list of the given file.
  *
+ * @param[in]  ctx         Filesystem context handle.
  * @param[in]  file        The file.
  * @param[in]  image_data  CCOS image data.
  *
@@ -190,8 +207,9 @@ ccos_content_inode_t* get_last_content_inode(ccfs_handle ctx, const ccos_inode_t
 /**
  * @brief      Cleanup image block at the given number and mark it as empty both in the image and in the image bitmask.
  *
- * @param[in]  block    Block number.
- * @param      image    CCOS image data.
+ * @param[in]  ctx           Filesystem context handle.
+ * @param[in]  block         Block number.
+ * @param      image         CCOS image data.
  * @param      bitmask_list  List of CCOS image bitmask blocks.
  */
 void erase_block(ccfs_handle ctx, uint16_t block, uint8_t* image, ccos_bitmask_list_t* bitmask_list);
@@ -199,8 +217,9 @@ void erase_block(ccfs_handle ctx, uint16_t block, uint8_t* image, ccos_bitmask_l
 /**
  * @brief      Removes the last content inode from the file's content inodes list, and erases this content inode block.
  *
- * @param      file     The file.
- * @param      data     CCOS image data.
+ * @param[in]  ctx           Filesystem context handle.
+ * @param      file          The file.
+ * @param      data          CCOS image data.
  * @param      bitmask_list  List of CCOS image bitmask blocks.
  *
  * @return     0 on success, -1 otherwise.
@@ -210,8 +229,9 @@ int remove_content_inode(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, cco
 /**
  * @brief      Removes last content block from the file.
  *
- * @param      file     The file.
- * @param      data     CCOS image data.
+ * @param[in]  ctx           Filesystem context handle.
+ * @param      file          The file.
+ * @param      data          CCOS image data.
  * @param      bitmask_list  List of CCOS image bitmask blocks.
  *
  * @return     0 on success, -1 otherwise.
@@ -221,17 +241,19 @@ int remove_block_from_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, c
 /**
  * @brief      Adds content block to the file.
  *
- * @param      file     The file.
- * @param      data     CCOS image data.
+ * @param[in]  ctx           Filesystem context handle.
+ * @param      file          The file.
+ * @param      data          CCOS image data.
  * @param      bitmask_list  List of CCOS image bitmask blocks.
  *
- * @return     { description_of_the_return_value }
+ * @return     Block number of the added block on success, CCOS_INVALID_BLOCK otherwise.
  */
 uint16_t add_block_to_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Add new file entry to the list of files in the given directory.
  *
+ * @param[in]  ctx         Filesystem context handle.
  * @param      directory   The directory to add file entry to.
  * @param      file        The file to add to the directory.
  * @param      image_data  CCOS image data.
@@ -245,6 +267,7 @@ int add_file_to_directory(ccfs_handle ctx, ccos_inode_t* directory, ccos_inode_t
  * @brief      Insert new directory entry into the directory, effectively making this directory a parent for the given
  * file.
  *
+ * @param[in]  ctx         Filesystem context handle.
  * @param      directory   The directory.
  * @param[in]  image_data  CCOS image data.
  * @param[in]  image_size  CCOS image size.
@@ -260,6 +283,7 @@ int add_file_entry_to_dir_contents(ccfs_handle ctx, ccos_inode_t* directory,
 /**
  * @brief      Delete file entry from the parent directory.
  *
+ * @param[in]  ctx         Filesystem context handle.
  * @param      file        The file.
  * @param[in]  image_data  CCOS image data.
  * @param[in]  image_size  CCOS image size.
@@ -285,11 +309,12 @@ int parse_file_name(const short_string_t* file_name, char* basename, char* type,
 /**
  * @brief      Extract list of files stored in the directory by parsing directory raw contents.
  *
- * @param      image_data           CCOS image data.
- * @param[in]  directory_data       Directory raw contents.
- * @param[in]  directory_data_size  Directory contents size.
- * @param[in]  entry_count          Number of files in the directory.
- * @param      entries              Array of files located in the directory.
+ * @param[in]  ctx                 Filesystem context handle.
+ * @param      image_data          CCOS image data.
+ * @param[in]  directory_data      Directory raw contents.
+ * @param[in]  directory_data_size Directory contents size.
+ * @param[in]  entry_count         Number of files in the directory.
+ * @param      entries             Array of files located in the directory.
  *
  * @return     0 on success, -1 otherwise.
  */
@@ -301,6 +326,7 @@ int parse_directory_data(ccfs_handle ctx, uint8_t* image_data,
  * @brief      Read raw data from the image at a given block. Notice it won't allocate any memory, just return a pointer
  * and a size of a raw data inside a block.
  *
+ * @param[in]  ctx    Filesystem context handle.
  * @param[in]  block  Block number.
  * @param[in]  data   CCOS image data.
  * @param      start  Start address of the raw data.
@@ -313,6 +339,7 @@ int get_block_data(ccfs_handle ctx, uint16_t block, const uint8_t* data, const u
 /**
  * @brief      Return info about free blocks in a CCOS image.
  *
+ * @param[in]  ctx                Filesystem context handle.
  * @param[in]  bitmask_list       List of CCOS image bitmask blocks.
  * @param[in]  data_size          Image size.
  * @param      free_blocks_count  Pointer to free blocks count.
@@ -323,6 +350,15 @@ int get_block_data(ccfs_handle ctx, uint16_t block, const uint8_t* data, const u
 int get_free_blocks(ccfs_handle ctx, ccos_bitmask_list_t* bitmask_list, size_t data_size, size_t* free_blocks_count,
                     uint16_t** free_blocks);
 
+/**
+ * @brief      Find the index of a file in the directory data.
+ *
+ * @param[in]  file      The file to find.
+ * @param[in]  directory The directory to search in.
+ * @param[in]  elements  Array of parsed directory elements.
+ *
+ * @return     Index of the file in the directory on success, -1 otherwise.
+ */
 int find_file_index_in_directory_data(ccos_inode_t* file, ccos_inode_t* directory,
                                       parsed_directory_element_t* elements);
 
@@ -336,8 +372,9 @@ int find_file_index_in_directory_data(ccos_inode_t* file, ccos_inode_t* director
 int is_root_dir(const ccos_inode_t* file);
 
 /**
- * @brief      Сhanges the date of a file or folder.
+ * @brief      Changes the date of a file or folder.
  *
+ * @param[in]  ctx       Filesystem context handle.
  * @param      file      The file or the directory.
  * @param      new_date  The new date variable.
  * @param      type      Date type to replace (CREATED - creation, MODIF - modification, EXPIR - expiration).
@@ -347,12 +384,13 @@ int is_root_dir(const ccos_inode_t* file);
 int change_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date, date_type_t type);
 
 /**
- * @brief       Create CCOS filesystem in the given image.
+ * @brief      Create CCOS filesystem in the given image.
  *
- * @param       image_data    CCOS image data.
- * @param       image_size    Image size
+ * @param[in]  ctx         Filesystem context handle.
+ * @param      data        CCOS image data.
+ * @param[in]  image_size  Image size.
  *
- * @return      0 on success, -1 otherwise
+ * @return     0 on success, -1 otherwise.
  */
 int format_image(ccfs_handle ctx, uint8_t* data, size_t image_size);
 
