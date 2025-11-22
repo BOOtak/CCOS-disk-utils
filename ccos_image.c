@@ -55,7 +55,9 @@ version_t ccos_get_file_version(const ccos_inode_t* file) {
 }
 
 int ccos_set_file_version(ccfs_handle ctx, ccos_inode_t* file, version_t new_version) {
-  if (is_root_dir(file)) return -1;
+  if (is_root_dir(file)) {
+    return -1;
+  }
 
   file->desc.version_major = new_version.major;
   file->desc.version_minor = new_version.minor;
@@ -698,7 +700,7 @@ uint8_t* ccos_create_new_image(ccfs_handle ctx, size_t blocks) {
   size_t block_size = get_block_size(ctx);
   size_t image_size = block_size * blocks;
 
-  uint8_t* data = (uint8_t*)calloc(image_size, sizeof(uint8_t));
+  uint8_t* data = malloc(image_size);
   if (data == NULL) {
     fprintf(stderr, "Unable to create new image: unable to allocate memory: %s!\n", strerror(errno));
     return NULL;
