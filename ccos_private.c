@@ -1099,7 +1099,7 @@ int format_image(ccfs_handle ctx, uint8_t* data, size_t image_size) {
   uint16_t* content_blocks = get_inode_content_blocks(root_dir);
   size_t max_content_blocks = get_inode_max_blocks(ctx);
 
-  memset(content_blocks, 0xFF, max_content_blocks);
+  memset(content_blocks, 0xFF, max_content_blocks * sizeof(uint16_t));
 
   uint16_t superblock_entry_block = superblock + 1;
   content_blocks[0] = superblock_entry_block;
