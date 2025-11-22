@@ -42,11 +42,16 @@
 *.idb
 *.pdb
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# JetBrains
+.idea/
+Testing/
+
+# CMake artifacts
+.cmake/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+api_test
+ccos_disk_tool

@@ -1,10 +1,23 @@
-#include <ccos_image.h>
-#include <common.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <wrapper.h>
+
+#include "common.h"
+#include "ccos_context.h"
+#include "ccos_image.h"
+#include "wrapper.h"
+
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
+#define SECTOR_SIZE_OPT  2000
+#define SUPERBLOCK_OPT   2001
+
+#define DEFAULT_SECTOR_SIZE   512
+#define DEFAULT_SUPERBLOCK    0x121
+#define DEFAULT_BITMAP_BLOCK  (DEFAULT_SUPERBLOCK - 1)
+
 
 typedef enum {
   MODE_DUMP = 1,
@@ -19,6 +32,8 @@ typedef enum {
 } op_mode_t;
 
 static const struct option long_options[] = {{"image", required_argument, NULL, 'i'},
+                                             {"sector-size", required_argument, NULL, SECTOR_SIZE_OPT},
+                                             {"superblock", required_argument, NULL, SUPERBLOCK_OPT},
                                              {"replace-file", required_argument, NULL, 'r'},
                                              {"copy-file", required_argument, NULL, 'c'},
                                              {"rename-file", required_argument, NULL, 'e'},
@@ -33,14 +48,14 @@ static const struct option long_options[] = {{"image", required_argument, NULL, 
                                              {"short-format", no_argument, NULL, 's'},
                                              {"verbose", no_argument, NULL, 'v'},
                                              {"help", no_argument, NULL, 'h'},
-                                             {"create-new", no_argument, NULL, 'w'},
+                                             {"create-new", required_argument, NULL, 'w'},
                                              {NULL, no_argument, NULL, 0}};
 
 static const char* opt_string = "i:r:n:c:e:a:t:y:z:ldpsvhw";
 
 static void print_usage() {
   fprintf(stderr,
-          "This is a tool for manipulating GRiD OS floppy images.\n"
+          "This is a tool for manipulating GRiD OS disk images.\n"
           "Usage:\n"
           "ccos_disk_tool [ -i image | -h ] OPTIONS [-v]\n"
           "\n"
@@ -53,14 +68,16 @@ static void print_usage() {
           "ccos_disk_tool -i src_image -e old name -n new name [-l]\n"
           "ccos_disk_tool -i image -r file -n name [-l]\n"
           "ccos_disk_tool -i image -z name [-l]\n"
-          "ccos_disk_tool -i image --create-new\n"
+          "ccos_disk_tool -i image --create-new 368640\n"
           "\n"
-          "-i, --image IMAGE        Path to GRiD OS floppy RAW image\n"
+          "-i, --image IMAGE        Path to GRiD OS disk RAW image\n"
+          "--sector-size VALUE      Image sector size, default is " TOSTRING(DEFAULT_SECTOR_SIZE) "\n"
+          "--superblock HEX         Superblock number, default is " TOSTRING(DEFAULT_SUPERBLOCK) "\n"
           "-h, --help               Show this message\n"
           "-v, --verbose            Verbose output\n"
           "\n"
           "OPTIONS:\n"
-          "-w, --create-new         Create new blank image\n"
+          "-w, --create-new SIZE    Create new blank image with given size\n"
           "-p, --print-contents     Print image contents\n"
           "-s, --short-format       Use short format in printing contents\n"
           "                         (80-column compatible, no dates)\n"
@@ -78,13 +95,25 @@ static void print_usage() {
           "-l, --in-place           Write changes to the original image\n");
 }
 
+ccfs_context_t* default_ccos_context() {
+  ccfs_context_t* ctx = malloc(sizeof(ccfs_context_t));
+
+  ctx->sector_size = DEFAULT_SECTOR_SIZE;
+  ctx->superblock_id = DEFAULT_SUPERBLOCK;
+  ctx->bitmap_block_id = DEFAULT_BITMAP_BLOCK;
+
+  return ctx;
+}
+
 int main(int argc, char** argv) {
   op_mode_t mode = 0;
   char* path = NULL;
+  ccfs_context_t* ctx = default_ccos_context();
   char* filename = NULL;
   char* dir_name = NULL;
   char* target_name = NULL;
   char* target_image = NULL;
+  size_t new_image_size = 0;
   int in_place = 0;
   int short_format = 0;
   int opt = 0;
@@ -156,6 +185,13 @@ int main(int argc, char** argv) {
       }
       case 'w': {
         mode = MODE_CREATE_BLANK;
+
+        new_image_size = strtol(optarg, NULL, 10);
+        if (new_image_size <= 0 || new_image_size % ctx->sector_size != 0) {
+          printf("Invalid image size! Value must be positive and a multiple of the sector size\n");
+          return 1;
+        }
+
         break;
       }
       case 'v': {
@@ -166,11 +202,35 @@ int main(int argc, char** argv) {
         print_usage();
         return 0;
       }
+      case SECTOR_SIZE_OPT: {
+        long sector_size = strtol(optarg, NULL, 10);
+        if (sector_size == 256 || sector_size == 512) {
+          ctx->sector_size = sector_size;
+          break;
+        } else {
+          printf("Invalid sector size! Allowed only 256 or 512\n");
+          return 1;
+        }
+      }
+      case SUPERBLOCK_OPT: {
+        long value = strtol(optarg, NULL, 16);
+        if (0 < value && value < 0xFFFF) {
+          ctx->superblock_id = value;
+          ctx->bitmap_block_id = value - 1;
+          break;
+        } else {
+          printf("Invalid superblock! Value must be in range 0x0001-0xFFFE\n");
+          return 1;
+        }
+      }
     }
   }
 
+  TRACE("Use image '%s' with sector size %d, superblock %#x, bitmap block %#x",
+        path, ctx->sector_size, ctx->superblock_id, ctx->bitmap_block_id);
+
   if (mode == MODE_CREATE_BLANK) {
-    return create_blank_image(path);
+    return create_blank_image(ctx, path, new_image_size);
   }
 
   uint8_t* file_contents = NULL;
@@ -190,26 +250,27 @@ int main(int argc, char** argv) {
   int res;
   switch (mode) {
     case MODE_PRINT: {
-      res = print_image_info(path, file_contents, file_size, short_format);
-      size_t free_bytes = ccos_calc_free_space(file_contents, file_size);
-      printf("\n");
-      printf("Free space: " SIZE_T " bytes.\n", free_bytes);
+      res = print_image_info(ctx, path, file_contents, file_size, short_format);
+      if (res == 0) {
+        size_t free_bytes = ccos_calc_free_space(ctx, file_contents, file_size);
+        printf("Free space: " SIZE_T " bytes.\n", free_bytes);
+      }
       break;
     }
     case MODE_DUMP: {
-      res = dump_image(path, file_contents, file_size);
+      res = dump_image(ctx, path, file_contents, file_size);
       break;
     }
     case MODE_REPLACE_FILE: {
-      res = replace_file(path, filename, target_name, file_contents, file_size, in_place);
+      res = replace_file(ctx, path, filename, target_name, file_contents, file_size, in_place);
       break;
     }
     case MODE_COPY_FILE: {
-      res = copy_file(target_image, filename, file_contents, file_size, in_place);
+      res = copy_file(ctx, target_image, filename, file_contents, file_size, in_place);
       break;
     }
     case MODE_DELETE_FILE: {
-      res = delete_file(path, filename, in_place);
+      res = delete_file(ctx, path, filename, in_place);
       break;
     }
     case MODE_ADD_FILE: {
@@ -218,16 +279,16 @@ int main(int argc, char** argv) {
         print_usage();
         res = -1;
       } else {
-        res = add_file(path, filename, target_name, file_contents, file_size, in_place);
+        res = add_file(ctx, path, filename, target_name, file_contents, file_size, in_place);
       }
       break;
     }
     case MODE_CREATE_DIRECTORY: {
-      res = create_directory(path, dir_name, file_contents, file_size, in_place);
+      res = create_directory(ctx, path, dir_name, file_contents, file_size, in_place);
       break;
     }
     case MODE_RENAME_FILE: {
-      res = rename_file(path, filename, target_name, file_contents, file_size, in_place);
+      res = rename_file(ctx, path, filename, target_name, file_contents, file_size, in_place);
       break;
     }
     default: {
