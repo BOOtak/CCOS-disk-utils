@@ -24,10 +24,10 @@ static int is_imd_image(const uint8_t* data) {
   return data[0] == 'I' && data[1] == 'M' && data[2] == 'D' && data[3] == ' ';
 }
 
-int ccos_check_image(const uint8_t* file_data) {
+int is_image_supported(const uint8_t* file_data) {
   if (is_fat_image(file_data)) {
     fprintf(stderr, "FAT image is found; return.\n");
-    return -1;
+    return 0;
   }
 
   if (is_imd_image(file_data)) {
@@ -36,10 +36,10 @@ int ccos_check_image(const uint8_t* file_data) {
             "image (.img) before using.\n"
             "\n"
             "(You can use Disk-Utilities from here: https://github.com/keirf/Disk-Utilities)\n");
-    return -1;
+    return 0;
   }
 
-  return 0;
+  return 1;
 }
 
 uint16_t ccos_file_id(const ccos_inode_t* inode) {

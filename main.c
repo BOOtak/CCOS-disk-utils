@@ -241,7 +241,7 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  if (ccos_check_image(file_contents) == -1) {
+  if (!is_image_supported(file_contents)) {
     fprintf(stderr, "Unable to get superblock: invalid image format!\n");
     free(file_contents);
     return -1;

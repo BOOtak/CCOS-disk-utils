@@ -54,17 +54,17 @@ uint8_t test_inode_data[] = {
 
 int check_image_test() {
   uint8_t data[0x200] = {0};
-  ASSERT(ccos_check_image(data) == 0);
+  ASSERT(is_image_supported(data) == 1);
   data[0] = 'I';
   data[1] = 'M';
   data[2] = 'D';
   data[3] = ' ';
-  ASSERT(ccos_check_image(data) == -1);
+  ASSERT(is_image_supported(data) == 0);
   memset(data, 0, 0x200);
   data[0] = 0xEB;
   data[2] = 0x90;
   *((uint16_t *)(&data[0x1FE])) = 0xAA55;
-  ASSERT(ccos_check_image(data) == -1);
+  ASSERT(is_image_supported(data) == 0);
   return 0;
 }
 

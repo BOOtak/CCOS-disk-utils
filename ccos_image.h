@@ -19,9 +19,9 @@ typedef enum { UNKNOWN, DATA, EMPTY } block_type_t;
  *
  * @param[in]  file_data  The file.
  *
- * @return     0 if valid, -1 otherwise.
+ * @return     1 if supported, 0 otherwise.
  */
-int ccos_check_image(const uint8_t* file_data);
+int is_image_supported(const uint8_t* file_data);
 
 /**
  * @brief      Get the file ID.
