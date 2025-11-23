@@ -268,13 +268,14 @@ int ccos_validate_file(ccfs_handle ctx, const ccos_inode_t* file);
 /**
  * @brief      Return amount of free space available in the image.
  *
- * @param[in]  ctx        Filesystem context handle.
- * @param      data       CCOS image data.
- * @param[in]  data_size  Data size.
+ * @param[in]  ctx         Filesystem context handle.
+ * @param[in]  data        CCOS image data.
+ * @param[in]  data_size   Data size.
+ * @param[out  free_space  TODO.
  *
  * @return     Free space in the image, in bytes.
  */
-size_t ccos_calc_free_space(ccfs_handle ctx, uint8_t* data, size_t data_size);
+int ccos_calc_free_space(ccfs_handle ctx, uint8_t* data, size_t data_size, size_t* free_space);
 
 /**
  * @brief      Overwrite file contents with the given data.
@@ -364,6 +365,6 @@ int ccos_set_image_label(ccfs_handle ctx, uint8_t* data, size_t data_size, const
  *
  * @return     Image data on success, NULL otherwise.
  */
-uint8_t* ccos_create_new_image(ccfs_handle ctx, size_t blocks);
+int ccos_create_new_image(ccfs_handle ctx, size_t blocks, uint8_t** out);
 
 #endif  // CCOS_IMAGE_H

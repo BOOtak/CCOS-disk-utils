@@ -235,7 +235,7 @@ int main(int argc, char** argv) {
 
   uint8_t* file_contents = NULL;
   size_t file_size = 0;
-  if (read_file(path, &file_contents, &file_size) == -1) {
+  if (read_file(path, &file_contents, &file_size)) {
     fprintf(stderr, "Unable to read disk image file!\n");
     print_usage();
     return -1;
@@ -251,10 +251,20 @@ int main(int argc, char** argv) {
   switch (mode) {
     case MODE_PRINT: {
       res = print_image_info(ctx, path, file_contents, file_size, short_format);
-      if (res == 0) {
-        size_t free_bytes = ccos_calc_free_space(ctx, file_contents, file_size);
+      if (res) {
+        fprintf(stderr, "TODO");
+        break;
+      }
+
+      size_t free_bytes = 0;
+
+      int ret = ccos_calc_free_space(ctx, file_contents, file_size, &free_bytes);
+      if (ret) {
+        fprintf(stderr, "TODO");
+      } else {
         printf("Free space: " SIZE_T " bytes.\n", free_bytes);
       }
+
       break;
     }
     case MODE_DUMP: {

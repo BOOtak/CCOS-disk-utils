@@ -106,14 +106,14 @@ int get_superblock(ccfs_handle ctx, const uint8_t* data, size_t image_size, uint
   if (sb > blocks_in_image) {
     fprintf(stderr, "Invalid superblock! (Superblock: 0x%x, but only 0x%x blocks in the image).\n",
             sb, blocks_in_image);
-    return -1;
+    return -EINVAL;
   }
 
   uint32_t block_addr = sb * block_size;
   uint16_t block_header = *(uint16_t*)&data[block_addr];
   if (block_header != sb) {
     fprintf(stderr, "Invalid image: Block header 0x%x mismatches superblock 0x%x!\n", block_header, sb);
-    return -1;
+    return -EINVAL;
   }
 
   *superblock = sb;
@@ -128,7 +128,7 @@ int get_file_blocks(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* data, si
   *blocks = calloc(inode_max_blocks, sizeof(uint16_t));
   if (*blocks == NULL) {
     TRACE("Failed to alloc memory for inode blocks");
-    return -1;
+    return -ENOMEM;
   }
 
   size_t real_blocks_count = 0;
@@ -162,7 +162,7 @@ int get_file_blocks(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* data, si
       if (extra_blocks == NULL) {
         fprintf(stderr, "Unable to allocate memory for extra blocks: %s!\n", strerror(errno));
         free(*blocks);
-        return -1;
+        return -ENOMEM;
       }
 
       uint16_t* content_blocks = get_content_inode_content_blocks(content_inode);
@@ -183,7 +183,7 @@ int get_file_blocks(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* data, si
       if (new_blocks == NULL) {
         fprintf(stderr, "Unable to realloc memory for content blocks: %s!\n", strerror(errno));
         free(*blocks);
-        return -1;
+        return -ENOMEM;
       } else {
         *blocks = new_blocks;
       }
@@ -398,7 +398,7 @@ int remove_content_inode(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, cco
   if (file->content_inode_info.block_next == CCOS_INVALID_BLOCK) {
     fprintf(stderr, "Unable to remove content inode: no content inodes found in file %*s (0x%x)!\n",
             file->desc.name_length, file->desc.name, file->header.file_id);
-    return -1;
+    return -EINVAL;
   }
 
   ccos_content_inode_t* prev_inode = NULL;
@@ -451,9 +451,10 @@ int remove_block_from_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, c
   }
 
   if (last_content_block_index <= 1) {
-    if (remove_content_inode(ctx, file, data, bitmask_list) == -1) {
+    int ret = remove_content_inode(ctx, file, data, bitmask_list);
+    if (ret) {
       fprintf(stderr, "Unable to remove content inode after freeing block at file 0x%x!\n", file->header.file_id);
-      return -1;
+      return ret;
     }
   }
 
@@ -561,10 +562,11 @@ uint16_t add_block_to_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, c
 }
 
 int add_file_to_directory(ccfs_handle ctx, ccos_inode_t* directory, ccos_inode_t* file, uint8_t* image_data, size_t image_size) {
-  if (add_file_entry_to_dir_contents(ctx, directory, image_data, image_size, file) == -1) {
+  int res = add_file_entry_to_dir_contents(ctx, directory, image_data, image_size, file);
+  if (res) {
     fprintf(stderr, "Unable to add file with id 0x%x to directory with id 0x%x!\n", file->header.file_id,
             directory->header.file_id);
-    return -1;
+    return res;
   }
 
   file->desc.dir_file_id = directory->header.file_id;
@@ -581,7 +583,7 @@ int parse_directory_data(ccfs_handle ctx, uint8_t* image_data,
                          uint16_t entry_count, parsed_directory_element_t** entries) {
   *entries = (parsed_directory_element_t*)calloc(entry_count, sizeof(parsed_directory_element_t));
   if (*entries == NULL) {
-    return -1;
+    return -ENOMEM;
   }
 
   TRACE("Parsing %d dir entries, size = %d bytes...", entry_count, directory_data_size);
@@ -626,7 +628,7 @@ static int create_directory_entry(ccos_inode_t* file, int is_last, size_t* entry
   *directory_entry = (uint8_t*)calloc(*entry_size, sizeof(uint8_t));
   if (*directory_entry == NULL) {
     fprintf(stderr, "Unable to allocate %d bytes for new directory entry: %s!\n", reverse_length + 1, strerror(errno));
-    return -1;
+    return -ENOMEM;
   }
 
   size_t offset = 0;
@@ -658,18 +660,21 @@ int add_file_entry_to_dir_contents(ccfs_handle ctx, ccos_inode_t* directory,
 
   uint8_t* directory_data = NULL;
   size_t dir_size = 0;
-  if (ccos_read_file(ctx, directory, image_data, &directory_data, &dir_size) == -1) {
+  int res = ccos_read_file(ctx, directory, image_data, &directory_data, &dir_size);
+  if (res) {
     fprintf(stderr, "Unable to get directory contents: Unable to read directory!\n");
     if (directory_data != NULL) {
       free(directory_data);
-      return -1;
     }
+    return res;
   }
 
   parsed_directory_element_t* elements = NULL;
-  if (parse_directory_data(ctx, image_data, directory_data, dir_size, directory->desc.dir_count, &elements) == -1) {
+  res = parse_directory_data(ctx, image_data, directory_data, dir_size, directory->desc.dir_count, &elements);
+  if (res) {
     fprintf(stderr, "Unable to add file to directory files list: Unable to parse directory data!\n");
-    return -1;
+    free(directory_data);
+    return res;
   }
 
   // 1. Find place for the new file to insert
@@ -679,7 +684,8 @@ int add_file_entry_to_dir_contents(ccfs_handle ctx, ccos_inode_t* directory,
     // TODO: add option to overwrite existing file
     fprintf(stderr, "Unable to add file %*s to the directory: File exists!\n", file->desc.name_length, file->desc.name);
     free(directory_data);
-    return -1;
+    free(elements);
+    return -EEXIST;
   }
 
   int new_entry_is_last = i == directory->desc.dir_count;
@@ -687,11 +693,12 @@ int add_file_entry_to_dir_contents(ccfs_handle ctx, ccos_inode_t* directory,
   // 2. Create new directory entry
   uint8_t* new_file_entry = NULL;
   size_t file_entry_size = 0;
-  if (create_directory_entry(file, new_entry_is_last, &file_entry_size, &new_file_entry) == -1) {
+  res = create_directory_entry(file, new_entry_is_last, &file_entry_size, &new_file_entry);
+  if (res) {
     fprintf(stderr, "Unable to add new entry to the directory: Unable to create entry!\n");
     free(directory_data);
     free(elements);
-    return -1;
+    return res;
   }
 
   // 3. Insert new entry into directory data
@@ -710,7 +717,8 @@ int add_file_entry_to_dir_contents(ccfs_handle ctx, ccos_inode_t* directory,
             strerror(errno));
     free(directory_data);
     free(new_file_entry);
-    return -1;
+    free(elements);
+    return -ENOMEM;
   } else {
     directory_data = new_directory_data;
   }
@@ -750,11 +758,12 @@ int add_file_entry_to_dir_contents(ccfs_handle ctx, ccos_inode_t* directory,
   }
 
   // 5. Save changes
-  int res = ccos_write_file(ctx, directory, image_data, image_size, directory_data, new_dir_size);
+  res = ccos_write_file(ctx, directory, image_data, image_size, directory_data, new_dir_size);
   free(directory_data);
-  if (res == -1) {
+  free(elements);
+  if (res) {
     fprintf(stderr, "Unable to update directory contents of dir with id=0x%x!\n", directory->header.file_id);
-    return -1;
+    return res;
   }
 
   return 0;
@@ -770,16 +779,18 @@ int delete_file_from_parent_dir(ccfs_handle ctx, ccos_inode_t* file, uint8_t* im
     size_t dir_size = 0;
     uint8_t* directory_data = NULL;
 
-    if (ccos_read_file(ctx, parent_dir, image_data, &directory_data, &dir_size) == -1) {
+    int res = ccos_read_file(ctx, parent_dir, image_data, &directory_data, &dir_size);
+    if (res) {
       fprintf(stderr, "Unable to read directory contents at directory id 0x%x\n", parent_dir->header.file_id);
-      return -1;
+      return res;
     }
 
     parsed_directory_element_t* elements = NULL;
-    if (parse_directory_data(ctx, image_data, directory_data, dir_size, parent_dir->desc.dir_count, &elements) == -1) {
+    res = parse_directory_data(ctx, image_data, directory_data, dir_size, parent_dir->desc.dir_count, &elements);
+    if (res) {
       fprintf(stderr, "Unable to add file to directory files list: Unable to parse directory data!\n");
       free(directory_data);
-      return -1;
+      return res;
     }
 
     // Find place of the file to delete in directory data
@@ -793,7 +804,7 @@ int delete_file_from_parent_dir(ccfs_handle ctx, ccos_inode_t* file, uint8_t* im
               parent_dir->desc.name_length, parent_dir->desc.name);
       free(directory_data);
       free(elements);
-      return -1;
+      return -ENOENT;
     }
 
     int entry_to_delete_is_last = i == (parent_dir->desc.dir_count - 1);
@@ -827,19 +838,19 @@ int delete_file_from_parent_dir(ccfs_handle ctx, ccos_inode_t* file, uint8_t* im
     size_t new_dir_size = dir_size - shrink_size;
 
     // Write dir contents back with old size to overwrite bytes at the end of dir with zeroes.
-    int res = ccos_write_file(ctx, parent_dir, image_data, image_size, directory_data, dir_size);
+    res = ccos_write_file(ctx, parent_dir, image_data, image_size, directory_data, dir_size);
 
     // Do that once more with new size to clear freed up content block.
-    if (res != -1) {
+    if (res == 0) {
       res = ccos_write_file(ctx, parent_dir, image_data, image_size, directory_data, new_dir_size);
     }
 
     free(directory_data);
     free(elements);
 
-    if (res == -1) {
+    if (res) {
       fprintf(stderr, "Unable to update directory contents of dir with id=0x%x!\n", parent_dir->header.file_id);
-      return -1;
+      return res;
     }
 
     parent_dir->desc.file_size = new_dir_size;
@@ -896,13 +907,13 @@ int parse_file_name(const short_string_t* file_name, char* basename, char* type,
   char* delim = strchr(file_name->data, '~');
   if (delim == NULL) {
     fprintf(stderr, "Invalid name \"%.*s\": no file type found!\n", file_name->length, file_name->data);
-    return -1;
+    return -EINVAL;
   }
 
   char* last_char = strchr(delim + 1, '~');
   if ((last_char + 1 - file_name->data) != file_name->length) {
     fprintf(stderr, "Invalid name \"%.*s\": invalid file type format!\n", file_name->length, file_name->data);
-    return -1;
+    return -EINVAL;
   }
 
   if (name_length != NULL) {
@@ -967,7 +978,7 @@ int get_free_blocks(ccfs_handle ctx, ccos_bitmask_list_t* bitmask_list, size_t d
   if (*free_blocks == NULL) {
     fprintf(stderr, "Unable to allocate " SIZE_T " bytes for free blocks: %s!\n", *free_blocks_count * sizeof(uint16_t),
             strerror(errno));
-    return -1;
+    return -ENOMEM;
   }
 
   for (size_t block = 0; block < bitmask_list->length; block++) {
@@ -1002,7 +1013,9 @@ int is_root_dir(const ccos_inode_t* file) {
 }
 
 int change_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date, date_type_t type) {
-  if (is_root_dir(file)) return -1;
+  if (is_root_dir(file)) {
+    return -EINVAL;
+  }
 
   if (type == CREATED) {
     file->desc.creation_date = new_date;
@@ -1011,7 +1024,7 @@ int change_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date, date_
   } else if (type == EXPIR) {
     file->desc.expiration_date = new_date;
   } else {
-    return -1;
+    return -EINVAL;
   }
   update_inode_checksums(ctx, file);
   return 0;
@@ -1026,7 +1039,7 @@ int format_image(ccfs_handle ctx, uint8_t* data, size_t image_size) {
   size_t sb_offset = block_size * superblock;
   if (sb_offset >= image_size) {
     fprintf(stderr, "Unable to format image: image_size < superblock offset!\n");
-    return -1;
+    return -EINVAL;
   }
 
   // Set superblock

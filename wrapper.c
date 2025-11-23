@@ -39,9 +39,11 @@ static int traverse_ccos_image(ccfs_handle ctx, ccos_inode_t* dir, uint8_t* data
                                on_file_t on_file, on_dir_t on_dir, void* arg) {
   uint16_t files_count = 0;
   ccos_inode_t** dir_contents = NULL;
-  if (ccos_get_dir_contents(ctx, dir, data, &files_count, &dir_contents) == -1) {
+
+  int ret = ccos_get_dir_contents(ctx, dir, data, &files_count, &dir_contents);
+  if (ret) {
     fprintf(stderr, "Unable to get root dir contents!\n");
-    return -1;
+    return ret;
   }
 
   TRACE("Processing %d entries in \"%s\"...", files_count, dirname);
@@ -57,18 +59,21 @@ static int traverse_ccos_image(ccfs_handle ctx, ccos_inode_t* dir, uint8_t* data
       TRACE("%d: directory", i + 1);
       char subdir_name[CCOS_MAX_FILE_NAME];
       memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
-      if (ccos_parse_file_name(dir_contents[i], subdir_name, NULL, NULL, NULL) == -1) {
+
+      ret = ccos_parse_file_name(dir_contents[i], subdir_name, NULL, NULL, NULL);
+      if (ret) {
+        fprintf(stderr, "TODO\n");
         free(dir_contents);
-        return -1;
+        return ret;
       }
 
       TRACE("%d: Processing directory \"%s\"...", i + 1, subdir_name);
 
-      char* subdir = (char*)calloc(sizeof(char), PATH_MAX);
+      char* subdir = calloc(sizeof(char), PATH_MAX);
       if (subdir == NULL) {
         fprintf(stderr, "Unable to allocate memory for subdir!\n");
         free(dir_contents);
-        return -1;
+        return -ENOMEM;
       }
 
       snprintf(subdir, PATH_MAX, "%s/%s", dirname, subdir_name);
@@ -81,7 +86,7 @@ static int traverse_ccos_image(ccfs_handle ctx, ccos_inode_t* dir, uint8_t* data
           free(subdir);
           if (res == RESULT_ERROR) {
             fprintf(stderr, "An error occurred, skipping the rest of the image!\n");
-            return -1;
+            return -EINVAL;
           } else {
             return 0;
           }
@@ -91,9 +96,9 @@ static int traverse_ccos_image(ccfs_handle ctx, ccos_inode_t* dir, uint8_t* data
       int res = traverse_ccos_image(ctx, dir_contents[i], data, subdir, level + 1, on_file, on_dir, arg);
       free(subdir);
 
-      if (res == -1) {
+      if (res) {
         fprintf(stderr, "An error occurred, skipping the rest of the image!\n");
-        return -1;
+        return res;
       }
     } else {
       TRACE("%d: file", i + 1);
@@ -105,7 +110,7 @@ static int traverse_ccos_image(ccfs_handle ctx, ccos_inode_t* dir, uint8_t* data
           free(dir_contents);
           if (res == RESULT_ERROR) {
             fprintf(stderr, "An error occurred, skipping the rest of the image!\n");
-            return -1;
+            return -EINVAL;
           } else {
             return 0;
           }
@@ -132,7 +137,7 @@ static traverse_callback_result_t print_file_info(
   memset(type, 0, CCOS_MAX_FILE_NAME);
 
   int res = ccos_parse_file_name(file, basename, type, NULL, NULL);
-  if (res == -1) {
+  if (res) {
     fprintf(stderr, "Invalid file name!\n");
     return RESULT_ERROR;
   }
@@ -182,7 +187,7 @@ int print_image_info(ccfs_handle ctx, const char* path, uint8_t* data, size_t da
   ccos_inode_t* root_dir = ccos_get_root_dir(ctx, data, data_size);
   if (root_dir == NULL) {
     fprintf(stderr, "Unable to print image info: Unable to find root directory!\n");
-    return -1;
+    return -EINVAL;
   }
 
   char* disk_name = short_string_to_string(ccos_get_file_name(root_dir));
@@ -223,7 +228,7 @@ static traverse_callback_result_t dump_dir_tree_on_file(
   ccfs_handle ctx, ccos_inode_t* file, const uint8_t* data, const char* dirname,
   UNUSED int level, UNUSED void* arg
 ) {
-  char* abspath = (char*)calloc(sizeof(char), PATH_MAX);
+  char* abspath = calloc(sizeof(char), PATH_MAX);
   if (abspath == NULL) {
     fprintf(stderr, "Unable to allocate memory for the filename!\n");
     return RESULT_ERROR;
@@ -243,7 +248,7 @@ static traverse_callback_result_t dump_dir_tree_on_file(
 
   size_t file_size = 0;
   uint8_t* file_data = NULL;
-  if (ccos_read_file(ctx, file, data, &file_data, &file_size) == -1) {
+  if (ccos_read_file(ctx, file, data, &file_data, &file_size)) {
     fprintf(stderr, "Unable to dump file at 0x%x: Unable to get file contents!\n", ccos_file_id(file));
     if (file_data != NULL) {
       free(file_data);
@@ -279,14 +284,14 @@ static traverse_callback_result_t dump_dir_tree_on_file(
 }
 
 static traverse_callback_result_t dump_dir_tree_on_dir(
-  ccfs_handle ctx, ccos_inode_t* dir, UNUSED const uint8_t* data,
+  UNUSED ccfs_handle ctx, ccos_inode_t* dir, UNUSED const uint8_t* data,
   const char* dirname, UNUSED int level, UNUSED void* arg
 ) {
   char subdir_name[CCOS_MAX_FILE_NAME];
   memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
-  if (ccos_parse_file_name(dir, subdir_name, NULL, NULL, NULL) == -1) {
+  if (ccos_parse_file_name(dir, subdir_name, NULL, NULL, NULL)) {
     fprintf(stderr, "Unable to dump directory at 0x%x: Unable to get directory name!\n", ccos_file_id(dir));
-    return -1;
+    return RESULT_ERROR;
   }
 
   // some directories have '/' in their names, e.g. "GRiD-OS/Windows 113x, 114x v3.1.5D"
@@ -301,10 +306,7 @@ static traverse_callback_result_t dump_dir_tree_on_dir(
   snprintf(subdir, PATH_MAX, "%s/%s", dirname, subdir_name);
 
   int res = MKDIR(subdir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-
-
-
-  if (res == -1) {
+  if (res) {
     if (errno == EEXIST) {
       TRACE("Directory \"%s\" already exists! Dumping...", subdir);
     } else {
@@ -322,7 +324,7 @@ int dump_image(ccfs_handle ctx, const char* path, uint8_t* data, size_t data_siz
   ccos_inode_t* root_dir = ccos_get_root_dir(ctx, data, data_size);
   if (root_dir == NULL) {
     fprintf(stderr, "Unable to dump image: Unable to get root directory!\n");
-    return -1;
+    return -EINVAL;
   }
 
   return dump_dir(ctx, path, root_dir, data);
@@ -336,10 +338,9 @@ int dump_file(ccfs_handle ctx, const char* path_to_dir, ccos_inode_t* file, uint
   ccos_parse_file_name(file, dir_name, dir_type, NULL, NULL);
 
   traverse_callback_result_t res = dump_dir_tree_on_file(ctx, file, image_data, path_to_dir, 0, NULL);
-
   if (res == RESULT_ERROR) {
     fprintf(stderr, "Unable to dump file \"%s~%s\": %s!\n", dir_name, dir_type, strerror(errno));
-    return -1;
+    return -EINVAL;
   }
 
   return 0;
@@ -362,11 +363,11 @@ int dump_dir(ccfs_handle ctx, const char* path, ccos_inode_t* dir, uint8_t* data
 
   const char* basename = get_basename(path);
 
-  char* dirname = (char*)calloc(sizeof(char), PATH_MAX);
+  char* dirname = calloc(sizeof(char), PATH_MAX);
   if (dirname == NULL) {
     fprintf(stderr, "Unable to allocate memory for directory name!\n");
     free(name_trimmed);
-    return -1;
+    return -ENOMEM;
   }
 
   if (strlen(name_trimmed) == 0) {
@@ -390,13 +391,13 @@ int dump_dir(ccfs_handle ctx, const char* path, ccos_inode_t* dir, uint8_t* data
   // some directories have '/' in their names, e.g. "GRiD-OS/Windows 113x, 114x v3.1.5D"
   replace_char_in_place(dirname, '/', '_');
 
-  if (MKDIR(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH) == -1) {
+  if (MKDIR(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)) {
     if (errno == EEXIST) {
       TRACE("Directory \"%s\" already exists! Dumping...", dirname);
     } else {
       fprintf(stderr, "Unable to create directory \"%s\": %s!\n", dirname, strerror(errno));
       free(dirname);
-      return -1;
+      return -errno;
     }
   }
 
@@ -410,7 +411,7 @@ int dump_image_to(ccfs_handle ctx, const char* path, uint8_t* data, size_t data_
   ccos_inode_t* root_dir = ccos_get_root_dir(ctx, data, data_size);
   if (root_dir == NULL) {
     fprintf(stderr, "Unable to dump image: Unable to get root directory!\n");
-    return -1;
+    return -EINVAL;
   }
 
   return dump_dir_to(ctx, path, root_dir, data, destpath);
@@ -513,16 +514,17 @@ static int find_filename(ccfs_handle ctx, ccos_inode_t* root_dir, uint8_t* data,
                          int verbose) {
   find_file_data_t find_file_data = {.target_name = filename, .target_file = 0};
 
-  if (traverse_ccos_image(ctx, root_dir, data, "", 0, find_file_on_file, find_file_on_file, &find_file_data) == -1) {
+  int ret = traverse_ccos_image(ctx, root_dir, data, "", 0, find_file_on_file, find_file_on_file, &find_file_data);
+  if (ret) {
     fprintf(stderr, "Unable to find file in image: Unable to complete search!\n");
-    return -1;
+    return ret;
   }
 
   if (find_file_data.target_file == 0) {
     if (verbose) {
       fprintf(stderr, "No file %s in the image.\n", filename);
     }
-    return -1;
+    return -ENOENT;
   }
 
   *file = find_file_data.target_file;
@@ -571,7 +573,7 @@ int replace_file(ccfs_handle ctx, const char* path, const char* filename, const 
   if (readed != file_size) {
     fprintf(stderr, "Unable to read %li bytes from the file %s: %s!\n", file_size, filename, strerror(errno));
     free(file_contents);
-    return -1;
+    return -EIO;
   }
 
   if (ccos_replace_file(ctx, found_file, file_contents, file_size, data) == -1) {
@@ -613,9 +615,10 @@ static int do_copy_file(ccfs_handle ctx, uint8_t* dest_data, size_t dest_size, c
                         ccos_inode_t* source_root_dir, const char* filename) {
   ccos_inode_t* source_file = NULL;
 
-  if (find_filename(ctx, source_root_dir, source_data, filename, &source_file, 1) != 0) {
+  int ret = find_filename(ctx, source_root_dir, source_data, filename, &source_file, 1);
+  if (ret) {
     fprintf(stderr, "Unable to find file %s in the image!\n", filename);
-    return -1;
+    return ret;
   }
 
   const ccos_inode_t* source_parent_dir = ccos_get_parent_dir(ctx, source_file, source_data);
@@ -652,29 +655,32 @@ int copy_file(ccfs_handle ctx, const char* target_image, const char* filename, u
 
   uint8_t* dest_data = NULL;
   size_t dest_size = 0;
-  if (read_file(target_image, &dest_data, &dest_size) == -1) {
+
+  int ret = read_file(target_image, &dest_data, &dest_size);
+  if (ret) {
     fprintf(stderr, "Unable to read target disk image file!\n");
-    return -1;
+    return ret;
   }
 
   ccos_inode_t* root_dir;
   if ((root_dir = ccos_get_root_dir(ctx, source_data, source_size)) == NULL) {
     fprintf(stderr, "Unable to get root directory of the source image!\n");
     free(dest_data);
-    return -1;
+    return -EINVAL;
   }
 
   ccos_inode_t* dest_root_dir;
-  if ((dest_root_dir = (ccos_inode_t*)ccos_get_root_dir(ctx, dest_data, dest_size)) == NULL) {
+  if ((dest_root_dir = ccos_get_root_dir(ctx, dest_data, dest_size)) == NULL) {
     fprintf(stderr, "Unable to get root directory of the target image!\n");
     free(dest_data);
-    return -1;
+    return EINVAL;
   }
 
-  if (do_copy_file(ctx, dest_data, dest_size, dest_root_dir, source_data, root_dir, filename) == -1) {
+  ret = do_copy_file(ctx, dest_data, dest_size, dest_root_dir, source_data, root_dir, filename);
+  if (ret) {
     fprintf(stderr, "Unable to copy file \"%s\" in \"%s\"!\n", filename, target_image);
     free(dest_data);
-    return -1;
+    return ret;
   }
 
   int res = save_image(target_image, dest_data, dest_size, in_place);
@@ -740,17 +746,21 @@ int delete_file(ccfs_handle ctx, const char* path, const char* filename, int in_
 
   uint8_t* data = NULL;
   size_t size = 0;
-  if (read_file(path, &data, &size) == -1) {
+
+  int ret = read_file(path, &data, &size);
+  if (ret) {
     fprintf(stderr, "Unable to read target disk image file!\n");
-    return -1;
+    return ret;
   }
 
   ccos_inode_t* root_dir = ccos_get_root_dir(ctx, data, size);
   ccos_inode_t* file = NULL;
-  if (find_filename(ctx, root_dir, data, filename, &file, 1) != 0) {
+
+  ret = find_filename(ctx, root_dir, data, filename, &file, 1);
+  if (ret) {
     fprintf(stderr, "Unable to find file %s in the image!\n", filename);
     free(data);
-    return -1;
+    return ret;
   }
 
   if (ccos_delete_file(ctx, data, size, file) == -1) {
@@ -792,17 +802,17 @@ int create_directory(ccfs_handle ctx, char* path, char* directory_name, uint8_t*
 int rename_file(ccfs_handle ctx, char* path, char* file_name, char* new_name, uint8_t* image_data, size_t image_size, int in_place) {
   if (path == NULL) {
     fprintf(stderr, "No target image is provided to copy file to!\n");
-    return -1;
+    return -EINVAL;
   }
 
   if (file_name == NULL) {
     fprintf(stderr, "No file provided to rename!\n");
-    return -1;
+    return -EINVAL;
   }
 
   if (new_name == NULL) {
     fprintf(stderr, "No new file name provided to rename file to!\n");
-    return -1;
+    return -EINVAL;
   }
 
   ccos_inode_t* root_dir = ccos_get_root_dir(ctx, image_data, image_size);
@@ -812,16 +822,19 @@ int rename_file(ccfs_handle ctx, char* path, char* file_name, char* new_name, ui
   }
 
   ccos_inode_t* file = NULL;
-  if (find_filename(ctx, root_dir, image_data, file_name, &file, 1) != 0) {
+
+  int ret = find_filename(ctx, root_dir, image_data, file_name, &file, 1);
+  if (ret) {
     fprintf(stderr, "Unable to find file %s in the image!\n", file_name);
-    return -1;
+    return ret;
   }
 
-  if (ccos_rename_file(ctx, image_data, image_size, file, new_name, NULL) == -1) {
+  ret = ccos_rename_file(ctx, image_data, image_size, file, new_name, NULL);
+  if (ret) {
     char* old_file_name = short_string_to_string(ccos_get_file_name(file));
     fprintf(stderr, "Unable to rename file %s to %s!\n", old_file_name, new_name);
     free(old_file_name);
-    return -1;
+    return ret;
   }
 
   int res = save_image(path, image_data, image_size, in_place);
@@ -831,18 +844,20 @@ int rename_file(ccfs_handle ctx, char* path, char* file_name, char* new_name, ui
 int create_blank_image(ccfs_handle ctx, char* path, size_t size) {
   if (path == NULL) {
     fprintf(stderr, "No target image is provided to copy file to!\n");
-    return -1;
+    return -EINVAL;
   }
 
   if (size % ctx->sector_size != 0) {
     fprintf(stderr, "Image size must be a multiple of the sector size %d\n", ctx->sector_size);
-    return -1;
+    return -EINVAL;
   }
 
-  uint8_t* image_data = ccos_create_new_image(ctx, size / ctx->sector_size);
-  if (image_data == NULL) {
+  uint8_t* image_data = NULL;
+  
+  int ret = ccos_create_new_image(ctx, size / ctx->sector_size, &image_data);
+  if (ret) {
     fprintf(stderr, "Unable to create blank image!\n");
-    return -1;
+    return ret;
   }
 
   int res = save_image(path, image_data, size, 1);

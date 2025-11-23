@@ -22,19 +22,19 @@ void trace_init(int verbose) {
 int read_file(const char* path, uint8_t** file_data, size_t* file_size) {
   if (path == NULL) {
     fprintf(stderr, "Unable to open file: no path was passed!\n\n");
-    return -1;
+    return -EINVAL;
   }
 
   struct stat st = {};
   if (stat(path, &st) == -1) {
     fprintf(stderr, "Unable to stat %s: %s!\n", path, strerror(errno));
-    return -1;
+    return -errno;
   }
 
   FILE* f = fopen(path, "rb");
   if (f == NULL) {
     fprintf(stderr, "Unable to open %s: %s!\n", path, strerror(errno));
-    return -1;
+    return -errno;
   }
 
   *file_size = st.st_size;
@@ -44,7 +44,7 @@ int read_file(const char* path, uint8_t** file_data, size_t* file_size) {
     fprintf(stderr, "Unable to allocate " SIZE_T " bytes for the file %s contents: %s!\n", *file_size, path,
             strerror(errno));
     fclose(f);
-    return -1;
+    return -ENOMEM;
   }
 
   size_t readed = fread(*file_data, sizeof(uint8_t), *file_size, f);
@@ -53,7 +53,7 @@ int read_file(const char* path, uint8_t** file_data, size_t* file_size) {
   if (readed != *file_size) {
     fprintf(stderr, "Unable to read " SIZE_T " bytes from the file %s: %s!\n", *file_size, path, strerror(errno));
     free(*file_data);
-    return -1;
+    return -EIO;
   }
 
   return 0;
@@ -68,7 +68,7 @@ int save_image(const char* source_filename, uint8_t* data, size_t data_size, int
     dest_filename = (char*)calloc(strlen(source_filename) + strlen(out_suffix) + 1, sizeof(char));
     if (dest_filename == NULL) {
       fprintf(stderr, "Unable to allocate memory for destination file name: %s!\n", strerror(errno));
-      return -1;
+      return -ENOMEM;
     }
 
     sprintf(dest_filename, "%s%s", source_filename, out_suffix);
@@ -84,14 +84,14 @@ int save_image(const char* source_filename, uint8_t* data, size_t data_size, int
   }
 
   if (f == NULL) {
-    return -1;
+    return -errno;
   }
 
   size_t written = fwrite(data, sizeof(uint8_t), data_size, f);
   fclose(f);
   if (written != data_size) {
     fprintf(stderr, "Write size mismatch: Expected " SIZE_T ", but only " SIZE_T " written!\n", data_size, written);
-    return -1;
+    return -EIO;
   }
 
   return 0;
