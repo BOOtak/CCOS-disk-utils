@@ -10,8 +10,6 @@ typedef struct {
   uint8_t patch;
 } version_t;
 
-typedef struct ccos_inode_t_ ccos_inode_t;
-
 typedef enum { UNKNOWN, DATA, EMPTY } block_type_t;
 
 /**
