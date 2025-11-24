@@ -334,7 +334,7 @@ int parse_directory_data(ccfs_handle ctx, uint8_t* image_data,
  *
  * @return     0 on success, -1 otherwise.
  */
-int get_block_data(ccfs_handle ctx, uint16_t block, const uint8_t* data, const uint8_t** start, size_t* size);
+int get_block_data(ccfs_handle ctx, uint16_t block, uint8_t* data, uint8_t** start, size_t* size);
 
 /**
  * @brief      Return info about free blocks in a CCOS image.

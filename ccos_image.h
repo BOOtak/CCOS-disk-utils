@@ -191,11 +191,11 @@ int ccos_get_image_map(ccfs_handle ctx, const uint8_t* data, size_t data_size, b
 /**
  * @brief      Read file contents into memory buffer.
  *
- * @param[in]  ctx         Filesystem context handle.
- * @param[in]  file        File to read.
- * @param[in]  image_data  CCOS image data.
- * @param      file_data   The file data.
- * @param      file_size   The file size.
+ * @param[in]   ctx         Filesystem context handle.
+ * @param[in]   file        File to read.
+ * @param[in]   image_data  CCOS image data.
+ * @param[out]  file_data   The file data.
+ * @param[out]  file_size   The file size.
  *
  * @return     0 on success, -1 otherwise.
  */
