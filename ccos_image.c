@@ -674,8 +674,16 @@ ccos_inode_t* ccos_create_dir(ccfs_handle ctx, ccos_inode_t* parent_dir, const c
 
   sprintf(filename, "%s%s", directory_name, dir_suffix);
 
-  uint8_t directory_contents = CCOS_DIR_LAST_ENTRY_MARKER;
-  ccos_inode_t* new_directory = ccos_add_file(ctx, parent_dir, &directory_contents, get_dir_default_size(ctx), filename, image_data, image_size);
+  size_t directory_size = get_dir_default_size(ctx);
+  uint8_t* directory_contents = calloc(directory_size, sizeof(uint8_t));
+  if (directory_contents == NULL) {
+    fprintf(stderr, "Unabled to create directory: Unable to allocate memory for directory!\n");
+    return NULL;
+  }
+
+  directory_contents[0] = CCOS_DIR_LAST_ENTRY_MARKER;
+
+  ccos_inode_t* new_directory = ccos_add_file(ctx, parent_dir, directory_contents, directory_size, filename, image_data, image_size);
   free(filename);
 
   if (new_directory == NULL) {
