@@ -43,6 +43,16 @@ OPTIONS:
 -l, --in-place           Write changes to the original image
 ```
 
+## Tests
+
+To run the tests, execute these commands:
+
+```bash
+cmake -S . -B build -DCCOS_ENABLE_TESTS=ON
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+```
+
 ## Examples
 
 ### Working with bubble memory images or other non-standard images
