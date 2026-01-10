@@ -1,9 +1,15 @@
 cmake_minimum_required(VERSION 3.10)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
 project(ccos_disk_tool)
 
 set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${SOURCE_DIR})
+
+option(CCOS_ENABLE_TESTS "Build and run tests (Criterion)" OFF)
 
 add_library(ccos_api STATIC
         ${SOURCE_DIR}/string_utils.h
@@ -26,10 +32,8 @@ add_executable(ccos_disk_tool
 
 TARGET_LINK_LIBRARIES(ccos_disk_tool ccos_api)
 
-project(api_test)
-
-add_executable(api_test
-        ${SOURCE_DIR}/api_test.c
-        )
-
-TARGET_LINK_LIBRARIES(api_test ccos_api)
+if(CCOS_ENABLE_TESTS)
+    include(CTest)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

@@ -55,3 +55,6 @@ Makefile
 
 api_test
 ccos_disk_tool
+
+build/
+.cache/
