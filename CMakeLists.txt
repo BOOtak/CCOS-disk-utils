@@ -18,6 +18,9 @@ add_library(ccos_api STATIC
         ${SOURCE_DIR}/common.c
         ${SOURCE_DIR}/ccos_image.h
         ${SOURCE_DIR}/ccos_image.c
+        ${SOURCE_DIR}/ccos_format_data.h
+        ${SOURCE_DIR}/ccos_format.h
+        ${SOURCE_DIR}/ccos_format.c
         ${SOURCE_DIR}/ccos_private.h
         ${SOURCE_DIR}/ccos_private.c
         ${SOURCE_DIR}/ccos_structure.h

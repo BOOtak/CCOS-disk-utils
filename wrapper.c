@@ -8,6 +8,8 @@
 #include <string_utils.h>
 #include <sys/stat.h>
 #include <wrapper.h>
+#include "ccos_context.h"
+#include "ccos_format.h"
 
 #define PROGRAMS_DIR_1 "Programs~Subject~"
 #define PROGRAMS_DIR_2 "Programs~subject~"
@@ -831,21 +833,23 @@ int rename_file(ccfs_handle ctx, char* path, char* file_name, char* new_name, ui
 int create_blank_image(ccfs_handle ctx, char* path, size_t size) {
   if (path == NULL) {
     fprintf(stderr, "No target image is provided to copy file to!\n");
-    return -1;
+    return EINVAL;
   }
 
   if (size % ctx->sector_size != 0) {
     fprintf(stderr, "Image size must be a multiple of the sector size %d\n", ctx->sector_size);
-    return -1;
+    return EINVAL;
   }
 
-  uint8_t* image_data = ccos_create_new_image(ctx, size / ctx->sector_size);
-  if (image_data == NULL) {
-    fprintf(stderr, "Unable to create blank image!\n");
-    return -1;
+  ccos_disk_t disk;
+
+  int res = ccos_new_disk_image(ctx->sector_size, size, &disk);
+  if (res) {
+    fprintf(stderr, "Failed to create new disk image. Error code: %s\n", strerror(res));
+    return res;
   }
 
-  int res = save_image(path, image_data, size, 1);
-  free(image_data);
+  res = save_image(path, disk.data, disk.size, 1);
+  free(disk.data);
   return res;
 }
