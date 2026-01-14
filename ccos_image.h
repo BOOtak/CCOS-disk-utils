@@ -2,6 +2,7 @@
 #define CCOS_IMAGE_H
 
 #include "ccos_structure.h"
+#include "ccos_format.h"
 #include "string_utils.h"
 
 typedef struct {
@@ -357,15 +358,5 @@ char* ccos_get_image_label(ccfs_handle ctx, uint8_t* data, size_t data_size);
  * @return     0 on success, -1 otherwise.
  */
 int ccos_set_image_label(ccfs_handle ctx, uint8_t* data, size_t data_size, const char* label);
-
-/**
- * @brief      Create new empty image.
- *
- * @param[in]  ctx     Filesystem context handle.
- * @param[in]  blocks  Number of blocks in the image.
- *
- * @return     Image data on success, NULL otherwise.
- */
-uint8_t* ccos_create_new_image(ccfs_handle ctx, size_t blocks);
 
 #endif  // CCOS_IMAGE_H

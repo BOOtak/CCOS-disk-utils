@@ -1,6 +1,7 @@
 //
 // Created by kirill on 21.05.2020.
 //
+#include "ccos_structure.h"
 #include "common.h"
 #include "ccos_image.h"
 #include "ccos_private.h"
@@ -10,9 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define CCOS_SUPERBLOCK_ADDR_OFFSET 0x20
-#define CCOS_BITMASK_ADDR_OFFSET 0x1E
 
 #define CCOS_CONTENT_BLOCKS_END_MARKER 0xFFFF
 
@@ -35,10 +33,10 @@ uint16_t calc_inode_metadata_checksum(const ccos_inode_t* inode) {
 }
 
 uint16_t calc_inode_blocks_checksum(ccfs_handle ctx, const ccos_inode_t* inode) {
-  const size_t start_offset = offsetof(ccos_inode_t, content_inode_info) + offsetof(ccos_block_data_t, block_next);
-
   const uint8_t* checksum_data = (const uint8_t*)&inode->content_inode_info.block_next;
-  uint16_t checksum_data_size = get_block_size(ctx) - start_offset;
+  uint16_t checksum_data_size = get_log_block_size(ctx)
+    - sizeof(ccos_inode_desc_t)
+    - offsetof(ccos_block_data_t, block_next);
 
   uint16_t blocks_checksum = calc_checksum(checksum_data, checksum_data_size);
   blocks_checksum += inode->content_inode_info.header.file_id;
@@ -207,7 +205,8 @@ static ccos_bitmask_t* get_bitmask(ccfs_handle ctx, uint8_t* data, size_t data_s
   size_t block_size = get_block_size(ctx);
 
   uint16_t bitmask_block = *((uint16_t*)&(data[CCOS_BITMASK_ADDR_OFFSET]));
-  if (bitmask_block == 0) bitmask_block = ctx->bitmap_block_id;
+  // FIXME: always use values from ctx->bitmap_block_id.
+  if (bitmask_block == 0 || bitmask_block == 0x5555) bitmask_block = ctx->bitmap_block_id;
 
   uint32_t blocks_in_image = data_size / block_size;
   if (bitmask_block > blocks_in_image) {
@@ -1014,103 +1013,5 @@ int change_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date, date_
     return -1;
   }
   update_inode_checksums(ctx, file);
-  return 0;
-}
-
-int format_image(ccfs_handle ctx, uint8_t* data, size_t image_size) {
-  size_t block_size = get_block_size(ctx);
-  size_t bitmask_size = get_bitmask_size(ctx);
-
-  uint16_t superblock = ctx->superblock_id;
-
-  size_t sb_offset = block_size * superblock;
-  if (sb_offset >= image_size) {
-    fprintf(stderr, "Unable to format image: image_size < superblock offset!\n");
-    return -1;
-  }
-
-  // Set superblock
-  uint16_t* sb_offset_addr = ((uint16_t*)&(data[CCOS_SUPERBLOCK_ADDR_OFFSET]));
-  *sb_offset_addr = superblock;
-
-  uint16_t* sb_addr = ((uint16_t*)&(data[sb_offset]));
-  *sb_addr = superblock;
-
-  // Create bitmask
-  size_t free_blocks = image_size / block_size;
-  size_t free_bitmask_count = free_blocks / 8;
-  // How many bitmask blocks we need for the given image size?
-  size_t bitmask_blocks_count = (free_bitmask_count + bitmask_size - 1) / bitmask_size;
-  // How many blocks we mark as free at the last bitmask block?
-  size_t free_bitmask_remainder = bitmask_size - (bitmask_blocks_count * bitmask_size - free_bitmask_count);
-  uint16_t bitmask_file_id = superblock - bitmask_blocks_count;
-
-  uint16_t* bitmask_offset_addr = (uint16_t*)&(data[CCOS_BITMASK_ADDR_OFFSET]);
-  *bitmask_offset_addr = bitmask_file_id;
-
-  for (size_t i = bitmask_blocks_count; i > 0; i--) {
-    uint16_t bitmask_block = superblock - i;
-    ccos_bitmask_t* bitmask = (ccos_bitmask_t*)&(data[bitmask_block * block_size]);
-    bitmask->header.file_id = bitmask_file_id;
-    bitmask->header.file_fragment_index = bitmask_blocks_count - i;
-
-    uint8_t* bitmask_bytes = get_bitmask_bytes(bitmask);
-    if (i == 1) {
-      // last block
-      memset(bitmask_bytes, 0, free_bitmask_remainder);
-      memset(bitmask_bytes + free_bitmask_remainder, 0xFF, bitmask_size - free_bitmask_remainder);
-    } else {
-      memset(bitmask_bytes, 0, bitmask_size);
-    }
-  }
-
-  ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(ctx, data, image_size);
-  for (size_t j = bitmask_blocks_count; j > 0; j--) {
-    mark_block(ctx, &bitmask_list, superblock - j, 1);  // mark bitmask blocks as used
-  }
-  mark_block(ctx, &bitmask_list, superblock, 1);      // superblock
-  mark_block(ctx, &bitmask_list, superblock + 1, 1);  // superblock contents
-
-  // Format root directory
-  ccos_inode_t* root_dir = (ccos_inode_t*)sb_addr;
-  root_dir->header.file_id = superblock;
-  root_dir->header.file_fragment_index = 0;
-
-  // Root directory is it's own parent
-  root_dir->desc.dir_file_id = root_dir->header.file_id;
-  root_dir->desc.file_size = get_dir_default_size(ctx);
-
-  // Same as in GRiD-OS formatted blank image
-  root_dir->desc.protec = 0x1;
-  root_dir->desc.pswd_len = 0x5;
-  root_dir->desc.pswd[0] = '\x29';
-  root_dir->desc.pswd[1] = '\xFF';
-  root_dir->desc.pswd[2] = '\x47';
-  root_dir->desc.pswd[3] = '\xC7';
-
-  // Fill root directory contents
-  root_dir->content_inode_info.header.file_id = superblock;
-  root_dir->content_inode_info.header.file_fragment_index = 0;
-  root_dir->content_inode_info.block_next = CCOS_INVALID_BLOCK;
-  root_dir->content_inode_info.block_current = superblock;
-  root_dir->content_inode_info.block_prev = CCOS_INVALID_BLOCK;
-
-  // Fill content blocks
-  uint16_t* content_blocks = get_inode_content_blocks(root_dir);
-  size_t max_content_blocks = get_inode_max_blocks(ctx);
-
-  memset(content_blocks, 0xFF, max_content_blocks * sizeof(uint16_t));
-
-  uint16_t superblock_entry_block = superblock + 1;
-  content_blocks[0] = superblock_entry_block;
-
-  update_inode_checksums(ctx, root_dir);
-
-  // Root directory contents
-  ccos_block_header_t* superblock_entry = (ccos_block_header_t*)get_inode(ctx, superblock_entry_block, data);
-  superblock_entry->file_id = superblock;
-  superblock_entry->file_fragment_index = 0;
-  ((uint16_t*)superblock_entry)[2] = CCOS_DIR_LAST_ENTRY_MARKER;
-
   return 0;
 }
