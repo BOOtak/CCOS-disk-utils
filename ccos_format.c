@@ -6,18 +6,26 @@
 #include "ccos_structure.h"
 #include "ccos_private.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
 
-static uint8_t* new_empty_image(uint16_t sector_size, size_t bytes) {
-  uint8_t* image = calloc(bytes, sizeof(uint8_t));
+typedef struct {
+  uint16_t sector;
+  uint16_t count;
+  uint16_t tail_length;
+  uint16_t tail_offset;
+} bitmask_info_t;
+
+static uint8_t* new_empty_image(uint16_t sector_size, size_t disk_size) {
+  uint8_t* image = calloc(disk_size, sizeof(uint8_t));
   if (image == NULL) {
     return NULL;
   }
 
-  const size_t sector_count = bytes / sector_size;
+  const size_t sector_count = disk_size / sector_size;
   for (size_t i = 0; i < sector_count; i++) {
     uint8_t* sector = image + (i * sector_size);
     size_t marker_size = 4;
@@ -29,41 +37,67 @@ static uint8_t* new_empty_image(uint16_t sector_size, size_t bytes) {
   return image;
 }
 
-static ccos_bitmask_list_t init_bitmask(ccos_disk_t* disk) {
-  const size_t sector_count = disk->size / disk->sector_size;
-  const size_t bitmask_required_bytes = sector_count / 8;
-  const size_t bitmask_bytes_per_sector = get_bitmask_size((ccfs_handle)disk);
-  const size_t bitmask_sectors = bitmask_required_bytes / bitmask_bytes_per_sector + 1;
+static uint16_t select_superblock(uint16_t sector_size, size_t disk_size) {
+  assert(sector_size == 256 || sector_size == 512);
 
-  const size_t bitmask_tail_length = bitmask_bytes_per_sector - (bitmask_required_bytes % bitmask_bytes_per_sector);
-  const size_t bitmask_tail_offset = bitmask_required_bytes % bitmask_bytes_per_sector;
+  if (sector_size == 256) {
+    // For bubble disks we always use the default value.
+    return DEFAULT_BUBBLE_SUPERBLOCK;
+  } else if (disk_size < 1 * 1024 * 1024) {
+    // For floppy disks we always use the block number from the 2102 floppy firmware.
+    return DEFAULT_SUPERBLOCK;
+  } else if (disk_size < 4 * 1024 * 1024) {
+    // Value selected by analogy.
+    return 0x510;
+  } else if (disk_size < 10 * 1024 * 1024) {
+    // Value selected by analogy.
+    return 0x1010;
+  } else {
+    // For big hard drives we always use the block number from the 2101 hard disk firmware.
+    return DEFAULT_HDD_SUPERBLOCK;
+  }
+}
 
-  // InitializeMedia~Run~ formats the bitmask based on values from the disk status.
-  // Since we are creating the disk ourselves, decided to place the bitmask in the sectors
-  // before the superblock. However, the bitmask can be placed anywhere..
-  const size_t superblock_fid = disk->sector_size == 512
-    ? DEFAULT_SUPERBLOCK
-    : DEFAULT_BUBBLE_SUPERBLOCK;
-  const size_t bitmask_fid = superblock_fid - bitmask_sectors;
+static bitmask_info_t calculate_bitmask_info(uint16_t sector_size, size_t disk_size) {
+  assert(sector_size == 256 || sector_size == 512);
 
-  // Update disk structure with correct value.
-  disk->bitmap_block_id = bitmask_fid;
-  disk->superblock_id = bitmask_fid + bitmask_sectors;
+  const uint16_t superblock = select_superblock(sector_size, disk_size);
 
+  // Calculate bitmask.
+  const uint16_t sector_count = disk_size / sector_size;
+  const uint16_t required_bytes = sector_count / 8;
+  const uint16_t bytes_per_sector = sector_size == 512 ? BS512_BITMASK_SIZE : BS256_BITMASK_SIZE;
+  const uint16_t count = required_bytes / bytes_per_sector + 1;
+
+  const uint16_t bitmask = superblock - count;
+
+  const uint16_t tail_length = bytes_per_sector - (required_bytes % bytes_per_sector);
+  const uint16_t tail_offset = required_bytes % bytes_per_sector;
+
+  // Combine and return.
+  return (bitmask_info_t) {
+    .sector = bitmask,
+    .count = count,
+    .tail_length = tail_length,
+    .tail_offset = tail_offset,
+  };
+}
+
+static ccos_bitmask_list_t init_bitmask(ccos_disk_t* disk, bitmask_info_t info) {
   // Initialize empty bitmask.
-  for (size_t i = 0; i < bitmask_sectors; i++) {
-    const size_t sector_offset = (bitmask_fid + i) * disk->sector_size;
+  for (size_t i = 0; i < info.count; i++) {
+    const size_t sector_offset = (info.sector + i) * disk->sector_size;
     ccos_bitmask_t* bitmask = (ccos_bitmask_t*)&disk->data[sector_offset];
 
     memset(bitmask, 0x00, disk->sector_size);
   
-    bitmask->header.file_id = bitmask_fid;
+    bitmask->header.file_id = info.sector;
     bitmask->header.file_fragment_index = i;
     bitmask->allocated = 0;
   
-    if (i == bitmask_sectors - 1) {
+    if (i == info.count - 1) {
       uint8_t* bitmask_bytes = get_bitmask_bytes(bitmask);
-      memset(bitmask_bytes + bitmask_tail_offset, 0xff, bitmask_tail_length);
+      memset(bitmask_bytes + info.tail_offset, 0xff, info.tail_length);
     }
 
     update_bitmask_checksum((ccfs_handle)disk, bitmask);
@@ -73,8 +107,8 @@ static ccos_bitmask_list_t init_bitmask(ccos_disk_t* disk) {
   ccos_bitmask_list_t bitmask_list = find_bitmask_blocks((ccfs_handle)disk, disk->data, disk->size);
 
   // Mark the bitmask blocks as used in the bitmask itself.
-  for (size_t i = 0; i < bitmask_sectors; i++) {
-    mark_block((ccfs_handle)disk, &bitmask_list, bitmask_fid + i, 1);
+  for (size_t i = 0; i < info.count; i++) {
+    mark_block((ccfs_handle)disk, &bitmask_list, info.sector + i, 1);
   }
 
   return bitmask_list;
@@ -173,48 +207,49 @@ static void write_zero_page(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list
     memcpy(disk->data + i * disk->sector_size, ZERO_PAGE + i * disk->sector_size, disk->sector_size);
     mark_block((ccfs_handle)disk, bitmask_list, i, 1);
   }
-}
 
-static void write_blocks_numbers(ccos_disk_t* disk) {
-  // InitializeMedia~Run~ does not initialize these fields because it thinks the superblock
-  // will be located by the disk status.
+  // InitializeMedia~Run~ in GRiD-OS 3.1.0 does not initialize these fields
+  // because it thinks the superblock will be located by the disk status.
   // 
   // In our case, there is no real disk, so the sector numbers must be saved in the image itself.
   *(uint16_t*)(disk->data + CCOS_SUPERBLOCK_ADDR_OFFSET) = disk->superblock_id;
   *(uint16_t*)(disk->data + CCOS_BITMASK_ADDR_OFFSET) = disk->bitmap_block_id;
 }
 
-int ccos_new_disk_image(uint16_t sector_size, size_t bytes, ccos_disk_t* output) {
+int ccos_new_disk_image(uint16_t sector_size, size_t disk_size, ccos_disk_t* output) {
   if (sector_size != 256 && sector_size != 512) {
     TRACE("Format image: invalid sector size");
     return EINVAL;
   }
 
-  if (bytes % sector_size != 0) {
-    TRACE("Format image: image size %zu is not a multiple of sector size %zu", bytes, sector_size);
+  if (disk_size % sector_size != 0) {
+    TRACE("Format image: image size %zu is not a multiple of sector size %zu", disk_size, sector_size);
     return EINVAL;
   }
 
-  uint8_t* data = new_empty_image(sector_size, bytes);
+  uint8_t* data = new_empty_image(sector_size, disk_size);
   if (data == NULL) {
     return ENOMEM;
   }
 
+  // InitializeMedia~Run~ gets the block numbers from the disk status.
+  // In the 2101 and 2102 firmwares, the bitmask and superblock numbers are hardcoded.
+  // Because we create disk images ourselves, we can choose any values and save them inside the image.
+  const uint16_t superblock = select_superblock(sector_size, disk_size);
+  const bitmask_info_t bitmask = calculate_bitmask_info(sector_size, disk_size);
+
   ccos_disk_t disk = {
     .sector_size = sector_size,
-    .superblock_id = 0,
-    .bitmap_block_id = 0,
-    .size = bytes,
+    .superblock_id = superblock,
+    .bitmap_block_id = bitmask.sector,
+    .size = disk_size,
     .data = data
   };
 
-  ccos_bitmask_list_t bitmask_list = init_bitmask(&disk);
+  ccos_bitmask_list_t bitmask_list = init_bitmask(&disk, bitmask);
   write_superblock(&disk, &bitmask_list);
-
   write_boot_code(&disk, &bitmask_list);
-
   write_zero_page(&disk, &bitmask_list);
-  write_blocks_numbers(&disk);
 
   *output = disk;
 
