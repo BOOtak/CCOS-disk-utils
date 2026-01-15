@@ -44,19 +44,10 @@ static uint16_t select_superblock(uint16_t sector_size, size_t disk_size) {
   assert(sector_size == 256 || sector_size == 512);
 
   if (sector_size == 256) {
-    // For bubble disks we always use the default value.
     return DEFAULT_BUBBLE_SUPERBLOCK;
-  } else if (disk_size < 1 * 1024 * 1024) {
-    // For floppy disks we always use the block number from the 2102 floppy firmware.
-    return DEFAULT_SUPERBLOCK;
-  } else if (disk_size < 4 * 1024 * 1024) {
-    // Value selected by analogy.
-    return 0x510;
   } else if (disk_size < 10 * 1024 * 1024) {
-    // Value selected by analogy.
-    return 0x1010;
+    return DEFAULT_SUPERBLOCK;
   } else {
-    // For big hard drives we always use the block number from the 2101 hard disk firmware.
     return DEFAULT_HDD_SUPERBLOCK;
   }
 }
