@@ -843,7 +843,8 @@ int create_blank_image(ccfs_handle ctx, char* path, size_t size) {
 
   ccos_disk_t disk;
 
-  int res = ccos_new_disk_image(ctx->sector_size, size, &disk);
+  disk_format_t format = ctx->sector_size == 256 ? CCOS_DISK_FORMAT_BUBMEM : CCOS_DISK_FORMAT_COMPASS;
+  int res = ccos_new_disk_image(format, size, &disk);
   if (res) {
     fprintf(stderr, "Failed to create new disk image. Error code: %s\n", strerror(res));
     return res;

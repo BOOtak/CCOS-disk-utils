@@ -99,7 +99,7 @@ Test(format, floppy_360k) {
 
   ccos_disk_t disk;
 
-  int ret = ccos_new_disk_image(512, image_size, &disk);
+  int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, image_size, &disk);
   cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
 
   uint8_t* expected = load_image("files/floppy 360k/empty.img", image_size);
@@ -116,7 +116,7 @@ Test(format, floppy_720k) {
 
   ccos_disk_t disk;
 
-  int ret = ccos_new_disk_image(512, image_size, &disk);
+  int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, image_size, &disk);
   cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
 
   uint8_t* expected = load_image("files/floppy 720k/empty.img", image_size);
