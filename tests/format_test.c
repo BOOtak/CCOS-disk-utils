@@ -128,29 +128,22 @@ Test(format, floppy_720k) {
   free(expected);
 }
 
-// Test(format, hdd_10mb) {
-//   ccfs_context_t ctx = {
-//       .sector_size = 512,
-//       .superblock_id = 0x121,
-//       .bitmap_block_id = 0x120,
-//   };
+Test(format, hdd_10mb) {
+  size_t image_size = 10 * 1024 * 1024;
 
-//   size_t image_size = 10 * 1024 * 1024;
+  ccos_disk_t disk;
 
-//   uint8_t* buffer = calloc(1, image_size);
-//   cr_assert_not_null(buffer, "Failed to allocate buffer");
+  int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, image_size, &disk);
+  cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
 
-//   int result = format_image(&ctx, buffer, image_size);
-//   cr_assert_eq(result, 0, "format_image failed");
+  uint8_t* expected = load_image("files/hdd 10mb/empty.img", image_size);
+  cr_assert_not_null(expected, "Failed to load expected image");
 
-//   uint8_t* expected = load_image("files/hdd 10mb/empty.img", image_size);
-//   cr_assert_not_null(expected, "Failed to load expected image");
+  compare_disk_with_ref(&disk, expected);
 
-//   compare_images_sector_by_sector(buffer, expected, image_size, ctx.sector_size);
-
-//   free(buffer);
-//   free(expected);
-// }
+  free(disk.data);
+  free(expected);
+}
 
 // Test(format, hdd_20mb) {
 //   ccfs_context_t ctx = {
