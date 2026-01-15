@@ -144,27 +144,3 @@ Test(format, hdd_10mb) {
   free(disk.data);
   free(expected);
 }
-
-// Test(format, hdd_20mb) {
-//   ccfs_context_t ctx = {
-//       .sector_size = 512,
-//       .superblock_id = 0x121,
-//       .bitmap_block_id = 0x120,
-//   };
-
-//   size_t image_size = 20 * 1024 * 1024;
-
-//   uint8_t* buffer = calloc(1, image_size);
-//   cr_assert_not_null(buffer, "Failed to allocate buffer");
-
-//   int result = format_image(&ctx, buffer, image_size);
-//   cr_assert_eq(result, 0, "format_image failed");
-
-//   uint8_t* expected = load_image("files/hdd 20mb/empty.img", image_size);
-//   cr_assert_not_null(expected, "Failed to load expected image");
-
-//   compare_images_sector_by_sector(buffer, expected, image_size, ctx.sector_size);
-
-//   free(buffer);
-//   free(expected);
-// }
