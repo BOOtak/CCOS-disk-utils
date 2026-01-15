@@ -1,6 +1,7 @@
 #include "ccos_format.h"
-#include "ccos_format_data.h"
+#include "ccos_boot_data.h"
 
+#include "ccos_boot_data.h"
 #include "common.h"
 #include "ccos_context.h"
 #include "ccos_structure.h"
@@ -11,6 +12,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
+
+#define SECTOR(disk_ptr, id) ((void*)(disk_ptr)->data + (id) * (disk_ptr)->sector_size)
 
 typedef struct {
   uint16_t sector;
@@ -86,8 +89,7 @@ static bitmask_info_t calculate_bitmask_info(uint16_t sector_size, size_t disk_s
 static ccos_bitmask_list_t init_bitmask(ccos_disk_t* disk, bitmask_info_t info) {
   // Initialize empty bitmask.
   for (size_t i = 0; i < info.count; i++) {
-    const size_t sector_offset = (info.sector + i) * disk->sector_size;
-    ccos_bitmask_t* bitmask = (ccos_bitmask_t*)&disk->data[sector_offset];
+    ccos_bitmask_t* bitmask = (ccos_bitmask_t*)SECTOR(disk, info.sector + i);
 
     memset(bitmask, 0x00, disk->sector_size);
   
@@ -135,8 +137,7 @@ static ccos_date_t get_current_date() {
 static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list) {
   uint16_t id = disk->superblock_id;
 
-  const size_t sector_offset = id * disk->sector_size;
-  ccos_inode_t* root_dir = (ccos_inode_t*)&disk->data[sector_offset];
+  ccos_inode_t* root_dir = (ccos_inode_t*)SECTOR(disk, id);
 
   memset(root_dir, 0x00, disk->sector_size);
 
@@ -179,7 +180,7 @@ static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_lis
 
   update_inode_checksums((ccfs_handle)disk, root_dir);
 
-  ccos_block_header_t* superblock_entry = (ccos_block_header_t*)get_inode((ccfs_handle)disk, superblock_entry_block, disk->data);
+  ccos_block_header_t* superblock_entry = (ccos_block_header_t*)SECTOR(disk, superblock_entry_block);
   memset(superblock_entry, 0x00, disk->sector_size);
   superblock_entry->file_id = id;
   superblock_entry->file_fragment_index = 0;
@@ -188,44 +189,45 @@ static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_lis
   mark_block((ccfs_handle)disk, bitmask_list, superblock_entry_block, 1);
 }
 
-static void write_boot_code(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list) {
-  // TODO: Support GRiDCase.
-  const uint8_t* boot_code = COMPASS_BOOT_CODE;
+static void write_boot_code(ccos_disk_t* disk, disk_format_t format, ccos_bitmask_list_t* bitmask_list) {
+  const uint8_t* boot_code = format == CCOS_DISK_FORMAT_GRIDCASE ? GRIDCASE_BOOT_CODE : COMPASS_BOOT_CODE;
 
-  size_t pages = sizeof(COMPASS_BOOT_CODE) / disk->sector_size;
-  size_t offset = sizeof(ZERO_PAGE) / disk->sector_size;
+  size_t pages = BOOT_CODE_SIZE / disk->sector_size;
+  size_t offset = sizeof(ccos_boot_sector_t) / disk->sector_size;
 
   for (size_t i = 0; i < pages; i++) {
-    memcpy(disk->data + (offset + i) * disk->sector_size, COMPASS_BOOT_CODE + i * disk->sector_size, disk->sector_size);
+    memcpy(SECTOR(disk, offset + i), boot_code + i * disk->sector_size, disk->sector_size);
     mark_block((ccfs_handle)disk, bitmask_list, offset + i, 1);
   }
 }
 
-static void write_zero_page(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list) {
-  size_t pages = sizeof(ZERO_PAGE) / disk->sector_size;
+static void write_boot_sector(ccos_disk_t* disk, disk_format_t format, ccos_bitmask_list_t* bitmask_list) {
+  ccos_boot_sector_t boot_sector = (ccos_boot_sector_t) {
+    .superblock_fid = disk->superblock_id,
+    .bitmap_fid = disk->bitmap_block_id,
+  };
+
+  if (format == CCOS_DISK_FORMAT_GRIDCASE) {
+    memcpy(boot_sector.header, GRIDCASE_BOOT_SECTOR_HEADER, BOOT_SECTOR_HEADER_SIZE);
+    memcpy(boot_sector.boot_code, GRIDCASE_BOOT_SECTOR_CODE, BOOT_SECTOR_CODE_SIZE);
+  } else {
+    memcpy(boot_sector.header, COMPASS_BOOT_SECTOR_HEADER, BOOT_SECTOR_HEADER_SIZE);
+  }
+
+  size_t pages = sizeof(ccos_boot_sector_t) / disk->sector_size;
   for (size_t i = 0; i < pages; i++) {
-    memcpy(disk->data + i * disk->sector_size, ZERO_PAGE + i * disk->sector_size, disk->sector_size);
+    memcpy(SECTOR(disk, i), &boot_sector + i * disk->sector_size, disk->sector_size);
     mark_block((ccfs_handle)disk, bitmask_list, i, 1);
   }
-
-  // InitializeMedia~Run~ in GRiD-OS 3.1.0 does not initialize these fields
-  // because it thinks the superblock will be located by the disk status.
-  // 
-  // In our case, there is no real disk, so the sector numbers must be saved in the image itself.
-  *(uint16_t*)(disk->data + CCOS_SUPERBLOCK_ADDR_OFFSET) = disk->superblock_id;
-  *(uint16_t*)(disk->data + CCOS_BITMASK_ADDR_OFFSET) = disk->bitmap_block_id;
 }
 
-int ccos_new_disk_image(uint16_t sector_size, size_t disk_size, ccos_disk_t* output) {
-  if (sector_size != 256 && sector_size != 512) {
-    TRACE("Format image: invalid sector size");
+int ccos_new_disk_image(disk_format_t format, size_t disk_size, ccos_disk_t* output) {
+  if (disk_size % 512 != 0) {
+    TRACE("Format image: image size %zu is not a multiple of 512", disk_size);
     return EINVAL;
   }
 
-  if (disk_size % sector_size != 0) {
-    TRACE("Format image: image size %zu is not a multiple of sector size %zu", disk_size, sector_size);
-    return EINVAL;
-  }
+  uint16_t sector_size = format == CCOS_DISK_FORMAT_BUBMEM ? 256 : 512;
 
   uint8_t* data = new_empty_image(sector_size, disk_size);
   if (data == NULL) {
@@ -248,8 +250,9 @@ int ccos_new_disk_image(uint16_t sector_size, size_t disk_size, ccos_disk_t* out
 
   ccos_bitmask_list_t bitmask_list = init_bitmask(&disk, bitmask);
   write_superblock(&disk, &bitmask_list);
-  write_boot_code(&disk, &bitmask_list);
-  write_zero_page(&disk, &bitmask_list);
+
+  write_boot_sector(&disk, format, &bitmask_list);
+  write_boot_code(&disk, format, &bitmask_list);
 
   *output = disk;
 
