@@ -77,22 +77,22 @@ static uint8_t* load_image(const char* path, size_t expected_size) {
   return data;
 }
 
-// Test(format, bubbles) {
-//   size_t image_size = 3 * 128 * 1024;
+Test(format, bubbles) {
+  size_t image_size = 3 * 128 * 1024;
 
-//   ccos_disk_t disk;
+  ccos_disk_t disk;
 
-//   int ret = ccos_new_disk_image(256, image_size, &disk);
-//   cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
+  int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_BUBMEM, image_size, &disk);
+  cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
 
-//   uint8_t* expected = load_image("files/bubbles/empty.img", image_size);
-//   cr_assert_not_null(expected, "Failed to load expected image");
+  uint8_t* expected = load_image("files/bubbles/empty.img", image_size);
+  cr_assert_not_null(expected, "Failed to load expected image");
 
-//   compare_disk_with_ref(&disk, expected);
+  compare_disk_with_ref(&disk, expected);
 
-//   free(disk.data);
-//   free(expected);
-// }
+  free(disk.data);
+  free(expected);
+}
 
 Test(format, floppy_360k) {
   size_t image_size = 360 * 1024;
