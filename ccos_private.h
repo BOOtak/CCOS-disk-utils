@@ -10,6 +10,7 @@
 #include "string_utils.h"
 
 #define DEFAULT_SUPERBLOCK           0x121
+#define DEFAULT_HDD_SUPERBLOCK       0x2420
 #define DEFAULT_BUBBLE_SUPERBLOCK    0x3fe
 #define CCOS_SUPERBLOCK_ADDR_OFFSET  0x20
 
