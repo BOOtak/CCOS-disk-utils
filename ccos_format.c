@@ -3,7 +3,7 @@
 
 #include "ccos_boot_data.h"
 #include "common.h"
-#include "ccos_context.h"
+#include "ccos_disk.h"
 #include "ccos_structure.h"
 #include "ccos_private.h"
 
@@ -93,15 +93,15 @@ static ccos_bitmask_list_t init_bitmask(ccos_disk_t* disk, bitmask_info_t info) 
       memset(bitmask_bytes + info.tail_offset, 0xff, info.tail_length);
     }
 
-    update_bitmask_checksum((ccfs_handle)disk, bitmask);
+    update_bitmask_checksum(disk, bitmask);
   }
 
   // Build list of bitmask blocks.
-  ccos_bitmask_list_t bitmask_list = find_bitmask_blocks((ccfs_handle)disk, disk->data, disk->size);
+  ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(disk, disk->data, disk->size);
 
   // Mark the bitmask blocks as used in the bitmask itself.
   for (size_t i = 0; i < info.count; i++) {
-    mark_block((ccfs_handle)disk, &bitmask_list, info.sector + i, 1);
+    mark_block(disk, &bitmask_list, info.sector + i, 1);
   }
 
   return bitmask_list;
@@ -126,7 +126,7 @@ static ccos_date_t get_current_date() {
 }
 
 static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list) {
-  uint16_t id = disk->superblock_id;
+  uint16_t id = disk->superblock_fid;
 
   ccos_inode_t* root_dir = (ccos_inode_t*)SECTOR(disk, id);
 
@@ -135,7 +135,7 @@ static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_lis
   root_dir->header.file_id = id;
   root_dir->header.file_fragment_index = 0;
 
-  root_dir->desc.file_size = get_dir_default_size((ccfs_handle)disk);
+  root_dir->desc.file_size = get_dir_default_size(disk);
 
   root_dir->desc.name_length = 0;
   memset(root_dir->desc.name, ' ', sizeof(root_dir->desc.name));
@@ -159,17 +159,17 @@ static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_lis
   root_dir->content_inode_info.block_current = id;
   root_dir->content_inode_info.block_prev = CCOS_INVALID_BLOCK;
 
-  mark_block((ccfs_handle)disk, bitmask_list, id, 1);
+  mark_block(disk, bitmask_list, id, 1);
 
   uint16_t* content_blocks = get_inode_content_blocks(root_dir);
-  size_t max_content_blocks = get_inode_max_blocks((ccfs_handle)disk);
+  size_t max_content_blocks = get_inode_max_blocks(disk);
 
   memset(content_blocks, 0xFF, max_content_blocks * sizeof(uint16_t));
 
   uint16_t superblock_entry_block = id + 1;
   content_blocks[0] = superblock_entry_block;
 
-  update_inode_checksums((ccfs_handle)disk, root_dir);
+  update_inode_checksums(disk, root_dir);
 
   ccos_block_header_t* superblock_entry = (ccos_block_header_t*)SECTOR(disk, superblock_entry_block);
   memset(superblock_entry, 0x00, disk->sector_size);
@@ -177,7 +177,7 @@ static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_lis
   superblock_entry->file_fragment_index = 0;
   ((uint16_t*)superblock_entry)[2] = CCOS_DIR_LAST_ENTRY_MARKER;
 
-  mark_block((ccfs_handle)disk, bitmask_list, superblock_entry_block, 1);
+  mark_block(disk, bitmask_list, superblock_entry_block, 1);
 }
 
 static void write_boot_code(ccos_disk_t* disk, disk_format_t format, ccos_bitmask_list_t* bitmask_list) {
@@ -188,14 +188,14 @@ static void write_boot_code(ccos_disk_t* disk, disk_format_t format, ccos_bitmas
 
   for (size_t i = 0; i < pages; i++) {
     memcpy(SECTOR(disk, offset + i), boot_code + i * disk->sector_size, disk->sector_size);
-    mark_block((ccfs_handle)disk, bitmask_list, offset + i, 1);
+    mark_block(disk, bitmask_list, offset + i, 1);
   }
 }
 
 static void write_boot_sector(ccos_disk_t* disk, disk_format_t format, ccos_bitmask_list_t* bitmask_list) {
   ccos_boot_sector_t boot_sector = (ccos_boot_sector_t) {
-    .superblock_fid = disk->superblock_id,
-    .bitmap_fid = disk->bitmap_block_id,
+    .superblock_fid = disk->superblock_fid,
+    .bitmap_fid = disk->bitmap_fid,
   };
 
   if (format == CCOS_DISK_FORMAT_GRIDCASE) {
@@ -208,7 +208,7 @@ static void write_boot_sector(ccos_disk_t* disk, disk_format_t format, ccos_bitm
   size_t pages = sizeof(ccos_boot_sector_t) / disk->sector_size;
   for (size_t i = 0; i < pages; i++) {
     memcpy(SECTOR(disk, i), &boot_sector + i * disk->sector_size, disk->sector_size);
-    mark_block((ccfs_handle)disk, bitmask_list, i, 1);
+    mark_block(disk, bitmask_list, i, 1);
   }
 }
 
@@ -233,8 +233,8 @@ int ccos_new_disk_image(disk_format_t format, size_t disk_size, ccos_disk_t* out
 
   ccos_disk_t disk = {
     .sector_size = sector_size,
-    .superblock_id = superblock,
-    .bitmap_block_id = bitmask.sector,
+    .superblock_fid = superblock,
+    .bitmap_fid = bitmask.sector,
     .size = disk_size,
     .data = data
   };

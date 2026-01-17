@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ccos_context.h"
+#include "ccos_disk.h"
 #include "ccos_format.h"
 
 static void display_bad_sector(const uint8_t* actual, size_t sector_size) {

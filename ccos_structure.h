@@ -3,7 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#include "ccos_context.h"
+#include "ccos_disk.h"
 
 #if __STDC_VERSION__ >= 201112L
 #include <assert.h>
@@ -223,14 +223,14 @@ typedef struct {
 } dir_entry_t;
 #pragma pack(pop)
 
-size_t get_block_size(ccfs_handle ctx);
-size_t get_log_block_size(ccfs_handle ctx);
-size_t get_inode_max_blocks(ccfs_handle ctx);
-size_t get_content_inode_padding(ccfs_handle ctx);
-size_t get_content_inode_max_blocks(ccfs_handle ctx);
-size_t get_bitmask_size(ccfs_handle ctx);
-size_t get_bitmask_blocks(ccfs_handle ctx);
-size_t get_dir_default_size(ccfs_handle ctx);
+size_t get_block_size(ccos_disk_t* disk);
+size_t get_log_block_size(ccos_disk_t* disk);
+size_t get_inode_max_blocks(ccos_disk_t* disk);
+size_t get_content_inode_padding(ccos_disk_t* disk);
+size_t get_content_inode_max_blocks(ccos_disk_t* disk);
+size_t get_bitmask_size(ccos_disk_t* disk);
+size_t get_bitmask_blocks(ccos_disk_t* disk);
+size_t get_dir_default_size(ccos_disk_t* disk);
 
 uint16_t* get_inode_content_blocks(ccos_inode_t* inode);
 uint16_t* get_content_inode_content_blocks(ccos_content_inode_t* inode);
