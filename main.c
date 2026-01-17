@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "common.h"
-#include "ccos_context.h"
+#include "ccos_disk.h"
 #include "ccos_private.h"
 #include "ccos_image.h"
 #include "wrapper.h"
@@ -94,20 +94,20 @@ static void print_usage() {
           "-l, --in-place           Write changes to the original image\n");
 }
 
-ccfs_context_t* default_ccos_context() {
-  ccfs_context_t* ctx = malloc(sizeof(ccfs_context_t));
+ccos_disk_t* default_ccos_context() {
+  ccos_disk_t* disk = malloc(sizeof(ccos_disk_t));
 
-  ctx->sector_size = DEFAULT_SECTOR_SIZE;
-  ctx->superblock_id = DEFAULT_SUPERBLOCK;
-  ctx->bitmap_block_id = DEFAULT_BITMASK_BLOCK_ID;
+  disk->sector_size = DEFAULT_SECTOR_SIZE;
+  disk->superblock_fid = DEFAULT_SUPERBLOCK;
+  disk->bitmap_fid = DEFAULT_BITMASK_BLOCK_ID;
 
-  return ctx;
+  return disk;
 }
 
 int main(int argc, char** argv) {
   op_mode_t mode = 0;
   char* path = NULL;
-  ccfs_context_t* ctx = default_ccos_context();
+  ccos_disk_t* disk = default_ccos_context();
   char* filename = NULL;
   char* dir_name = NULL;
   char* target_name = NULL;
@@ -186,7 +186,7 @@ int main(int argc, char** argv) {
         mode = MODE_CREATE_BLANK;
 
         new_image_size = strtol(optarg, NULL, 10);
-        if (new_image_size <= 0 || new_image_size % ctx->sector_size != 0) {
+        if (new_image_size <= 0 || new_image_size % disk->sector_size != 0) {
           printf("Invalid image size! Value must be positive and a multiple of the sector size\n");
           return 1;
         }
@@ -204,7 +204,7 @@ int main(int argc, char** argv) {
       case SECTOR_SIZE_OPT: {
         long sector_size = strtol(optarg, NULL, 10);
         if (sector_size == 256 || sector_size == 512) {
-          ctx->sector_size = sector_size;
+          disk->sector_size = sector_size;
           break;
         } else {
           printf("Invalid sector size! Allowed only 256 or 512\n");
@@ -214,8 +214,8 @@ int main(int argc, char** argv) {
       case SUPERBLOCK_OPT: {
         long value = strtol(optarg, NULL, 16);
         if (0 < value && value < 0xFFFF) {
-          ctx->superblock_id = value;
-          ctx->bitmap_block_id = value - 1;
+          disk->superblock_fid = value;
+          disk->bitmap_fid = value - 1;
           break;
         } else {
           printf("Invalid superblock! Value must be in range 0x0001-0xFFFE\n");
@@ -226,10 +226,10 @@ int main(int argc, char** argv) {
   }
 
   TRACE("Use image '%s' with sector size %d, superblock %#x, bitmap block %#x",
-        path, ctx->sector_size, ctx->superblock_id, ctx->bitmap_block_id);
+        path, disk->sector_size, disk->superblock_fid, disk->bitmap_fid);
 
   if (mode == MODE_CREATE_BLANK) {
-    return create_blank_image(ctx, path, new_image_size);
+    return create_blank_image(disk, path, new_image_size);
   }
 
   uint8_t* file_contents = NULL;
@@ -249,27 +249,27 @@ int main(int argc, char** argv) {
   int res;
   switch (mode) {
     case MODE_PRINT: {
-      res = print_image_info(ctx, path, file_contents, file_size, short_format);
+      res = print_image_info(disk, path, file_contents, file_size, short_format);
       if (res == 0) {
-        size_t free_bytes = ccos_calc_free_space(ctx, file_contents, file_size);
+        size_t free_bytes = ccos_calc_free_space(disk, file_contents, file_size);
         printf("Free space: " SIZE_T " bytes.\n", free_bytes);
       }
       break;
     }
     case MODE_DUMP: {
-      res = dump_image(ctx, path, file_contents, file_size);
+      res = dump_image(disk, path, file_contents, file_size);
       break;
     }
     case MODE_REPLACE_FILE: {
-      res = replace_file(ctx, path, filename, target_name, file_contents, file_size, in_place);
+      res = replace_file(disk, path, filename, target_name, file_contents, file_size, in_place);
       break;
     }
     case MODE_COPY_FILE: {
-      res = copy_file(ctx, target_image, filename, file_contents, file_size, in_place);
+      res = copy_file(disk, target_image, filename, file_contents, file_size, in_place);
       break;
     }
     case MODE_DELETE_FILE: {
-      res = delete_file(ctx, path, filename, in_place);
+      res = delete_file(disk, path, filename, in_place);
       break;
     }
     case MODE_ADD_FILE: {
@@ -278,16 +278,16 @@ int main(int argc, char** argv) {
         print_usage();
         res = -1;
       } else {
-        res = add_file(ctx, path, filename, target_name, file_contents, file_size, in_place);
+        res = add_file(disk, path, filename, target_name, file_contents, file_size, in_place);
       }
       break;
     }
     case MODE_CREATE_DIRECTORY: {
-      res = create_directory(ctx, path, dir_name, file_contents, file_size, in_place);
+      res = create_directory(disk, path, dir_name, file_contents, file_size, in_place);
       break;
     }
     case MODE_RENAME_FILE: {
-      res = rename_file(ctx, path, filename, target_name, file_contents, file_size, in_place);
+      res = rename_file(disk, path, filename, target_name, file_contents, file_size, in_place);
       break;
     }
     default: {

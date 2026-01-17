@@ -5,7 +5,7 @@
 #ifndef CCOS_DISK_TOOL_CCOS_PRIVATE_H
 #define CCOS_DISK_TOOL_CCOS_PRIVATE_H
 
-#include "ccos_context.h"
+#include "ccos_disk.h"
 #include "ccos_structure.h"
 #include "string_utils.h"
 
@@ -53,7 +53,7 @@ uint16_t calc_inode_metadata_checksum(const ccos_inode_t* inode);
  *
  * @return     The file blocks section checksum.
  */
-uint16_t calc_inode_blocks_checksum(ccfs_handle ctx, const ccos_inode_t* inode);
+uint16_t calc_inode_blocks_checksum(ccos_disk_t* disk, const ccos_inode_t* inode);
 
 /**
  * @brief      Calculates the checksum of the content inode.
@@ -63,7 +63,7 @@ uint16_t calc_inode_blocks_checksum(ccfs_handle ctx, const ccos_inode_t* inode);
  *
  * @return     The content inode checksum.
  */
-uint16_t calc_content_inode_checksum(ccfs_handle ctx, const ccos_content_inode_t* content_inode);
+uint16_t calc_content_inode_checksum(ccos_disk_t* disk, const ccos_content_inode_t* content_inode);
 
 /**
  * @brief      Calculates the checksum of image's bitmask.
@@ -73,7 +73,7 @@ uint16_t calc_content_inode_checksum(ccfs_handle ctx, const ccos_content_inode_t
  *
  * @return     The bitmask checksum.
  */
-uint16_t calc_bitmask_checksum(ccfs_handle ctx, const ccos_bitmask_t* bitmask);
+uint16_t calc_bitmask_checksum(ccos_disk_t* disk, const ccos_bitmask_t* bitmask);
 
 /**
  * @brief      Recalculate checksums of the inode.
@@ -81,7 +81,7 @@ uint16_t calc_bitmask_checksum(ccfs_handle ctx, const ccos_bitmask_t* bitmask);
  * @param[in]  ctx    Filesystem context handle.
  * @param      inode  The inode.
  */
-void update_inode_checksums(ccfs_handle ctx, ccos_inode_t* inode);
+void update_inode_checksums(ccos_disk_t* disk, ccos_inode_t* inode);
 
 /**
  * @brief      Recalculate checksum of the content inode.
@@ -89,7 +89,7 @@ void update_inode_checksums(ccfs_handle ctx, ccos_inode_t* inode);
  * @param[in]  ctx            Filesystem context handle.
  * @param      content_inode  The content inode.
  */
-void update_content_inode_checksums(ccfs_handle ctx, ccos_content_inode_t* content_inode);
+void update_content_inode_checksums(ccos_disk_t* disk, ccos_content_inode_t* content_inode);
 
 /**
  * @brief      Re-calculate and update CCOS image bitmask checksum.
@@ -97,7 +97,7 @@ void update_content_inode_checksums(ccfs_handle ctx, ccos_content_inode_t* conte
  * @param[in]  ctx      Filesystem context handle.
  * @param      bitmask  CCOS image bitmask.
  */
-void update_bitmask_checksum(ccfs_handle ctx, ccos_bitmask_t* bitmask);
+void update_bitmask_checksum(ccos_disk_t* disk, ccos_bitmask_t* bitmask);
 
 /**
  * @brief      Find a superblock (i.e. the inode with the root directory description) in a CCOS filesystem image.
@@ -110,7 +110,7 @@ void update_bitmask_checksum(ccfs_handle ctx, ccos_bitmask_t* bitmask);
  * @return     0 on success, with superblock numper passed out to the superblock parameter, -1 on error (i.e. in case of
  * invalid image format).
  */
-int get_superblock(ccfs_handle ctx, const uint8_t* data, size_t image_size, uint16_t* superblock);
+int get_superblock(ccos_disk_t* disk, const uint8_t* data, size_t image_size, uint16_t* superblock);
 
 /**
  * @brief      Get the CCOS filesystem inode at the given block.
@@ -121,7 +121,7 @@ int get_superblock(ccfs_handle ctx, const uint8_t* data, size_t image_size, uint
  *
  * @return     Pointer to CCOS filesystem inode structure.
  */
-ccos_inode_t* get_inode(ccfs_handle ctx, uint16_t block, const uint8_t* data);
+ccos_inode_t* get_inode(ccos_disk_t* disk, uint16_t block, const uint8_t* data);
 
 /**
  * @brief      Parse an inode and return the list of the file content blocks.
@@ -134,7 +134,7 @@ ccos_inode_t* get_inode(ccfs_handle ctx, uint16_t block, const uint8_t* data);
  *
  * @return     0 on success, -1 otherwise.
  */
-int get_file_blocks(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* data, size_t* blocks_count, uint16_t** blocks);
+int get_file_blocks(ccos_disk_t* disk, ccos_inode_t* file, const uint8_t* data, size_t* blocks_count, uint16_t** blocks);
 
 /**
  * @brief      Get all bitmask blocks from the image.
@@ -145,7 +145,7 @@ int get_file_blocks(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* data, si
  *
  * @return     List of CCOS image bitmask blocks.
  */
-ccos_bitmask_list_t find_bitmask_blocks(ccfs_handle ctx, uint8_t* data, size_t data_size);
+ccos_bitmask_list_t find_bitmask_blocks(ccos_disk_t* disk, uint8_t* data, size_t data_size);
 
 /**
  * @brief      Find available free block in the image and return it's number.
@@ -155,7 +155,7 @@ ccos_bitmask_list_t find_bitmask_blocks(ccfs_handle ctx, uint8_t* data, size_t d
  *
  * @return     The free block on success, CCOS_INVALID_BLOCK if no free space in the image.
  */
-uint16_t get_free_block(ccfs_handle ctx, const ccos_bitmask_list_t* bitmask_list);
+uint16_t get_free_block(ccos_disk_t* disk, const ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Mark block in the bitmask as free or used.
@@ -165,7 +165,7 @@ uint16_t get_free_block(ccfs_handle ctx, const ccos_bitmask_list_t* bitmask_list
  * @param[in]  block         The number of the block.
  * @param[in]  mode          The mode (0 for free, 1 for used).
  */
-void mark_block(ccfs_handle ctx, ccos_bitmask_list_t* bitmask_list, uint16_t block, uint8_t mode);
+void mark_block(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list, uint16_t block, uint8_t mode);
 
 /**
  * @brief      Initialize inode at the given block.
@@ -177,7 +177,7 @@ void mark_block(ccfs_handle ctx, ccos_bitmask_list_t* bitmask_list, uint16_t blo
  *
  * @return     Pointer to the newly created inode on success, NULL otherwise.
  */
-ccos_inode_t* init_inode(ccfs_handle ctx, uint16_t block, uint16_t parent_dir_block, uint8_t* image_data);
+ccos_inode_t* init_inode(ccos_disk_t* disk, uint16_t block, uint16_t parent_dir_block, uint8_t* image_data);
 
 /**
  * @brief      Adds a new content inode (block with file block data) to the content inode list of the given file.
@@ -189,7 +189,7 @@ ccos_inode_t* init_inode(ccfs_handle ctx, uint16_t block, uint16_t parent_dir_bl
  *
  * @return     New content inode on success, NULL otherwise.
  */
-ccos_content_inode_t* add_content_inode(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list);
+ccos_content_inode_t* add_content_inode(ccos_disk_t* disk, ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Get content inode at the given block number.
@@ -200,7 +200,7 @@ ccos_content_inode_t* add_content_inode(ccfs_handle ctx, ccos_inode_t* file, uin
  *
  * @return     The content inode.
  */
-ccos_content_inode_t* get_content_inode(ccfs_handle ctx, uint16_t block, const uint8_t* data);
+ccos_content_inode_t* get_content_inode(ccos_disk_t* disk, uint16_t block, const uint8_t* data);
 
 /**
  * @brief      Gets the last content inode in the content inode list of the given file.
@@ -211,7 +211,7 @@ ccos_content_inode_t* get_content_inode(ccfs_handle ctx, uint16_t block, const u
  *
  * @return     The last content inode on success, NULL otherwise.
  */
-ccos_content_inode_t* get_last_content_inode(ccfs_handle ctx, const ccos_inode_t* file, const uint8_t* image_data);
+ccos_content_inode_t* get_last_content_inode(ccos_disk_t* disk, const ccos_inode_t* file, const uint8_t* image_data);
 
 /**
  * @brief      Cleanup image block at the given number and mark it as empty both in the image and in the image bitmask.
@@ -221,7 +221,7 @@ ccos_content_inode_t* get_last_content_inode(ccfs_handle ctx, const ccos_inode_t
  * @param      image         CCOS image data.
  * @param      bitmask_list  List of CCOS image bitmask blocks.
  */
-void erase_block(ccfs_handle ctx, uint16_t block, uint8_t* image, ccos_bitmask_list_t* bitmask_list);
+void erase_block(ccos_disk_t* disk, uint16_t block, uint8_t* image, ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Removes the last content inode from the file's content inodes list, and erases this content inode block.
@@ -233,7 +233,7 @@ void erase_block(ccfs_handle ctx, uint16_t block, uint8_t* image, ccos_bitmask_l
  *
  * @return     0 on success, -1 otherwise.
  */
-int remove_content_inode(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list);
+int remove_content_inode(ccos_disk_t* disk, ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Removes last content block from the file.
@@ -245,7 +245,7 @@ int remove_content_inode(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, cco
  *
  * @return     0 on success, -1 otherwise.
  */
-int remove_block_from_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list);
+int remove_block_from_file(ccos_disk_t* disk, ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Adds content block to the file.
@@ -257,7 +257,7 @@ int remove_block_from_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, c
  *
  * @return     Block number of the added block on success, CCOS_INVALID_BLOCK otherwise.
  */
-uint16_t add_block_to_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list);
+uint16_t add_block_to_file(ccos_disk_t* disk, ccos_inode_t* file, uint8_t* data, ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Add new file entry to the list of files in the given directory.
@@ -270,7 +270,7 @@ uint16_t add_block_to_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data, c
  *
  * @return     0 on success, -1 otherwise.
  */
-int add_file_to_directory(ccfs_handle ctx, ccos_inode_t* directory, ccos_inode_t* file, uint8_t* image_data, size_t image_size);
+int add_file_to_directory(ccos_disk_t* disk, ccos_inode_t* directory, ccos_inode_t* file, uint8_t* image_data, size_t image_size);
 
 /**
  * @brief      Insert new directory entry into the directory, effectively making this directory a parent for the given
@@ -284,7 +284,7 @@ int add_file_to_directory(ccfs_handle ctx, ccos_inode_t* directory, ccos_inode_t
  *
  * @return     0 on success, -1 otherwise.
  */
-int add_file_entry_to_dir_contents(ccfs_handle ctx, ccos_inode_t* directory,
+int add_file_entry_to_dir_contents(ccos_disk_t* disk, ccos_inode_t* directory,
                                    uint8_t* image_data, size_t image_size,
                                    ccos_inode_t* file);
 
@@ -299,7 +299,7 @@ int add_file_entry_to_dir_contents(ccfs_handle ctx, ccos_inode_t* directory,
  *
  * @return     0 on success, -1 otherwise.
  */
-int delete_file_from_parent_dir(ccfs_handle ctx, ccos_inode_t* file, uint8_t* image_data, size_t image_size);
+int delete_file_from_parent_dir(ccos_disk_t* disk, ccos_inode_t* file, uint8_t* image_data, size_t image_size);
 
 /**
  * @brief      Perse CCOS file name and return it's basename and it's type.
@@ -327,7 +327,7 @@ int parse_file_name(const short_string_t* file_name, char* basename, char* type,
  *
  * @return     0 on success, -1 otherwise.
  */
-int parse_directory_data(ccfs_handle ctx, uint8_t* image_data,
+int parse_directory_data(ccos_disk_t* disk, uint8_t* image_data,
                          const uint8_t* directory_data, size_t directory_data_size,
                          uint16_t entry_count, parsed_directory_element_t** entries);
 
@@ -343,7 +343,7 @@ int parse_directory_data(ccfs_handle ctx, uint8_t* image_data,
  *
  * @return     0 on success, -1 otherwise.
  */
-int get_block_data(ccfs_handle ctx, uint16_t block, const uint8_t* data, const uint8_t** start, size_t* size);
+int get_block_data(ccos_disk_t* disk, uint16_t block, const uint8_t* data, const uint8_t** start, size_t* size);
 
 /**
  * @brief      Return info about free blocks in a CCOS image.
@@ -356,7 +356,7 @@ int get_block_data(ccfs_handle ctx, uint16_t block, const uint8_t* data, const u
  *
  * @return     0 on success, -1 otherwise.
  */
-int get_free_blocks(ccfs_handle ctx, ccos_bitmask_list_t* bitmask_list, size_t data_size, size_t* free_blocks_count,
+int get_free_blocks(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list, size_t data_size, size_t* free_blocks_count,
                     uint16_t** free_blocks);
 
 /**
@@ -390,6 +390,6 @@ int is_root_dir(const ccos_inode_t* file);
  *
  * @return     0 on success, -1 otherwise.
  */
-int change_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date, date_type_t type);
+int change_date(ccos_disk_t* disk, ccos_inode_t* file, ccos_date_t new_date, date_type_t type);
 
 #endif  // CCOS_DISK_TOOL_CCOS_PRIVATE_H
