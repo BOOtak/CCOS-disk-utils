@@ -1,6 +1,8 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include "ccos_disk.h"
+
 #include <stdint.h>
 #include <stdio.h>
 
@@ -51,14 +53,13 @@ int read_file(const char* path, uint8_t** file_data, size_t* file_size);
  * @brief      Save memory buffer content to file
  *
  * @param[in]  source_filename  File path to save.
- * @param[in]  data             The file data.
- * @param[in]  data_size        The file size.
+ * @param[in]  disk             Filesystem context handle.
  * @param[in]  in_place         If true, override original target image. Otherwise, save new image under
  * {target_image}.out name.
  *
  * @return     0 on success, -1 otherwise.
  */
-int save_image(const char* source_filename, uint8_t* data, size_t data_size, int in_place);
+int save_image(const char* source_filename, ccos_disk_t* disk, int in_place);
 
 const char* get_basename(const char* path);
 

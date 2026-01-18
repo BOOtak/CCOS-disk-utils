@@ -97,7 +97,7 @@ static ccos_bitmask_list_t init_bitmask(ccos_disk_t* disk, bitmask_info_t info) 
   }
 
   // Build list of bitmask blocks.
-  ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(disk, disk->data, disk->size);
+  ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(disk);
 
   // Mark the bitmask blocks as used in the bitmask itself.
   for (size_t i = 0; i < info.count; i++) {
