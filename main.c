@@ -246,26 +246,29 @@ int main(int argc, char** argv) {
     return -1;
   }
 
+  disk->data = file_contents;
+  disk->size = file_size;
+
   int res;
   switch (mode) {
     case MODE_PRINT: {
-      res = print_image_info(disk, path, file_contents, file_size, short_format);
+      res = print_image_info(disk, path, short_format);
       if (res == 0) {
-        size_t free_bytes = ccos_calc_free_space(disk, file_contents, file_size);
+        size_t free_bytes = ccos_calc_free_space(disk);
         printf("Free space: " SIZE_T " bytes.\n", free_bytes);
       }
       break;
     }
     case MODE_DUMP: {
-      res = dump_image(disk, path, file_contents, file_size);
+      res = dump_image(disk, path);
       break;
     }
     case MODE_REPLACE_FILE: {
-      res = replace_file(disk, path, filename, target_name, file_contents, file_size, in_place);
+      res = replace_file(disk, path, filename, target_name, in_place);
       break;
     }
     case MODE_COPY_FILE: {
-      res = copy_file(disk, target_image, filename, file_contents, file_size, in_place);
+      res = copy_file(disk, target_image, filename, in_place);
       break;
     }
     case MODE_DELETE_FILE: {
@@ -278,16 +281,16 @@ int main(int argc, char** argv) {
         print_usage();
         res = -1;
       } else {
-        res = add_file(disk, path, filename, target_name, file_contents, file_size, in_place);
+        res = add_file(disk, path, filename, target_name, in_place);
       }
       break;
     }
     case MODE_CREATE_DIRECTORY: {
-      res = create_directory(disk, path, dir_name, file_contents, file_size, in_place);
+      res = create_directory(disk, path, dir_name, in_place);
       break;
     }
     case MODE_RENAME_FILE: {
-      res = rename_file(disk, path, filename, target_name, file_contents, file_size, in_place);
+      res = rename_file(disk, path, filename, target_name, in_place);
       break;
     }
     default: {
