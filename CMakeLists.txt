@@ -4,40 +4,33 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-project(ccos_disk_tool)
-
-set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(${SOURCE_DIR})
-
-option(CCOS_ENABLE_TESTS "Build and run tests (Criterion)" OFF)
+project(ccos_api)
 
 add_library(ccos_api STATIC
-        ${SOURCE_DIR}/string_utils.h
-        ${SOURCE_DIR}/string_utils.c
-        ${SOURCE_DIR}/common.h
-        ${SOURCE_DIR}/common.c
-        ${SOURCE_DIR}/ccos_disk.h
-        ${SOURCE_DIR}/ccos_image.h
-        ${SOURCE_DIR}/ccos_image.c
-        ${SOURCE_DIR}/ccos_boot_data.h
-        ${SOURCE_DIR}/ccos_format.h
-        ${SOURCE_DIR}/ccos_format.c
-        ${SOURCE_DIR}/ccos_private.h
-        ${SOURCE_DIR}/ccos_private.c
-        ${SOURCE_DIR}/ccos_structure.h
-        ${SOURCE_DIR}/ccos_structure.c
+        string_utils.h
+        string_utils.c
+        common.h
+        common.c
+        ccos_disk.h
+        ccos_image.h
+        ccos_image.c
+        ccos_boot_data.h
+        ccos_format.h
+        ccos_format.c
+        ccos_private.h
+        ccos_private.c
+        ccos_structure.h
+        ccos_structure.c
         )
 
-add_executable(ccos_disk_tool
-        ${SOURCE_DIR}/wrapper.h
-        ${SOURCE_DIR}/wrapper.c
-        ${SOURCE_DIR}/main.c
-        )
+target_include_directories(ccos_api PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-TARGET_LINK_LIBRARIES(ccos_disk_tool ccos_api)
+option(CCOS_ENABLE_TESTS "Build and run tests (Criterion)" OFF)
 
 if(CCOS_ENABLE_TESTS)
     include(CTest)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+add_subdirectory(tool)
