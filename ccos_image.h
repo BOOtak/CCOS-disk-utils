@@ -2,7 +2,7 @@
 #define CCOS_IMAGE_H
 
 #include "ccos_structure.h"
-#include "string_utils.h"
+#include "ccos_string.h"
 
 #include <stdio.h>
 

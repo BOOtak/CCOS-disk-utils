@@ -6,6 +6,8 @@ add_executable(ccos_disk_tool
         main.c
         wrapper.h
         wrapper.c
+        string_utils.h
+        string_utils.c
         common.h
         common.c
         )
