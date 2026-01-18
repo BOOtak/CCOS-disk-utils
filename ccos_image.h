@@ -4,6 +4,8 @@
 #include "ccos_structure.h"
 #include "string_utils.h"
 
+#include <stdio.h>
+
 typedef struct {
   uint8_t major;
   uint8_t minor;
@@ -13,6 +15,23 @@ typedef struct {
 typedef struct ccos_inode_t_ ccos_inode_t;
 
 typedef enum { UNKNOWN, DATA, EMPTY } block_type_t;
+
+#if defined(WIN32)
+#define SIZE_T "%I64d"
+#else
+#define SIZE_T "%ld"
+#endif
+
+#define MIN(A, B)  (A) < (B) ? (A) : (B)
+
+#define TRACE(format, ...)                                                          \
+  do {                                                                              \
+    if (trace != NULL) {                                                            \
+      trace(stderr, "%s:%d:\t" format "\n", __FUNCTION__, __LINE__, ##__VA_ARGS__); \
+    }                                                                               \
+  } while (0)
+
+extern int (*trace)(FILE* stream, const char* format, ...);
 
 /**
  * @brief      Checking image for validity.

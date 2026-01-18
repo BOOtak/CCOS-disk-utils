@@ -9,8 +9,6 @@ project(ccos_api)
 add_library(ccos_api STATIC
         string_utils.h
         string_utils.c
-        common.h
-        common.c
         ccos_disk.h
         ccos_image.h
         ccos_image.c
