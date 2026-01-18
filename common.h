@@ -53,7 +53,7 @@ int read_file(const char* path, uint8_t** file_data, size_t* file_size);
  * @brief      Save memory buffer content to file
  *
  * @param[in]  source_filename  File path to save.
- * @param[in]  disk             Filesystem context handle.
+ * @param[in]  disk             Compass disk image.
  * @param[in]  in_place         If true, override original target image. Otherwise, save new image under
  * {target_image}.out name.
  *
