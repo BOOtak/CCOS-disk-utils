@@ -1,4 +1,4 @@
-﻿#ifndef CCOS_IMAGE_H
+#ifndef CCOS_IMAGE_H
 #define CCOS_IMAGE_H
 
 #include "ccos_structure.h"
@@ -44,13 +44,13 @@ version_t ccos_get_file_version(const ccos_inode_t* file);
 /**
  * @brief      Set the file version.
  *
- * @param[in]  ctx           Filesystem context handle.
+ * @param[in]  disk          Compass disk image.
  * @param[in]  file          The file.
  * @param[in]  new_version   The new version to set.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_set_file_version(ccfs_handle ctx, ccos_inode_t* file, version_t new_version);
+int ccos_set_file_version(ccos_disk_t* disk, ccos_inode_t* file, version_t new_version);
 
 /**
  * @brief      Get the name of the file.
@@ -64,26 +64,23 @@ short_string_t* ccos_get_file_name(const ccos_inode_t* file);
 /**
  * @brief      Get root directory of the given image.
  *
- * @param[in]  ctx        Filesystem context handle.
- * @param      data       CCOS image data.
- * @param[in]  data_size  Image data size.
+ * @param[in]  disk  Compass disk image.
  *
  * @return     Root directory on success, NULL otherwise.
  */
-ccos_inode_t* ccos_get_root_dir(ccfs_handle ctx, uint8_t* data, size_t data_size);
+ccos_inode_t* ccos_get_root_dir(ccos_disk_t* disk);
 
 /**
  * @brief      Read contents from the directory inode.
  *
- * @param[in]  ctx             Filesystem context handle.
- * @param[in]  dir             Directory inode.
- * @param[in]  data            CCOS image data.
- * @param      entry_count     Count of the items in the directory.
- * @param      entries         Directory contents inodes.
+ * @param[in]  disk         Compass disk image.
+ * @param[in]  dir          Directory inode.
+ * @param      entry_count  Count of the items in the directory.
+ * @param      entries      Directory contents inodes.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_get_dir_contents(ccfs_handle ctx, ccos_inode_t* dir, uint8_t* data, uint16_t* entry_count, ccos_inode_t*** entries);
+int ccos_get_dir_contents(ccos_disk_t* disk, ccos_inode_t* dir, uint16_t* entry_count, ccos_inode_t*** entries);
 
 /**
  * @brief      Determine whether the given inode is a directory's inode.
@@ -133,165 +130,149 @@ ccos_date_t ccos_get_exp_date(const ccos_inode_t* file);
 /**
  * @brief      Changes the creation date of a file or folder.
  *
- * @param[in]  ctx       Filesystem context handle.
+ * @param[in]  disk      Compass disk image.
  * @param      file      The file or the directory.
  * @param      new_date  The new date variable.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_set_creation_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date);
+int ccos_set_creation_date(ccos_disk_t* disk, ccos_inode_t* file, ccos_date_t new_date);
 
 /**
  * @brief      Changes the modification date of a file or folder.
  *
- * @param[in]  ctx       Filesystem context handle.
+ * @param[in]  disk      Compass disk image.
  * @param      file      The file or the directory.
  * @param      new_date  The new date variable.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_set_mod_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date);
+int ccos_set_mod_date(ccos_disk_t* disk, ccos_inode_t* file, ccos_date_t new_date);
 
 /**
  * @brief      Changes the expiration date of a file or folder.
  *
- * @param[in]  ctx       Filesystem context handle.
+ * @param[in]  disk      Compass disk image.
  * @param      file      The file or the directory.
  * @param      new_date  The new date variable.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_set_exp_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date);
+int ccos_set_exp_date(ccos_disk_t* disk, ccos_inode_t* file, ccos_date_t new_date);
 
 /**
  * @brief      Replace file in the CCOS image data.
  *
- * @param[in]  ctx         Filesystem context handle.
- * @param[in]  file        The file to replace.
- * @param[in]  file_data   The new file contents.
- * @param[in]  file_size   The new file size (it should match old file size).
- * @param      image_data  CCOS image data.
+ * @param[in]  disk       Compass disk image.
+ * @param[in]  file       The file to replace.
+ * @param[in]  file_data  The new file contents.
+ * @param[in]  file_size  The new file size (it should match old file size).
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_replace_file(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* file_data, uint32_t file_size, uint8_t* image_data);
+int ccos_replace_file(ccos_disk_t* disk, ccos_inode_t* file, const uint8_t* file_data, uint32_t file_size);
 
 /**
  * @brief      Get info about blocks in the image. Traverse all blocks in the CCOS image and return array filled with
  * corresponding block types.
  *
- * @param[in]  ctx                Filesystem context handle.
- * @param[in]  data               CCOS image data.
- * @param[in]  data_size          The data size.
+ * @param[in]  disk               Compass disk image.
  * @param      image_map          Block types array.
  * @param      free_blocks_count  The free blocks count.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_get_image_map(ccfs_handle ctx, const uint8_t* data, size_t data_size, block_type_t** image_map, size_t* free_blocks_count);
+int ccos_get_image_map(ccos_disk_t* disk, block_type_t** image_map, size_t* free_blocks_count);
 
 /**
  * @brief      Read file contents into memory buffer.
  *
- * @param[in]  ctx         Filesystem context handle.
- * @param[in]  file        File to read.
- * @param[in]  image_data  CCOS image data.
- * @param      file_data   The file data.
- * @param      file_size   The file size.
+ * @param[in]  disk       Compass disk image.
+ * @param[in]  file       File to read.
+ * @param      file_data  The file data.
+ * @param      file_size  The file size.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_read_file(ccfs_handle ctx, ccos_inode_t* file, const uint8_t* image_data, uint8_t** file_data, size_t* file_size);
+int ccos_read_file(ccos_disk_t* disk, ccos_inode_t* file, uint8_t** file_data, size_t* file_size);
 
 /**
  * @brief      Get parent directory of the given file.
  *
- * @param[in]  ctx   Filesystem context handle.
+ * @param[in]  disk  Compass disk image.
  * @param      file  The file.
- * @param      data  CCOS image data.
  *
  * @return     Parent directory on success, NULL otherwise.
  */
-ccos_inode_t* ccos_get_parent_dir(ccfs_handle ctx, ccos_inode_t* file, uint8_t* data);
+ccos_inode_t* ccos_get_parent_dir(ccos_disk_t* disk, ccos_inode_t* file);
 
 /**
  * @brief      Copy file from one CCOS image into another.
  *
- * @param[in]  ctx              Filesystem context handle.
- * @param      dest_image       The destination CCOS image.
- * @param[in]  dest_image_size  The destination image size.
- * @param      dest_directory   The directory in the destination image to copy file to.
- * @param[in]  src_image        The source CCOS image.
- * @param[in]  src_file         The source file.
+ * @param[in]  src             The source CCOS disk.
+ * @param[in]  src_file        The source file.
+ * @param[in]  dest            The destination CCOS disk.
+ * @param      dest_directory  The directory in the destination image to copy file to.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_copy_file(ccfs_handle ctx, uint8_t* dest_image, size_t dest_image_size, ccos_inode_t* dest_directory,
-                   const uint8_t* src_image, ccos_inode_t* src_file);
+int ccos_copy_file(ccos_disk_t* src, ccos_inode_t* src_file,
+                   ccos_disk_t* dest, ccos_inode_t* dest_directory);
 
 /**
  * @brief      Delete file in the image.
  *
- * @param[in]  ctx         Filesystem context handle.
- * @param[in]  image_data  CCOS image data.
- * @param[in]  data_size   The image size.
- * @param[in]  file        The file to delete.
+ * @param[in]  disk  Compass disk image.
+ * @param[in]  file  The file to delete.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_delete_file(ccfs_handle ctx, uint8_t* image_data, size_t data_size, ccos_inode_t* file);
+int ccos_delete_file(ccos_disk_t* disk, ccos_inode_t* file);
 
 /**
  * @brief      Add new file to the given directory.
  *
- * @param[in]  ctx             Filesystem context handle.
+ * @param[in]  disk            Compass disk image.
  * @param      dest_directory  The destination directory to add file to.
  * @param[in]  file_data       File data.
  * @param[in]  file_size       File data size.
  * @param[in]  file_name       File name.
- * @param      image_data      CCOS image data.
- * @param[in]  image_size      Image size.
  *
  * @return     Newly created file inode on success, NULL otherwise.
  */
-ccos_inode_t* ccos_add_file(ccfs_handle ctx, ccos_inode_t* dest_directory, uint8_t* file_data, size_t file_size, const char* file_name,
-                            uint8_t* image_data, size_t image_size);
+ccos_inode_t* ccos_add_file(ccos_disk_t* disk, ccos_inode_t* dest_directory,
+                            uint8_t* file_data, size_t file_size, const char* file_name);
 
 /**
  * @brief      Check file checksums and file structure, log to stderr in case of malformed file.
  *
- * @param[in]  ctx   Filesystem context handle.
+ * @param[in]  disk  Compass disk image.
  * @param[in]  file  File to check.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_validate_file(ccfs_handle ctx, const ccos_inode_t* file);
+int ccos_validate_file(ccos_disk_t* disk, const ccos_inode_t* file);
 
 /**
  * @brief      Return amount of free space available in the image.
  *
- * @param[in]  ctx        Filesystem context handle.
- * @param      data       CCOS image data.
- * @param[in]  data_size  Data size.
+ * @param[in]  disk  Compass disk image.
  *
  * @return     Free space in the image, in bytes.
  */
-size_t ccos_calc_free_space(ccfs_handle ctx, uint8_t* data, size_t data_size);
+size_t ccos_calc_free_space(ccos_disk_t* disk);
 
 /**
  * @brief      Overwrite file contents with the given data.
  *
- * @param[in]  ctx         Filesystem context handle.
- * @param      file        The file.
- * @param      image_data  CCOS image data.
- * @param[in]  image_size  Image data size.
- * @param[in]  file_data   File contents.
- * @param[in]  file_size   File contents size.
+ * @param[in]  disk       Compass disk image.
+ * @param      file       The file.
+ * @param[in]  file_data  File contents.
+ * @param[in]  file_size  File contents size.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_write_file(ccfs_handle ctx, ccos_inode_t* file, uint8_t* image_data, size_t image_size,
-                    const uint8_t* file_data, size_t file_size);
+int ccos_write_file(ccos_disk_t* disk, ccos_inode_t* file, const uint8_t* file_data, size_t file_size);
 
 /**
  * @brief      Get info about the name of the given file.
@@ -309,63 +290,43 @@ int ccos_parse_file_name(const ccos_inode_t* inode, char* basename, char* type, 
 /**
  * @brief      Create directory in the image.
  *
- * @param[in]  ctx             Filesystem context handle.
+ * @param[in]  disk            Compass disk image.
  * @param      parent_dir      The parent directory.
  * @param[in]  directory_name  New directory name.
- * @param      image_data      CCOS image data.
- * @param[in]  image_size      CCOS image size.
  *
  * @return     Newly created directory inode on success, NULL otherwise.
  */
-ccos_inode_t* ccos_create_dir(ccfs_handle ctx, ccos_inode_t* parent_dir, const char* directory_name,
-                              uint8_t* image_data, size_t image_size);
+ccos_inode_t* ccos_create_dir(ccos_disk_t* disk, ccos_inode_t* parent_dir, const char* directory_name);
 
 /**
  * @brief      Rename file and change type.
  *
- * @param[in]  ctx             Filesystem context handle.
- * @param      image_data      CCCOS image data.
- * @param[in]  image_size      CCOS image size.
- * @param      file            The file.
- * @param[in]  new_name        The new name.
- * @param[in]  new_type        The new type (optional, may be NULL, if you don't want to change it).
+ * @param[in]  disk      Compass disk image.
+ * @param      file      The file.
+ * @param[in]  new_name  The new name.
+ * @param[in]  new_type  The new type (optional, may be NULL, if you don't want to change it).
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_rename_file(ccfs_handle ctx, uint8_t* image_data, size_t image_size, ccos_inode_t* file,
-                     const char* new_name, const char* new_type);
+int ccos_rename_file(ccos_disk_t* disk, ccos_inode_t* file, const char* new_name, const char* new_type);
 
 /**
  * @brief      Get label of provided image and return it.
  *
- * @param[in]  ctx                Filesystem context handle.
- * @param[in]  data               CCOS image data.
- * @param[in]  data_size          The data size.
+ * @param[in]  disk  Compass disk image.
  *
  * @return     Image label in char*
  */
-char* ccos_get_image_label(ccfs_handle ctx, uint8_t* data, size_t data_size);
+char* ccos_get_image_label(ccos_disk_t* disk);
 
 /**
  * @brief      Set label of provided image.
  *
- * @param[in]  ctx                Filesystem context handle.
- * @param[in]  data               CCOS image data.
- * @param[in]  data_size          The data size.
- * @param[in]  label              The new label.
+ * @param[in]  disk   Compass disk image.
+ * @param[in]  label  The new label.
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_set_image_label(ccfs_handle ctx, uint8_t* data, size_t data_size, const char* label);
-
-/**
- * @brief      Create new empty image.
- *
- * @param[in]  ctx     Filesystem context handle.
- * @param[in]  blocks  Number of blocks in the image.
- *
- * @return     Image data on success, NULL otherwise.
- */
-uint8_t* ccos_create_new_image(ccfs_handle ctx, size_t blocks);
+int ccos_set_image_label(ccos_disk_t* disk, const char* label);
 
 #endif  // CCOS_IMAGE_H

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include "ccos_disk.h"
 
 int (*trace)(FILE* stream, const char* format, ...) = NULL;
 
@@ -59,7 +60,7 @@ int read_file(const char* path, uint8_t** file_data, size_t* file_size) {
   return 0;
 }
 
-int save_image(const char* source_filename, uint8_t* data, size_t data_size, int in_place) {
+int save_image(const char* source_filename, ccos_disk_t* disk, int in_place) {
   char* dest_filename;
   if (in_place) {
     dest_filename = (char*)source_filename;
@@ -87,10 +88,10 @@ int save_image(const char* source_filename, uint8_t* data, size_t data_size, int
     return -1;
   }
 
-  size_t written = fwrite(data, sizeof(uint8_t), data_size, f);
+  size_t written = fwrite(disk->data, sizeof(uint8_t), disk->size, f);
   fclose(f);
-  if (written != data_size) {
-    fprintf(stderr, "Write size mismatch: Expected " SIZE_T ", but only " SIZE_T " written!\n", data_size, written);
+  if (written != disk->size) {
+    fprintf(stderr, "Write size mismatch: Expected " SIZE_T ", but only " SIZE_T " written!\n", disk->size, written);
     return -1;
   }
 
