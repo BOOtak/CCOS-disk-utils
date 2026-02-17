@@ -2,23 +2,15 @@
 // Created by kirill on 04.06.2020.
 //
 
+#include <criterion/criterion.h>
+
 #include <ccos_image.h>
 #include <ccos_private.h>
-#include <stdio.h>
+
+#include <stdint.h>
 #include <string.h>
 
-#define __STR(X) #X
-#define STR(X) __STR(X)
-
-#define ASSERT(CONDITION)                                                                 \
-  do {                                                                                    \
-    if (!(CONDITION)) {                                                                   \
-      fprintf(stderr, "%s:%d: \"%s\" Failed!\n", __FUNCTION__, __LINE__, STR(CONDITION)); \
-      return -1;                                                                          \
-    }                                                                                     \
-  } while (0)
-
-uint8_t test_inode_data[] = {
+static const uint8_t test_inode_data[] = {
     0x98U, 0x00U, 0x00U, 0x00U, 0x84U, 0xD0U, 0x00U, 0x00U, 0x15U, 0x47U, 0x52U, 0x69U, 0x44U, 0x50U, 0x61U, 0x69U,
     0x6EU, 0x74U, 0x7EU, 0x52U, 0x75U, 0x6EU, 0x20U, 0x43U, 0x61U, 0x6EU, 0x76U, 0x61U, 0x73U, 0x7EU, 0x00U, 0x00U,
     0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U,
@@ -52,43 +44,35 @@ uint8_t test_inode_data[] = {
     0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU,
     0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0x00U, 0x00U, 0x00U, 0x00U};
 
-int check_image_test() {
+Test(ccos_image, check_image) {
   uint8_t data[0x200] = {0};
-  ASSERT(ccos_check_image(data) == 0);
+  cr_assert_eq(ccos_check_image(data), 0);
   data[0] = 'I';
   data[1] = 'M';
   data[2] = 'D';
   data[3] = ' ';
-  ASSERT(ccos_check_image(data) == -1);
+  cr_assert_eq(ccos_check_image(data), -1);
   memset(data, 0, 0x200);
   data[0] = 0xEB;
   data[2] = 0x90;
   *((uint16_t *)(&data[0x1FE])) = 0xAA55;
-  ASSERT(ccos_check_image(data) == -1);
-  return 0;
+  cr_assert_eq(ccos_check_image(data), -1);
 }
 
-int ccos_get_file_version_test() {
-  ccos_inode_t inode = *((ccos_inode_t *)&test_inode_data);
+Test(ccos_image, get_file_version) {
+  ccos_inode_t inode;
+  memcpy(&inode, test_inode_data, sizeof(inode));
   version_t version = ccos_get_file_version(&inode);
-  ASSERT(version.major == 3);
-  ASSERT(version.minor == 1);
-  ASSERT(version.patch == 5);
-  return 0;
+  cr_assert_eq(version.major, 3);
+  cr_assert_eq(version.minor, 1);
+  cr_assert_eq(version.patch, 5);
 }
 
-int ccos_get_file_name_test() {
-  ccos_inode_t inode = *((ccos_inode_t *)&test_inode_data);
+Test(ccos_image, get_file_name) {
+  ccos_inode_t inode;
+  memcpy(&inode, test_inode_data, sizeof(inode));
   short_string_t *name = ccos_get_file_name(&inode);
-  ASSERT(name->length == 21);
-  ASSERT(!strncmp(name->data, "GRiDPaint~Run Canvas~", name->length));
-  return 0;
-}
-
-int main() {
-  ASSERT(check_image_test() == 0);
-  ASSERT(ccos_get_file_version_test() == 0);
-  ASSERT(ccos_get_file_name_test() == 0);
-  printf("All tests completed!\n");
-  return 0;
+  cr_assert_not_null(name);
+  cr_assert_eq(name->length, 21);
+  cr_assert_eq(strncmp(name->data, "GRiDPaint~Run Canvas~", name->length), 0);
 }

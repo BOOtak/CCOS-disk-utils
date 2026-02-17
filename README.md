@@ -43,6 +43,29 @@ OPTIONS:
 -l, --in-place           Write changes to the original image
 ```
 
+## Build
+
+To build the project, run the following commands:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
+
+After building, the compiled binary will be located at `build/ccos_disk_tool`.
+
+## Run Tests
+
+To run the tests, use the following commands:
+
+```bash
+cmake -S . -B build -DCCOS_ENABLE_TESTS=ON
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+```
+
+Tests depend on the [Criterion](https://github.com/Snaipe/Criterion) library, which must be installed before running the tests.
+
 ## Examples
 
 ### Working with bubble memory images or other non-standard images
