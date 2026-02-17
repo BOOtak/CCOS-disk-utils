@@ -49,6 +49,42 @@
 
 #pragma pack(push, 1)
 typedef struct {
+  uint8_t boot_indicator;
+  uint8_t begin_head;
+  uint8_t begin_sector;
+  uint8_t begin_cylinder;
+  uint8_t system_indicator;
+  uint8_t ending_head;
+  uint8_t ending_sector;
+  uint8_t ending_cylinder;
+  uint32_t relative_sector;
+  uint32_t num_sectors;
+} ccos_boot_sector_partition_t;
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+typedef struct {
+  uint8_t  header[14];
+  uint16_t bytes_per_page;
+  uint16_t pages_per_track;
+  uint16_t tracks_per_cylinder;
+  uint16_t num_cylinders;
+  uint8_t  second_side_count;
+  uint16_t valid_info_flag;
+  uint8_t  dummy[5];
+  uint16_t bitmap_fid;
+  uint16_t superblock_fid;
+  uint16_t min_dir_pages;
+  uint16_t log_page_size;
+  uint8_t  boot_code[406];
+  uint16_t partition_indicator;
+  ccos_boot_sector_partition_t partitionTable[4];
+  uint16_t last_word_flag;
+} ccos_boot_sector_t;
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+typedef struct {
   uint16_t year;
   uint8_t month;
   uint8_t day;

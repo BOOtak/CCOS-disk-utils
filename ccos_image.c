@@ -695,22 +695,3 @@ int ccos_rename_file(ccfs_handle ctx, uint8_t* image_data, size_t image_size, cc
 
   return 0;
 }
-
-uint8_t* ccos_create_new_image(ccfs_handle ctx, size_t blocks) {
-  size_t block_size = get_block_size(ctx);
-  size_t image_size = block_size * blocks;
-
-  uint8_t* data = malloc(image_size);
-  if (data == NULL) {
-    fprintf(stderr, "Unable to create new image: unable to allocate memory: %s!\n", strerror(errno));
-    return NULL;
-  }
-
-  if (format_image(ctx, data, image_size) == -1) {
-    fprintf(stderr, "Unable to create new image: unable to format image!\n");
-    free(data);
-    return NULL;
-  }
-
-  return data;
-}
