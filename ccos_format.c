@@ -234,6 +234,13 @@ int ccos_new_disk_image(disk_format_t format, size_t disk_size, ccos_disk_t* out
   const uint16_t superblock = select_superblock(sector_size, disk_size);
   const bitmask_info_t bitmask = calculate_bitmask_info(sector_size, disk_size);
 
+  if ((size_t)superblock * sector_size >= disk_size ||
+      (size_t)bitmask.sector * sector_size >= disk_size)
+  {
+    TRACE("Format image: image size %zu too small", disk_size);
+    return EINVAL;
+  }
+
   ccos_disk_t disk = {
     .sector_size = sector_size,
     .superblock_id = superblock,
