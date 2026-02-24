@@ -5,6 +5,7 @@
 
 #include "common.h"
 #include "ccos_context.h"
+#include "ccos_private.h"
 #include "ccos_image.h"
 #include "wrapper.h"
 
@@ -15,8 +16,6 @@
 #define SUPERBLOCK_OPT   2001
 
 #define DEFAULT_SECTOR_SIZE   512
-#define DEFAULT_SUPERBLOCK    0x121
-#define DEFAULT_BITMAP_BLOCK  (DEFAULT_SUPERBLOCK - 1)
 
 
 typedef enum {
@@ -100,7 +99,7 @@ ccfs_context_t* default_ccos_context() {
 
   ctx->sector_size = DEFAULT_SECTOR_SIZE;
   ctx->superblock_id = DEFAULT_SUPERBLOCK;
-  ctx->bitmap_block_id = DEFAULT_BITMAP_BLOCK;
+  ctx->bitmap_block_id = DEFAULT_BITMASK_BLOCK_ID;
 
   return ctx;
 }

@@ -9,6 +9,15 @@
 #include "ccos_structure.h"
 #include "string_utils.h"
 
+#define DEFAULT_SUPERBLOCK           0x121
+#define DEFAULT_HDD_SUPERBLOCK       0x2420
+#define DEFAULT_BUBBLE_SUPERBLOCK    0x3fe
+#define CCOS_SUPERBLOCK_ADDR_OFFSET  0x20
+
+#define DEFAULT_BITMASK_BLOCK_ID         (DEFAULT_SUPERBLOCK - 1)
+#define DEFAULT_BUBBLE_BITMASK_BLOCK_ID  (DEFAULT_BUBBLE_SUPERBLOCK - 1)
+#define CCOS_BITMASK_ADDR_OFFSET         0x1E
+
 typedef struct {
   uint16_t offset;
   size_t size;
@@ -382,16 +391,5 @@ int is_root_dir(const ccos_inode_t* file);
  * @return     0 on success, -1 otherwise.
  */
 int change_date(ccfs_handle ctx, ccos_inode_t* file, ccos_date_t new_date, date_type_t type);
-
-/**
- * @brief      Create CCOS filesystem in the given image.
- *
- * @param[in]  ctx         Filesystem context handle.
- * @param      data        CCOS image data.
- * @param[in]  image_size  Image size.
- *
- * @return     0 on success, -1 otherwise.
- */
-int format_image(ccfs_handle ctx, uint8_t* data, size_t image_size);
 
 #endif  // CCOS_DISK_TOOL_CCOS_PRIVATE_H

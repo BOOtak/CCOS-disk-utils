@@ -23,7 +23,7 @@
 #define BS256_BITMASK_BLOCKS            (BS256_BITMASK_SIZE * 8)
 #define BS256_DIR_DEFAULT_SIZE          BS256_LOG_BLOCK_SIZE
 
-#define BS512_BLOCK_SIZE                512
+#define BS512_BLOCK_SIZE                (512)
 #define BS512_LOG_BLOCK_SIZE            (BS512_BLOCK_SIZE - sizeof(ccos_block_header_t) - 4)
 #define BS512_INODE_MAX_BLOCKS          ((BS512_BLOCK_SIZE - INODE_BLOCKS_OFFSET) / 2)
 #define BS512_CONTENT_INODE_PADDING     (8)
@@ -32,6 +32,9 @@
 #define BS512_BITMASK_SIZE              (BS512_BLOCK_SIZE - sizeof(ccos_block_header_t) - 2 - 2 - BS512_BITMASK_PADDING)
 #define BS512_BITMASK_BLOCKS            (BS512_BITMASK_SIZE * 8)
 #define BS512_DIR_DEFAULT_SIZE          BS512_LOG_BLOCK_SIZE
+
+#define BUBBLES_SECTOR_SIZE  BS256_BLOCK_SIZE
+#define EXTDISK_SECTOR_SIZE  BS512_BLOCK_SIZE
 
 // Block number is 2 bytes => max blocks = 65535; each bitmask stores 4000 blocks => we need 17 bitmask blocks max
 #define MAX_BITMASK_BLOCKS_IN_IMAGE 17
@@ -46,6 +49,42 @@
 #define CCOS_EMPTY_BLOCK_MARKER 0xFFFFFFFF
 
 #define CCOS_DATA_OFFSET sizeof(ccos_block_header_t)
+
+#pragma pack(push, 1)
+typedef struct {
+  uint8_t boot_indicator;
+  uint8_t begin_head;
+  uint8_t begin_sector;
+  uint8_t begin_cylinder;
+  uint8_t system_indicator;
+  uint8_t ending_head;
+  uint8_t ending_sector;
+  uint8_t ending_cylinder;
+  uint32_t relative_sector;
+  uint32_t num_sectors;
+} ccos_boot_sector_partition_t;
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+typedef struct {
+  uint8_t  header[14];
+  uint16_t bytes_per_page;
+  uint16_t pages_per_track;
+  uint16_t tracks_per_cylinder;
+  uint16_t num_cylinders;
+  uint8_t  second_side_count;
+  uint16_t valid_info_flag;
+  uint8_t  dummy[5];
+  uint16_t bitmap_fid;
+  uint16_t superblock_fid;
+  uint16_t min_dir_pages;
+  uint16_t log_page_size;
+  uint8_t  boot_code[406];
+  uint16_t partition_indicator;
+  ccos_boot_sector_partition_t partitionTable[4];
+  uint16_t last_word_flag;
+} ccos_boot_sector_t;
+#pragma pack(pop)
 
 #pragma pack(push, 1)
 typedef struct {
