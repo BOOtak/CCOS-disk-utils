@@ -23,7 +23,7 @@
 #define BS256_BITMASK_BLOCKS            (BS256_BITMASK_SIZE * 8)
 #define BS256_DIR_DEFAULT_SIZE          BS256_LOG_BLOCK_SIZE
 
-#define BS512_BLOCK_SIZE                512
+#define BS512_BLOCK_SIZE                (512)
 #define BS512_LOG_BLOCK_SIZE            (BS512_BLOCK_SIZE - sizeof(ccos_block_header_t) - 4)
 #define BS512_INODE_MAX_BLOCKS          ((BS512_BLOCK_SIZE - INODE_BLOCKS_OFFSET) / 2)
 #define BS512_CONTENT_INODE_PADDING     (8)
@@ -32,6 +32,9 @@
 #define BS512_BITMASK_SIZE              (BS512_BLOCK_SIZE - sizeof(ccos_block_header_t) - 2 - 2 - BS512_BITMASK_PADDING)
 #define BS512_BITMASK_BLOCKS            (BS512_BITMASK_SIZE * 8)
 #define BS512_DIR_DEFAULT_SIZE          BS512_LOG_BLOCK_SIZE
+
+#define BUBBLES_SECTOR_SIZE  BS256_BLOCK_SIZE
+#define EXTDISK_SECTOR_SIZE  BS512_BLOCK_SIZE
 
 // Block number is 2 bytes => max blocks = 65535; each bitmask stores 4000 blocks => we need 17 bitmask blocks max
 #define MAX_BITMASK_BLOCKS_IN_IMAGE 17

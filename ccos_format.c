@@ -28,10 +28,11 @@ static uint8_t* new_empty_image(uint16_t sector_size, size_t disk_size) {
     return NULL;
   }
 
+  const size_t marker_size = 4;
+
   const size_t sector_count = disk_size / sector_size;
   for (size_t i = 0; i < sector_count; i++) {
     uint8_t* sector = image + (i * sector_size);
-    size_t marker_size = 4;
 
     memset(sector, 0xff, marker_size);
     memset(sector + marker_size, 0x55, sector_size - marker_size);
@@ -41,9 +42,9 @@ static uint8_t* new_empty_image(uint16_t sector_size, size_t disk_size) {
 }
 
 static uint16_t select_superblock(uint16_t sector_size, size_t disk_size) {
-  assert(sector_size == 256 || sector_size == 512);
+  assert(sector_size == BUBBLES_SECTOR_SIZE || sector_size == EXTDISK_SECTOR_SIZE);
 
-  if (sector_size == 256) {
+  if (sector_size == BUBBLES_SECTOR_SIZE) {
     return DEFAULT_BUBBLE_SUPERBLOCK;
   } else if (disk_size < 10 * 1024 * 1024) {
     return DEFAULT_SUPERBLOCK;
@@ -53,14 +54,14 @@ static uint16_t select_superblock(uint16_t sector_size, size_t disk_size) {
 }
 
 static bitmask_info_t calculate_bitmask_info(uint16_t sector_size, size_t disk_size) {
-  assert(sector_size == 256 || sector_size == 512);
+  assert(sector_size == BUBBLES_SECTOR_SIZE || sector_size == EXTDISK_SECTOR_SIZE);
 
   const uint16_t superblock = select_superblock(sector_size, disk_size);
 
   // Calculate bitmask.
   const uint16_t sector_count = disk_size / sector_size;
   const uint16_t required_bytes = sector_count / 8;
-  const uint16_t bytes_per_sector = sector_size == 512 ? BS512_BITMASK_SIZE : BS256_BITMASK_SIZE;
+  const uint16_t bytes_per_sector = sector_size == EXTDISK_SECTOR_SIZE ? BS512_BITMASK_SIZE : BS256_BITMASK_SIZE;
   const uint16_t count = required_bytes / bytes_per_sector + 1;
 
   const uint16_t bitmask = superblock - count;
@@ -213,12 +214,14 @@ static void write_boot_sector(ccos_disk_t* disk, disk_format_t format, ccos_bitm
 }
 
 int ccos_new_disk_image(disk_format_t format, size_t disk_size, ccos_disk_t* output) {
-  if (disk_size % 512 != 0) {
+  if (disk_size % EXTDISK_SECTOR_SIZE != 0) {
     TRACE("Format image: image size %zu is not a multiple of 512", disk_size);
     return EINVAL;
   }
 
-  uint16_t sector_size = format == CCOS_DISK_FORMAT_BUBMEM ? 256 : 512;
+  uint16_t sector_size = format == CCOS_DISK_FORMAT_BUBMEM
+    ? BUBBLES_SECTOR_SIZE
+    : EXTDISK_SECTOR_SIZE;
 
   uint8_t* data = new_empty_image(sector_size, disk_size);
   if (data == NULL) {
