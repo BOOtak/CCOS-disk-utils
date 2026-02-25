@@ -1,6 +1,10 @@
 #ifndef CCOS_CONTEXT_H
 #define CCOS_CONTEXT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -11,5 +15,9 @@ typedef struct {
   size_t   size;
   uint8_t* data;
 } ccos_disk_t;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // CCOS_CONTEXT_H

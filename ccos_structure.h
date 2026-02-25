@@ -1,6 +1,10 @@
 #ifndef CCOS_DISK_TOOL_CCOS_STRUCTURE_H
 #define CCOS_DISK_TOOL_CCOS_STRUCTURE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 #include "ccos_disk.h"
@@ -238,5 +242,9 @@ size_t get_dir_default_size(ccos_disk_t* disk);
 uint16_t* get_inode_content_blocks(ccos_inode_t* inode);
 uint16_t* get_content_inode_content_blocks(ccos_content_inode_t* inode);
 uint8_t* get_bitmask_bytes(ccos_bitmask_t* bitmask);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // CCOS_DISK_TOOL_CCOS_STRUCTURE_H

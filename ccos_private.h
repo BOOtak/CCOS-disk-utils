@@ -1,9 +1,9 @@
-//
-// Created by kirill on 21.05.2020.
-//
-
 #ifndef CCOS_DISK_TOOL_CCOS_PRIVATE_H
 #define CCOS_DISK_TOOL_CCOS_PRIVATE_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "ccos_disk.h"
 #include "ccos_structure.h"
@@ -365,5 +365,9 @@ int is_root_dir(const ccos_inode_t* file);
  * @return     0 on success, -1 otherwise.
  */
 int change_date(ccos_disk_t* disk, ccos_inode_t* file, ccos_date_t new_date, date_type_t type);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // CCOS_DISK_TOOL_CCOS_PRIVATE_H

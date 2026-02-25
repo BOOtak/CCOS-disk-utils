@@ -1,6 +1,10 @@
 #ifndef CCOS_DISK_TOOL_CCOS_FORMAT_H
 #define CCOS_DISK_TOOL_CCOS_FORMAT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "ccos_disk.h"
 
 #include <stdbool.h>
@@ -22,5 +26,9 @@ typedef enum {
  * @return     0 on success, or an error code.
  */
 int ccos_new_disk_image(disk_format_t format, size_t disk_size, ccos_disk_t* output);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // CCOS_DISK_TOOL_CCOS_FORMAT_H

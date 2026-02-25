@@ -1,6 +1,10 @@
 #ifndef CCOS_IMAGE_H
 #define CCOS_IMAGE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "ccos_structure.h"
 #include "ccos_string.h"
 
@@ -347,5 +351,9 @@ char* ccos_get_image_label(ccos_disk_t* disk);
  * @return     0 on success, -1 otherwise.
  */
 int ccos_set_image_label(ccos_disk_t* disk, const char* label);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif  // CCOS_IMAGE_H

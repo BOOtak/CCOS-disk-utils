@@ -1,6 +1,10 @@
 #ifndef CCOS_STRING_H
 #define CCOS_STRING_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 struct short_string_t_;
@@ -19,5 +23,9 @@ struct short_string_t_ {
  * @return     Pointer to allocated C string on success, NULL otherwise.
  */
 char* short_string_to_string(const short_string_t* short_string);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // CCOS_STRING_H
