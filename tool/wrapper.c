@@ -1,15 +1,16 @@
-#include <ccos_image.h>
-#include <common.h>
+#include "wrapper.h"
+#include "ccos_disk.h"
+#include "ccos_format.h"
+#include "ccos_image.h"
+#include "common.h"
+#include "string_utils.h"
+
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <string_utils.h>
 #include <sys/stat.h>
-#include <wrapper.h>
-#include "ccos_disk.h"
-#include "ccos_format.h"
 
 #define PROGRAMS_DIR_1 "Programs~Subject~"
 #define PROGRAMS_DIR_2 "Programs~subject~"

@@ -1,12 +1,10 @@
-#include <common.h>
+#include "common.h"
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include "ccos_disk.h"
-
-int (*trace)(FILE* stream, const char* format, ...) = NULL;
 
 int trace_silent(UNUSED FILE* stream, UNUSED const char* format, ...) {
   return 0;

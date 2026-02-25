@@ -7,7 +7,7 @@
 
 #include "ccos_disk.h"
 #include "ccos_structure.h"
-#include "string_utils.h"
+#include "ccos_string.h"
 
 #define DEFAULT_SUPERBLOCK           0x121
 #define DEFAULT_HDD_SUPERBLOCK       0x2420

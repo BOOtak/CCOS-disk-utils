@@ -2,8 +2,8 @@
 #include "ccos_boot_data.h"
 
 #include "ccos_boot_data.h"
-#include "common.h"
 #include "ccos_disk.h"
+#include "ccos_image.h"
 #include "ccos_structure.h"
 #include "ccos_private.h"
 

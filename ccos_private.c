@@ -1,10 +1,10 @@
 //
 // Created by kirill on 21.05.2020.
 //
-#include "ccos_structure.h"
-#include "common.h"
-#include "ccos_image.h"
+
 #include "ccos_private.h"
+#include "ccos_structure.h"
+#include "ccos_image.h"
 
 #include <errno.h>
 #include <stdint.h>

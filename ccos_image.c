@@ -1,4 +1,3 @@
-#include "common.h"
 #include "ccos_image.h"
 #include "ccos_private.h"
 
@@ -15,6 +14,8 @@
 #define CCOS_DIR_TYPE "subject"
 
 typedef enum { CONTENT_END_MARKER, BLOCK_END_MARKER, END_OF_BLOCK } read_block_status_t;
+
+int (*trace)(FILE* stream, const char* format, ...) = NULL;
 
 static int is_fat_image(const uint8_t* data) {
   return data[0] == OPCODE_JMP && data[2] == OPCODE_NOP &&
