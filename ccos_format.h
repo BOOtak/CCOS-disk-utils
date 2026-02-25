@@ -1,7 +1,7 @@
 #ifndef CCOS_DISK_TOOL_CCOS_FORMAT_H
 #define CCOS_DISK_TOOL_CCOS_FORMAT_H
 
-#include "ccos_context.h"
+#include "ccos_disk.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
