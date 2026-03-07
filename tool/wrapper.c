@@ -28,16 +28,6 @@ typedef traverse_callback_result_t (*on_file_t)(ccos_disk_t* disk, ccos_inode_t*
 
 typedef traverse_callback_result_t (*on_dir_t)(ccos_disk_t* disk, ccos_inode_t* dir, const char* dirname, int level, void* arg);
 
-static char* format_version(version_t* version) {
-  char* version_string = (char*)calloc(VERSION_MAX_SIZE, sizeof(char));
-  if (version_string == NULL) {
-    return NULL;
-  }
-
-  snprintf(version_string, VERSION_MAX_SIZE, "%u.%u.%u", version->major, version->minor, version->patch);
-  return version_string;
-}
-
 static int traverse_ccos_image(ccos_disk_t* disk, ccos_inode_t* dir, const char* dirname, int level,
                                on_file_t on_file, on_dir_t on_dir, void* arg) {
   uint16_t files_count = 0;
@@ -98,7 +88,7 @@ static int traverse_ccos_image(ccos_disk_t* disk, ccos_inode_t* dir, const char*
         fprintf(stderr, "An error occurred, skipping the rest of the image!\n");
         return -1;
       }
-    } else {
+    } else{
       TRACE("%d: file", i + 1);
 
       if (on_file != NULL) {
@@ -128,10 +118,8 @@ static traverse_callback_result_t print_file_info(
   int short_format = *(int*)arg;
   uint32_t file_size = ccos_get_file_size(file);
 
-  char basename[CCOS_MAX_FILE_NAME];
-  char type[CCOS_MAX_FILE_NAME];
-  memset(basename, 0, CCOS_MAX_FILE_NAME);
-  memset(type, 0, CCOS_MAX_FILE_NAME);
+  char basename[CCOS_MAX_FILE_NAME] = {0};
+  char type[CCOS_MAX_FILE_NAME] = {0};
 
   int res = ccos_parse_file_name(file, basename, type, NULL, NULL);
   if (res == -1) {
@@ -149,24 +137,20 @@ static traverse_callback_result_t print_file_info(
   snprintf(formatted_name, formatted_name_length + 1, "%*s", (int)formatted_name_length, basename);
 
   version_t version = ccos_get_file_version(file);
-  char* version_string = format_version(&version);
-  if (version_string == NULL) {
-    fprintf(stderr, "Error: invalid file version string!\n");
-    free(formatted_name);
-    return RESULT_ERROR;
-  }
+  char version_string[12];
+  snprintf(version_string, sizeof(version_string), "%u.%u.%u", version.major, version.minor, version.patch);
 
   ccos_date_t creation_date = ccos_get_creation_date(file);
   char creation_date_string[16];
-  snprintf(creation_date_string, 16, "%04d/%02d/%02d", creation_date.year, creation_date.month, creation_date.day);
+  snprintf(creation_date_string, sizeof(creation_date_string), "%04d/%02d/%02d", creation_date.year, creation_date.month, creation_date.day);
 
   ccos_date_t mod_date = ccos_get_mod_date(file);
   char mod_date_string[16];
-  snprintf(mod_date_string, 16, "%04d/%02d/%02d", mod_date.year, mod_date.month, mod_date.day);
+  snprintf(mod_date_string, sizeof(mod_date_string), "%04d/%02d/%02d", mod_date.year, mod_date.month, mod_date.day);
 
   ccos_date_t exp_date = ccos_get_exp_date(file);
   char exp_date_string[16];
-  snprintf(exp_date_string, 16, "%04d/%02d/%02d", exp_date.year, exp_date.month, exp_date.day);
+  snprintf(exp_date_string, sizeof(exp_date_string), "%04d/%02d/%02d", exp_date.year, exp_date.month, exp_date.day);
 
   if (short_format) {
     printf("%-*s%-*s%-*d%-*s\n", 32, formatted_name, 24, type, 14, file_size, 10, version_string);
@@ -175,8 +159,8 @@ static traverse_callback_result_t print_file_info(
            creation_date_string, 16, mod_date_string, 16, exp_date_string);
   }
 
-  free(version_string);
   free(formatted_name);
+
   return RESULT_OK;
 }
 

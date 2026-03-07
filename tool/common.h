@@ -14,8 +14,6 @@
 
 #define UNUSED __attribute__((unused))
 
-#define VERSION_MAX_SIZE 12  // "255.255.255"
-
 int trace_silent(FILE* stream, const char* format, ...);
 
 /**
