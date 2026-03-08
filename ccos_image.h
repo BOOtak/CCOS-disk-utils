@@ -30,15 +30,6 @@ typedef enum { UNKNOWN, DATA, EMPTY } block_type_t;
 extern int (*trace)(FILE* stream, const char* format, ...);
 
 /**
- * @brief      Get the file ID.
- *
- * @param[in]  inode  The file.
- *
- * @return     The ID of the file.
- */
-uint16_t ccos_file_id(const ccos_inode_t* inode);
-
-/**
  * @brief      Get the file version.
  *
  * @param[in]  file   The file.
@@ -65,7 +56,7 @@ int ccos_set_file_version(ccos_disk_t* disk, ccos_inode_t* file, ccos_version_t 
  *
  * @return     Pointer to short string with a file name.
  */
-short_string_t* ccos_get_file_name(const ccos_inode_t* file);
+const short_string_t* ccos_get_file_name(const ccos_inode_t* file);
 
 /**
  * @brief      Get root directory of the given image.
@@ -96,42 +87,6 @@ int ccos_get_dir_contents(ccos_disk_t* disk, ccos_inode_t* dir, uint16_t* entry_
  * @return     1 if the given inode belongs to a directory, 0 otherwise.
  */
 int ccos_is_dir(const ccos_inode_t* file);
-
-/**
- * @brief      Get the size of a file at a given inode.
- *
- * @param[in]  file  The file.
- *
- * @return     The size of a file at a given inode.
- */
-uint32_t ccos_get_file_size(const ccos_inode_t* file);
-
-/**
- * @brief      Get the creation date of a file at a given inode.
- *
- * @param[in]  file  The file.
- *
- * @return     The creation date of a file at a given inode.
- */
-ccos_date_t ccos_get_creation_date(const ccos_inode_t* file);
-
-/**
- * @brief      Get the modification date of a file at a given inode.
- *
- * @param[in]  file  The file.
- *
- * @return     The modification date of a file at a given inode.
- */
-ccos_date_t ccos_get_mod_date(const ccos_inode_t* file);
-
-/**
- * @brief      Get the expiry date of a file at a given inode.
- *
- * @param[in]  file  The file.
- *
- * @return     The expiry date of a file at a given inode.
- */
-ccos_date_t ccos_get_exp_date(const ccos_inode_t* file);
 
 /**
  * @brief      Changes the creation date of a file or folder.

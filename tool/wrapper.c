@@ -116,7 +116,7 @@ static traverse_callback_result_t print_file_info(
   ccos_disk_t* disk, ccos_inode_t* file, UNUSED const char* dirname, int level, void* arg
 ) {
   int short_format = *(int*)arg;
-  uint32_t file_size = ccos_get_file_size(file);
+  uint32_t file_size = file->desc.file_size;
 
   char basename[CCOS_MAX_FILE_NAME] = {0};
   char type[CCOS_MAX_FILE_NAME] = {0};
@@ -140,15 +140,15 @@ static traverse_callback_result_t print_file_info(
   char version_string[12];
   snprintf(version_string, sizeof(version_string), "%u.%u.%u", version.major, version.minor, version.patch);
 
-  ccos_date_t creation_date = ccos_get_creation_date(file);
+  ccos_date_t creation_date = file->desc.creation_date;
   char creation_date_string[16];
   snprintf(creation_date_string, sizeof(creation_date_string), "%04d/%02d/%02d", creation_date.year, creation_date.month, creation_date.day);
 
-  ccos_date_t mod_date = ccos_get_mod_date(file);
+  ccos_date_t mod_date = file->desc.mod_date;
   char mod_date_string[16];
   snprintf(mod_date_string, sizeof(mod_date_string), "%04d/%02d/%02d", mod_date.year, mod_date.month, mod_date.day);
 
-  ccos_date_t exp_date = ccos_get_exp_date(file);
+  ccos_date_t exp_date = file->desc.expiration_date;
   char exp_date_string[16];
   snprintf(exp_date_string, sizeof(exp_date_string), "%04d/%02d/%02d", exp_date.year, exp_date.month, exp_date.day);
 
@@ -217,7 +217,7 @@ static traverse_callback_result_t dump_dir_tree_on_file(
 
   char* file_name = short_string_to_string(ccos_get_file_name(file));
   if (file_name == NULL) {
-    fprintf(stderr, "Unable to get filename at file at 0x%x\n", ccos_file_id(file));
+    fprintf(stderr, "Unable to get filename at file at 0x%x\n", file->header.file_id);
     free(abspath);
     return RESULT_ERROR;
   }
@@ -230,7 +230,7 @@ static traverse_callback_result_t dump_dir_tree_on_file(
   size_t file_size = 0;
   uint8_t* file_data = NULL;
   if (ccos_read_file(disk, file, &file_data, &file_size) == -1) {
-    fprintf(stderr, "Unable to dump file at 0x%x: Unable to get file contents!\n", ccos_file_id(file));
+    fprintf(stderr, "Unable to dump file at 0x%x: Unable to get file contents!\n", file->header.file_id);
     if (file_data != NULL) {
       free(file_data);
       return RESULT_ERROR;
@@ -270,7 +270,7 @@ static traverse_callback_result_t dump_dir_tree_on_dir(
   char subdir_name[CCOS_MAX_FILE_NAME];
   memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
   if (ccos_parse_file_name(dir, subdir_name, NULL, NULL, NULL) == -1) {
-    fprintf(stderr, "Unable to dump directory at 0x%x: Unable to get directory name!\n", ccos_file_id(dir));
+    fprintf(stderr, "Unable to dump directory at 0x%x: Unable to get directory name!\n", dir->header.file_id);
     return -1;
   }
 
@@ -477,7 +477,7 @@ static traverse_callback_result_t find_file_on_file(
 ) {
   char* file_name = short_string_to_string(ccos_get_file_name(file));
   if (file_name == NULL) {
-    fprintf(stderr, "Unable to get filename at 0x%x\n", ccos_file_id(file));
+    fprintf(stderr, "Unable to get filename at 0x%x\n", file->header.file_id);
     return RESULT_ERROR;
   }
 

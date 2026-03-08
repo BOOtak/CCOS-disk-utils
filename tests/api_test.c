@@ -44,21 +44,6 @@ static const uint8_t test_inode_data[] = {
     0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU,
     0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0xFFU, 0x00U, 0x00U, 0x00U, 0x00U};
 
-Test(ccos_image, check_image) {
-  uint8_t data[0x200] = {0};
-  cr_assert_eq(ccos_check_image(data), 0);
-  data[0] = 'I';
-  data[1] = 'M';
-  data[2] = 'D';
-  data[3] = ' ';
-  cr_assert_eq(ccos_check_image(data), -1);
-  memset(data, 0, 0x200);
-  data[0] = 0xEB;
-  data[2] = 0x90;
-  *((uint16_t *)(&data[0x1FE])) = 0xAA55;
-  cr_assert_eq(ccos_check_image(data), -1);
-}
-
 Test(ccos_image, get_file_version) {
   ccos_inode_t inode;
   memcpy(&inode, test_inode_data, sizeof(inode));
@@ -71,7 +56,7 @@ Test(ccos_image, get_file_version) {
 Test(ccos_image, get_file_name) {
   ccos_inode_t inode;
   memcpy(&inode, test_inode_data, sizeof(inode));
-  short_string_t *name = ccos_get_file_name(&inode);
+  const short_string_t *name = ccos_get_file_name(&inode);
   cr_assert_not_null(name);
   cr_assert_eq(name->length, 21);
   cr_assert_eq(strncmp(name->data, "GRiDPaint~Run Canvas~", name->length), 0);

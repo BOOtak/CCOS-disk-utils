@@ -13,10 +13,6 @@ typedef enum { CONTENT_END_MARKER, BLOCK_END_MARKER, END_OF_BLOCK } read_block_s
 
 int (*trace)(FILE* stream, const char* format, ...) = NULL;
 
-uint16_t ccos_file_id(const ccos_inode_t* inode) {
-  return inode->header.file_id;
-}
-
 ccos_version_t ccos_get_file_version(const ccos_inode_t* file) {
   uint8_t major = file->desc.version_major;
   uint8_t minor = file->desc.version_minor;
@@ -29,24 +25,8 @@ int ccos_set_file_version(ccos_disk_t* disk, ccos_inode_t* file, ccos_version_t 
   return 0;
 }
 
-short_string_t* ccos_get_file_name(const ccos_inode_t* file) {
-  return (short_string_t*)&file->desc.name_length;
-}
-
-uint32_t ccos_get_file_size(const ccos_inode_t* file) {
-  return file->desc.file_size;
-}
-
-ccos_date_t ccos_get_creation_date(const ccos_inode_t* file) {
-  return file->desc.creation_date;
-}
-
-ccos_date_t ccos_get_mod_date(const ccos_inode_t* file) {
-  return file->desc.mod_date;
-}
-
-ccos_date_t ccos_get_exp_date(const ccos_inode_t* file) {
-  return file->desc.expiration_date;
+const short_string_t* ccos_get_file_name(const ccos_inode_t* file) {
+  return (const short_string_t*)&file->desc.name_length;
 }
 
 int ccos_set_creation_date(ccos_disk_t* disk, ccos_inode_t* file, ccos_date_t new_date) {
@@ -123,7 +103,7 @@ int ccos_is_dir(const ccos_inode_t* file) {
 }
 
 int ccos_replace_file(ccos_disk_t* disk, ccos_inode_t* file, const uint8_t* file_data, uint32_t file_size) {
-  uint32_t inode_file_size = ccos_get_file_size(file);
+  uint32_t inode_file_size = file->desc.file_size;
   if (inode_file_size != file_size) {
     fprintf(stderr,
             "Unable to write file: File size mismatch!\n"
