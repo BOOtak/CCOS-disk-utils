@@ -851,6 +851,13 @@ int delete_file_from_parent_dir(ccos_disk_t* disk, ccos_inode_t* file) {
     return 0;
 }
 
+void rename_file_unchecked(ccos_disk_t* disk, ccos_inode_t* file, const char* new_name) {
+  memset(file->desc.name, 0, CCOS_MAX_FILE_NAME);
+  snprintf(file->desc.name, CCOS_MAX_FILE_NAME, "%s", new_name);
+  file->desc.name_length = strlen(file->desc.name);
+  update_inode_checksums(disk, file);
+}
+
 int find_file_index_in_directory_data(ccos_inode_t* file, ccos_inode_t* directory,
                                       parsed_directory_element_t* elements) {
   char basename[CCOS_MAX_FILE_NAME] = {0};

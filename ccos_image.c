@@ -664,10 +664,7 @@ int ccos_rename_file(ccos_disk_t* disk, ccos_inode_t* file, const char* new_name
       return -1;
     }
   } else {
-    memset(file->desc.name, 0, CCOS_MAX_FILE_NAME);
-    snprintf(file->desc.name, CCOS_MAX_FILE_NAME, "%s", new_name);
-    file->desc.name_length = strlen(file->desc.name);
-    update_inode_checksums(disk, file);
+    rename_file_unchecked(disk, file, new_name);
   }
 
   return 0;

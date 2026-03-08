@@ -286,6 +286,15 @@ int add_file_entry_to_dir_contents(ccos_disk_t* disk, ccos_inode_t* directory, c
 int delete_file_from_parent_dir(ccos_disk_t* disk, ccos_inode_t* file);
 
 /**
+ * @brief      Rename file inode without directory changes.
+ *
+ * @param[in]  disk      Compass disk image.
+ * @param      file      The file inode.
+ * @param[in]  new_name  New file name.
+ */
+void rename_file_unchecked(ccos_disk_t* disk, ccos_inode_t* file, const char* new_name);
+
+/**
  * @brief      Perse CCOS file name and return it's basename and it's type.
  *
  * @param[in]  file_name    The file name.
