@@ -75,6 +75,24 @@ void update_inode_checksums(ccos_disk_t* disk, ccos_inode_t* inode) {
   inode->content_inode_info.blocks_checksum = calc_inode_blocks_checksum(disk, inode);
 }
 
+int is_valid_inode_checksum(ccos_disk_t* disk, const ccos_inode_t* file) {
+  uint16_t metadata_checksum = calc_inode_metadata_checksum(file);
+  if (metadata_checksum != file->desc.metadata_checksum) {
+    fprintf(stderr, "Warn: Invalid metadata checksum: expected 0x%hx, got 0x%hx\n",
+            file->desc.metadata_checksum, metadata_checksum);
+    return 0;
+  }
+
+  uint16_t blocks_checksum = calc_inode_blocks_checksum(disk, file);
+  if (blocks_checksum != file->content_inode_info.blocks_checksum) {
+    fprintf(stderr, "Warn: Invalid block data checksum: expected 0x%hx, got 0x%hx!\n",
+            file->content_inode_info.blocks_checksum, blocks_checksum);
+    return 0;
+  }
+
+  return 1;
+}
+
 void update_content_inode_checksums(ccos_disk_t* disk, ccos_content_inode_t* content_inode) {
   content_inode->content_inode_info.blocks_checksum = calc_content_inode_checksum(disk, content_inode);
 }

@@ -82,6 +82,16 @@ uint16_t calc_bitmask_checksum(ccos_disk_t* disk, const ccos_bitmask_t* bitmask)
 void update_inode_checksums(ccos_disk_t* disk, ccos_inode_t* inode);
 
 /**
+ * @brief      Check that inode metadata and blocks checksums are valid.
+ *
+ * @param[in]  disk  Compass disk image.
+ * @param[in]  file  The inode.
+ *
+ * @return     1 if both checksums are valid, 0 otherwise.
+ */
+int is_valid_inode_checksum(ccos_disk_t* disk, const ccos_inode_t* file);
+
+/**
  * @brief      Recalculate checksum of the content inode.
  *
  * @param[in]  disk           Compass disk image.

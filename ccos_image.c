@@ -555,17 +555,7 @@ ccos_inode_t* ccos_get_root_dir(ccos_disk_t* disk) {
 }
 
 int ccos_validate_file(ccos_disk_t* disk, const ccos_inode_t* file) {
-  uint16_t metadata_checksum = calc_inode_metadata_checksum(file);
-  if (metadata_checksum != file->desc.metadata_checksum) {
-    fprintf(stderr, "Warn: Invalid metadata checksum: expected 0x%hx, got 0x%hx\n",
-            file->desc.metadata_checksum, metadata_checksum);
-    return -1;
-  }
-
-  uint16_t blocks_checksum = calc_inode_blocks_checksum(disk, file);
-  if (blocks_checksum != file->content_inode_info.blocks_checksum) {
-    fprintf(stderr, "Warn: Invalid block data checksum: expected 0x%hx, got 0x%hx!\n",
-            file->content_inode_info.blocks_checksum, blocks_checksum);
+  if (!is_valid_inode_checksum(disk, file)) {
     return -1;
   }
 
