@@ -82,7 +82,7 @@ void update_bitmask_checksum(ccos_disk_t* disk, ccos_bitmask_t* bitmask) {
   bitmask->checksum = calc_bitmask_checksum(disk, bitmask);
 }
 
-ccos_inode_t* get_inode(ccos_disk_t* disk, uint16_t block) {
+void* get_sector(ccos_disk_t* disk, uint16_t block) {
   size_t block_size = get_block_size(disk);
 
   size_t addr = (size_t)block * block_size;
@@ -90,43 +90,15 @@ ccos_inode_t* get_inode(ccos_disk_t* disk, uint16_t block) {
     return NULL;
   }
 
-  return (ccos_inode_t*)&disk->data[addr];
+  return (void*)&disk->data[addr];
+}
+
+ccos_inode_t* get_inode(ccos_disk_t* disk, uint16_t block) {
+  return get_sector(disk, block);
 }
 
 ccos_content_inode_t* get_content_inode(ccos_disk_t* disk, uint16_t block) {
-  size_t block_size = get_block_size(disk);
-
-  size_t addr = (size_t)block * block_size;
-  if (addr >= disk->size) {
-    return NULL;
-  }
-
-  return (ccos_content_inode_t*)&disk->data[addr];
-}
-
-int get_superblock(ccos_disk_t* disk, uint16_t* superblock) {
-  uint16_t sb = *(uint16_t*)&disk->data[CCOS_SUPERBLOCK_ADDR_OFFSET];
-  if (sb == 0) sb = disk->superblock_fid;
-
-  size_t block_size = get_block_size(disk);
-  uint32_t blocks_in_image = disk->size / block_size;
-
-  if (sb > blocks_in_image) {
-    fprintf(stderr, "Invalid superblock! (Superblock: 0x%x, but only 0x%x blocks in the image).\n",
-            sb, blocks_in_image);
-    return -1;
-  }
-
-  uint32_t block_addr = sb * block_size;
-  uint16_t block_header = *(uint16_t*)&disk->data[block_addr];
-  if (block_header != sb) {
-    fprintf(stderr, "Invalid image: Block header 0x%x mismatches superblock 0x%x!\n", block_header, sb);
-    return -1;
-  }
-
-  *superblock = sb;
-  TRACE("superblock: 0x%x", *superblock);
-  return 0;
+  return get_sector(disk, block);
 }
 
 int get_file_blocks(ccos_disk_t* disk, ccos_inode_t* file, size_t* blocks_count, uint16_t** blocks) {
@@ -212,29 +184,17 @@ int get_file_blocks(ccos_disk_t* disk, ccos_inode_t* file, size_t* blocks_count,
 }
 
 static ccos_bitmask_t* get_bitmask(ccos_disk_t* disk) {
-  size_t block_size = get_block_size(disk);
-
-  uint16_t bitmask_block = *((uint16_t*)&disk->data[CCOS_BITMASK_ADDR_OFFSET]);
-  // FIXME: always use values from disk->bitmap_block_id.
-  if (bitmask_block == 0 || bitmask_block == 0x5555) bitmask_block = disk->bitmap_fid;
-
-  uint32_t blocks_in_image = disk->size / block_size;
-  if (bitmask_block > blocks_in_image) {
-    fprintf(stderr, "Invalid bitmask block! (Bitmask: 0x%x, but only 0x%x blocks in the image).\n", bitmask_block,
-            blocks_in_image);
+  ccos_bitmask_t* bitmask = get_sector(disk, disk->bitmap_fid);
+  if (bitmask == NULL) {
     return NULL;
   }
 
-  uint32_t addr = bitmask_block * block_size;
-  uint16_t block_header = *(uint16_t*)&disk->data[addr];
-  if (block_header != bitmask_block) {
-    fprintf(stderr, "Invalid image: Block header 0x%x mismatches bitmask 0x%x!\n", block_header, bitmask_block);
+  if (bitmask->header.file_id != disk->bitmap_fid) {
+    // TODO: return error.
     return NULL;
   }
 
-  TRACE("Bitmask: 0x%x", bitmask_block);
-  uint32_t address = bitmask_block * block_size;
-  return (ccos_bitmask_t*)&disk->data[address];
+  return bitmask;
 }
 
 ccos_bitmask_list_t find_bitmask_blocks(ccos_disk_t* disk) {

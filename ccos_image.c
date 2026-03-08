@@ -550,7 +550,17 @@ ccos_inode_t* ccos_add_file(ccos_disk_t* disk, ccos_inode_t* dest_directory,
 }
 
 ccos_inode_t* ccos_get_root_dir(ccos_disk_t* disk) {
-  return get_inode(disk, disk->superblock_fid);
+  ccos_inode_t* root = get_sector(disk, disk->superblock_fid);
+  if (root == NULL) {
+    return NULL;
+  }
+
+  if (root->header.file_id != disk->superblock_fid) {
+    // TODO: return error.
+    return NULL;
+  }
+
+  return root;
 }
 
 int ccos_validate_file(ccos_disk_t* disk, const ccos_inode_t* file) {
@@ -578,12 +588,6 @@ int ccos_validate_file(ccos_disk_t* disk, const ccos_inode_t* file) {
 }
 
 size_t ccos_calc_free_space(ccos_disk_t* disk) {
-  uint16_t superblock = 0;
-  if (get_superblock(disk, &superblock) == -1) {
-    fprintf(stderr, "Unable to calculate free space: Unable to get superblock!\n");
-    return -1;
-  }
-
   uint16_t* free_blocks = NULL;
   size_t free_blocks_count = 0;
 

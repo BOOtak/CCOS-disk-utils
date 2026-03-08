@@ -12,11 +12,9 @@ extern "C" {
 #define DEFAULT_SUPERBLOCK           0x121
 #define DEFAULT_HDD_SUPERBLOCK       0x2420
 #define DEFAULT_BUBBLE_SUPERBLOCK    0x3fe
-#define CCOS_SUPERBLOCK_ADDR_OFFSET  0x20
 
 #define DEFAULT_BITMASK_BLOCK_ID         (DEFAULT_SUPERBLOCK - 1)
 #define DEFAULT_BUBBLE_BITMASK_BLOCK_ID  (DEFAULT_BUBBLE_SUPERBLOCK - 1)
-#define CCOS_BITMASK_ADDR_OFFSET         0x1E
 
 typedef struct {
   uint16_t offset;
@@ -100,15 +98,14 @@ void update_content_inode_checksums(ccos_disk_t* disk, ccos_content_inode_t* con
 void update_bitmask_checksum(ccos_disk_t* disk, ccos_bitmask_t* bitmask);
 
 /**
- * @brief      Find a superblock (i.e. the inode with the root directory description) in a CCOS filesystem image.
+ * @brief      Get pointer to the given disk block.
  *
- * @param[in]  disk        Compass disk image.
- * @param      superblock  The superblock to return.
+ * @param[in]  disk   Compass disk image.
+ * @param[in]  block  The block number.
  *
- * @return     0 on success, with superblock numper passed out to the superblock parameter, -1 on error (i.e. in case of
- * invalid image format).
+ * @return     Pointer to block or NULL if block is out of disk bounds.
  */
-int get_superblock(ccos_disk_t* disk, uint16_t* superblock);
+void* get_sector(ccos_disk_t* disk, uint16_t block);
 
 /**
  * @brief      Get the CCOS filesystem inode at the given block.
