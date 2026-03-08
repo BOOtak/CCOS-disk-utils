@@ -62,7 +62,7 @@ Test(ccos_image, check_image) {
 Test(ccos_image, get_file_version) {
   ccos_inode_t inode;
   memcpy(&inode, test_inode_data, sizeof(inode));
-  version_t version = ccos_get_file_version(&inode);
+  ccos_version_t version = ccos_get_file_version(&inode);
   cr_assert_eq(version.major, 3);
   cr_assert_eq(version.minor, 1);
   cr_assert_eq(version.patch, 5);

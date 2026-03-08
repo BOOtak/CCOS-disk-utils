@@ -16,6 +16,12 @@ typedef struct {
   uint8_t* data;
 } ccos_disk_t;
 
+typedef struct {
+  uint8_t major;
+  uint8_t minor;
+  uint8_t patch;
+} ccos_version_t;
+
 #ifdef __cplusplus
 }
 #endif

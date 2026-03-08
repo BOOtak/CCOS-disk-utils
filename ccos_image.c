@@ -48,24 +48,15 @@ uint16_t ccos_file_id(const ccos_inode_t* inode) {
   return inode->header.file_id;
 }
 
-version_t ccos_get_file_version(const ccos_inode_t* file) {
+ccos_version_t ccos_get_file_version(const ccos_inode_t* file) {
   uint8_t major = file->desc.version_major;
   uint8_t minor = file->desc.version_minor;
   uint8_t patch = file->desc.version_patch;
-  version_t version = {major, minor, patch};
-  return version;
+  return (ccos_version_t){ major, minor, patch };
 }
 
-int ccos_set_file_version(ccos_disk_t* disk, ccos_inode_t* file, version_t new_version) {
-  if (is_root_dir(file)) {
-    return -1;
-  }
-
-  file->desc.version_major = new_version.major;
-  file->desc.version_minor = new_version.minor;
-  file->desc.version_patch = new_version.patch;
-  update_inode_checksums(disk, file);
-
+int ccos_set_file_version(ccos_disk_t* disk, ccos_inode_t* file, ccos_version_t new_version) {
+  change_version(disk, file, new_version);
   return 0;
 }
 

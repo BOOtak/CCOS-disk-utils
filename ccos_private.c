@@ -1,7 +1,3 @@
-//
-// Created by kirill on 21.05.2020.
-//
-
 #include "ccos_private.h"
 #include "ccos_structure.h"
 #include "ccos_image.h"
@@ -13,6 +9,11 @@
 #include <string.h>
 
 #define CCOS_CONTENT_BLOCKS_END_MARKER 0xFFFF
+
+
+/* -------------------------------------------------------------------------- */
+/*                                  CHECKSUM                                  */
+/* -------------------------------------------------------------------------- */
 
 uint16_t calc_checksum(const uint8_t* data, uint16_t data_size) {
   uint16_t ret = 0;
@@ -81,6 +82,11 @@ void update_content_inode_checksums(ccos_disk_t* disk, ccos_content_inode_t* con
 void update_bitmask_checksum(ccos_disk_t* disk, ccos_bitmask_t* bitmask) {
   bitmask->checksum = calc_bitmask_checksum(disk, bitmask);
 }
+
+
+/* -------------------------------------------------------------------------- */
+/*                               SECTOR READERS                               */
+/* -------------------------------------------------------------------------- */
 
 void* get_sector(ccos_disk_t* disk, uint16_t block) {
   size_t block_size = get_block_size(disk);
@@ -183,6 +189,11 @@ int get_file_blocks(ccos_disk_t* disk, ccos_inode_t* file, size_t* blocks_count,
   return 0;
 }
 
+
+/* -------------------------------------------------------------------------- */
+/*                             BITMASK OPERATIONS                             */
+/* -------------------------------------------------------------------------- */
+
 static ccos_bitmask_t* get_bitmask(ccos_disk_t* disk) {
   ccos_bitmask_t* bitmask = get_sector(disk, disk->bitmap_fid);
   if (bitmask == NULL) {
@@ -230,7 +241,6 @@ ccos_bitmask_list_t find_bitmask_blocks(ccos_disk_t* disk) {
   return result;
 }
 
-// TODO: move to the separate file
 uint16_t get_free_block(ccos_disk_t* disk, const ccos_bitmask_list_t* bitmask_list) {
   size_t bitmask_size = get_bitmask_size(disk);
   for (size_t block = 0; block < bitmask_list->length; block++) {
@@ -284,6 +294,11 @@ void mark_block(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list, uint16_t b
     update_bitmask_checksum(disk, bitmask_list->bitmask_blocks[i]);
   }
 }
+
+
+/* -------------------------------------------------------------------------- */
+/*                           LOW LEVEL FS OPERATIONS                          */
+/* -------------------------------------------------------------------------- */
 
 ccos_inode_t* init_inode(ccos_disk_t* disk, uint16_t block, uint16_t parent_dir_block) {
   TRACE("Initializing inode at 0x%x!", block);
@@ -982,4 +997,11 @@ int change_date(ccos_disk_t* disk, ccos_inode_t* file, ccos_date_t new_date, dat
   }
   update_inode_checksums(disk, file);
   return 0;
+}
+
+void change_version(ccos_disk_t* disk, ccos_inode_t* file, ccos_version_t version) {
+  file->desc.version_major = version.major;
+  file->desc.version_minor = version.minor;
+  file->desc.version_patch = version.patch;
+  update_inode_checksums(disk, file);
 }

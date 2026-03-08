@@ -363,6 +363,15 @@ int is_root_dir(const ccos_inode_t* file);
  */
 int change_date(ccos_disk_t* disk, ccos_inode_t* file, ccos_date_t new_date, date_type_t type);
 
+/**
+ * @brief      Changes the version of a file or folder.
+ *
+ * @param[in]  disk     Compass disk image.
+ * @param[in]  file     The file.
+ * @param[in]  version  The new version to set.
+ */
+void change_version(ccos_disk_t* disk, ccos_inode_t* file, ccos_version_t version);
+
 #ifdef __cplusplus
 }
 #endif

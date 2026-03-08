@@ -136,7 +136,7 @@ static traverse_callback_result_t print_file_info(
 
   snprintf(formatted_name, formatted_name_length + 1, "%*s", (int)formatted_name_length, basename);
 
-  version_t version = ccos_get_file_version(file);
+  ccos_version_t version = ccos_get_file_version(file);
   char version_string[12];
   snprintf(version_string, sizeof(version_string), "%u.%u.%u", version.major, version.minor, version.patch);
 

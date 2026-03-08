@@ -10,12 +10,6 @@ extern "C" {
 
 #include <stdio.h>
 
-typedef struct {
-  uint8_t major;
-  uint8_t minor;
-  uint8_t patch;
-} version_t;
-
 typedef enum { UNKNOWN, DATA, EMPTY } block_type_t;
 
 #if defined(WIN32)
@@ -60,7 +54,7 @@ uint16_t ccos_file_id(const ccos_inode_t* inode);
  *
  * @return     The version of the file.
  */
-version_t ccos_get_file_version(const ccos_inode_t* file);
+ccos_version_t ccos_get_file_version(const ccos_inode_t* file);
 
 /**
  * @brief      Set the file version.
@@ -71,7 +65,7 @@ version_t ccos_get_file_version(const ccos_inode_t* file);
  *
  * @return     0 on success, -1 otherwise.
  */
-int ccos_set_file_version(ccos_disk_t* disk, ccos_inode_t* file, version_t new_version);
+int ccos_set_file_version(ccos_disk_t* disk, ccos_inode_t* file, ccos_version_t new_version);
 
 /**
  * @brief      Get the name of the file.
