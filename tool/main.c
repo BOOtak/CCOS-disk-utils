@@ -1,4 +1,5 @@
 #include <getopt.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,36 @@
 
 #define DEFAULT_SECTOR_SIZE   512
 
+#define FAT_MBR_END_OF_SECTOR_MARKER 0xAA55
+#define OPCODE_NOP 0x90
+#define OPCODE_JMP 0xEB
+
+static int is_fat_image(const uint8_t* data) {
+  return data[0] == OPCODE_JMP && data[2] == OPCODE_NOP &&
+         *(uint16_t*)&data[0x1FE] == FAT_MBR_END_OF_SECTOR_MARKER;
+}
+
+static int is_imd_image(const uint8_t* data) {
+  return data[0] == 'I' && data[1] == 'M' && data[2] == 'D' && data[3] == ' ';
+}
+
+static int ccos_check_image(const uint8_t* file_data) {
+  if (is_fat_image(file_data)) {
+    fprintf(stderr, "FAT image is found; return.\n");
+    return -1;
+  }
+
+  if (is_imd_image(file_data)) {
+    fprintf(stderr,
+            "Provided image is in ImageDisk format, please convert it into the raw disk\n"
+            "image (.img) before using.\n"
+            "\n"
+            "(You can use Disk-Utilities from here: https://github.com/keirf/Disk-Utilities)\n");
+    return -1;
+  }
+
+  return 0;
+}
 
 typedef enum {
   MODE_DUMP = 1,

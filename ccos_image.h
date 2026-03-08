@@ -30,15 +30,6 @@ typedef enum { UNKNOWN, DATA, EMPTY } block_type_t;
 extern int (*trace)(FILE* stream, const char* format, ...);
 
 /**
- * @brief      Checking image for validity.
- *
- * @param[in]  file_data  The file.
- *
- * @return     0 if valid, -1 otherwise.
- */
-int ccos_check_image(const uint8_t* file_data);
-
-/**
  * @brief      Get the file ID.
  *
  * @param[in]  inode  The file.
