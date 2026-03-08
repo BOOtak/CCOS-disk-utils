@@ -506,20 +506,7 @@ ccos_inode_t* ccos_add_file(ccos_disk_t* disk, ccos_inode_t* dest_directory,
   new_file->desc.name_length = strlen(file_name);
   strncpy(new_file->desc.name, file_name, strlen(file_name));
 
-  time_t posix_time;
-  time(&posix_time);
-  struct tm* time_struct;
-  time_struct = localtime(&posix_time);
-
-  new_file->desc.creation_date = (ccos_date_t){time_struct->tm_year + 1900,
-                                          time_struct->tm_mon + 1,
-                                          time_struct->tm_mday,
-                                          time_struct->tm_hour,
-                                          time_struct->tm_min,
-                                          time_struct->tm_sec,
-                                          0,
-                                          time_struct->tm_wday,
-                                          time_struct->tm_yday};
+  new_file->desc.creation_date = ccos_get_datetime();
   new_file->desc.mod_date = new_file->desc.creation_date;
   new_file->desc.expiration_date = (ccos_date_t){};
 

@@ -108,24 +108,6 @@ static ccos_bitmask_list_t init_bitmask(ccos_disk_t* disk, bitmask_info_t info) 
   return bitmask_list;
 }
 
-static ccos_date_t get_current_date() {
-  struct timespec tp;
-  clock_gettime(CLOCK_REALTIME, &tp);
-  struct tm* time_struct;
-  time_struct = localtime(&tp.tv_sec);
-
-  return (ccos_date_t) {
-    .year = time_struct->tm_year + 1900,
-    .month = time_struct->tm_mon + 1,
-    .day = time_struct->tm_mday,
-    .hour = time_struct->tm_hour,
-    .minute =  time_struct->tm_min,
-    .second = time_struct->tm_sec,
-    .tenthOfSec = tp.tv_nsec / 100000000,
-    .dayOfWeek = time_struct->tm_wday + 1,
-    .dayOfYear = time_struct->tm_yday + 1};      
-}
-
 static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list) {
   uint16_t id = disk->superblock_fid;
 
@@ -141,7 +123,7 @@ static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_lis
   root_dir->desc.name_length = 0;
   memset(root_dir->desc.name, ' ', sizeof(root_dir->desc.name));
 
-  root_dir->desc.creation_date = get_current_date();
+  root_dir->desc.creation_date = ccos_get_datetime();
   root_dir->desc.mod_date = root_dir->desc.creation_date;
   root_dir->desc.expiration_date = (ccos_date_t) {};
 

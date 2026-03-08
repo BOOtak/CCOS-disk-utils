@@ -176,6 +176,13 @@ int ccos_set_mod_date(ccos_disk_t* disk, ccos_inode_t* file, ccos_date_t new_dat
 int ccos_set_exp_date(ccos_disk_t* disk, ccos_inode_t* file, ccos_date_t new_date);
 
 /**
+ * @brief      Get current date/time in CCOS format.
+ *
+ * @return     Current date/time. Implementation is provided by library user.
+ */
+ccos_date_t ccos_get_datetime(void);
+
+/**
  * @brief      Replace file in the CCOS image data.
  *
  * @param[in]  disk       Compass disk image.

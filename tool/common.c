@@ -5,6 +5,26 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <time.h>
+
+ccos_date_t ccos_get_datetime(void) {
+  struct timespec tp;
+  clock_gettime(CLOCK_REALTIME, &tp);
+  struct tm* time_struct;
+  time_struct = localtime(&tp.tv_sec);
+
+  return (ccos_date_t){
+    .year = time_struct->tm_year + 1900,
+    .month = time_struct->tm_mon + 1,
+    .day = time_struct->tm_mday,
+    .hour = time_struct->tm_hour,
+    .minute = time_struct->tm_min,
+    .second = time_struct->tm_sec,
+    .tenthOfSec = tp.tv_nsec / 100000000,
+    .dayOfWeek = time_struct->tm_wday + 1,
+    .dayOfYear = time_struct->tm_yday + 1,
+  };
+}
 
 int trace_silent(UNUSED FILE* stream, UNUSED const char* format, ...) {
   return 0;
