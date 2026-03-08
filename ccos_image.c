@@ -550,14 +550,7 @@ ccos_inode_t* ccos_add_file(ccos_disk_t* disk, ccos_inode_t* dest_directory,
 }
 
 ccos_inode_t* ccos_get_root_dir(ccos_disk_t* disk) {
-  uint16_t superblock = 0;
-
-  if (get_superblock(disk, &superblock) == -1) {
-    fprintf(stderr, "Unable to get root directory: unable to get superblock!\n");
-    return NULL;
-  }
-
-  return get_inode(disk, superblock);
+  return get_inode(disk, disk->superblock_fid);
 }
 
 int ccos_validate_file(ccos_disk_t* disk, const ccos_inode_t* file) {
