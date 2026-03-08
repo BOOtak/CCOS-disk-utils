@@ -84,7 +84,12 @@ void update_bitmask_checksum(ccos_disk_t* disk, ccos_bitmask_t* bitmask) {
 
 ccos_inode_t* get_inode(ccos_disk_t* disk, uint16_t block) {
   size_t block_size = get_block_size(disk);
-  uint32_t addr = block * block_size;
+
+  size_t addr = (size_t)block * block_size;
+  if (addr >= disk->size) {
+    return NULL;
+  }
+
   return (ccos_inode_t*)&disk->data[addr];
 }
 
