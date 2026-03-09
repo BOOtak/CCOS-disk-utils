@@ -281,23 +281,23 @@ ccos_inode_t* ccos_create_dir(ccos_disk_t* disk, ccos_inode_t* parent_dir, const
 ccos_error_t ccos_rename_file(ccos_disk_t* disk, ccos_inode_t* file, const char* new_name, const char* new_type);
 
 /**
- * @brief      Get label of provided image and return it.
+ * @brief      Get disk label as the root directory name.
  *
  * @param[in]  disk  Compass disk image.
  *
- * @return     Image label in char*
+ * @return     Pointer to the root inode's name.
  */
-char* ccos_get_image_label(ccos_disk_t* disk);
+const short_string_t* ccos_get_disk_label(ccos_disk_t* disk);
 
 /**
- * @brief      Set label of provided image.
+ * @brief      Set disk label by renaming the root directory.
  *
  * @param[in]  disk   Compass disk image.
- * @param[in]  label  The new label.
+ * @param[in]  label  New label. Length must not exceed CCOS_MAX_FILE_NAME.
  *
  * @return     CCOS_OK on success, error code otherwise.
  */
-ccos_error_t ccos_set_image_label(ccos_disk_t* disk, const char* label);
+ccos_error_t ccos_set_disk_label(ccos_disk_t* disk, const char* label);
 
 #ifdef __cplusplus
 }

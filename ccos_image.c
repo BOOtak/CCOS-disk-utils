@@ -142,26 +142,25 @@ ccos_error_t ccos_replace_file(ccos_disk_t* disk, ccos_inode_t* file, const uint
   return CCOS_OK;
 }
 
-char* ccos_get_image_label(ccos_disk_t* disk) {
+const short_string_t* ccos_get_disk_label(ccos_disk_t* disk) {
   ccos_inode_t* root = ccos_get_root_dir(disk);
-  char* label = short_string_to_string((short_string_t*)&(root->desc.name_length));
-  if (strcmp(label, "")) {
-    int sz = strlen(label);
-    memmove(label, label + 1, sz - 1);
-    label[sz - 1] = 0;
-  }
-  return label;
+  return (const short_string_t*)&root->desc.name_length;
 }
 
-ccos_error_t ccos_set_image_label(ccos_disk_t* disk, const char* label) {
-  char newlab[strlen(label) + 1];
-  ccos_inode_t* root = ccos_get_root_dir(disk);
-  if (strcmp(label, "")) {
-    sprintf(newlab, " %s", label);
-    return ccos_rename_file(disk, root, newlab, NULL);
-  } else {
-    return ccos_rename_file(disk, root, "", NULL);
+ccos_error_t ccos_set_disk_label(ccos_disk_t* disk, const char* label) {
+  size_t len = strlen(label);
+  if (len > CCOS_MAX_FILE_NAME) {
+    return CCOS_EINVAL;
   }
+
+  ccos_inode_t* root = ccos_get_root_dir(disk);
+  if (root == NULL) {
+    return CCOS_ENOENT;
+  }
+
+  rename_file_unchecked(disk, root, label);
+
+  return CCOS_OK;
 }
 
 ccos_error_t ccos_get_image_map(ccos_disk_t* disk, block_type_t** image_map, size_t* free_blocks_count) {
