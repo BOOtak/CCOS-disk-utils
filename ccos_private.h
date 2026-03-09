@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include "ccos_disk.h"
+#include "ccos_error.h"
 #include "ccos_structure.h"
 #include "ccos_string.h"
 
@@ -135,9 +136,9 @@ ccos_inode_t* get_inode(ccos_disk_t* disk, uint16_t block);
  * @param      blocks_count  The file content blocks count.
  * @param      blocks        The file content block numbers.
  *
- * @return     0 on success, -1 otherwise.
+ * @return     CCOS_OK on success, error code otherwise.
  */
-int get_file_blocks(ccos_disk_t* disk, ccos_inode_t* file, size_t* blocks_count, uint16_t** blocks);
+ccos_error_t get_file_blocks(ccos_disk_t* disk, ccos_inode_t* file, size_t* blocks_count, uint16_t** blocks);
 
 /**
  * @brief      Get all bitmask blocks from the image.
@@ -226,9 +227,9 @@ void erase_block(ccos_disk_t* disk, uint16_t block, ccos_bitmask_list_t* bitmask
  * @param      file          The file.
  * @param      bitmask_list  List of CCOS image bitmask blocks.
  *
- * @return     0 on success, -1 otherwise.
+ * @return     CCOS_OK on success, error code otherwise.
  */
-int remove_content_inode(ccos_disk_t* disk, ccos_inode_t* file, ccos_bitmask_list_t* bitmask_list);
+ccos_error_t remove_content_inode(ccos_disk_t* disk, ccos_inode_t* file, ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Removes last content block from the file.
@@ -237,9 +238,9 @@ int remove_content_inode(ccos_disk_t* disk, ccos_inode_t* file, ccos_bitmask_lis
  * @param      file          The file.
  * @param      bitmask_list  List of CCOS image bitmask blocks.
  *
- * @return     0 on success, -1 otherwise.
+ * @return     CCOS_OK on success, error code otherwise.
  */
-int remove_block_from_file(ccos_disk_t* disk, ccos_inode_t* file, ccos_bitmask_list_t* bitmask_list);
+ccos_error_t remove_block_from_file(ccos_disk_t* disk, ccos_inode_t* file, ccos_bitmask_list_t* bitmask_list);
 
 /**
  * @brief      Adds content block to the file.
@@ -259,9 +260,9 @@ uint16_t add_block_to_file(ccos_disk_t* disk, ccos_inode_t* file, ccos_bitmask_l
  * @param      directory  The directory to add file entry to.
  * @param      file       The file to add to the directory.
  *
- * @return     0 on success, -1 otherwise.
+ * @return     CCOS_OK on success, error code otherwise.
  */
-int add_file_to_directory(ccos_disk_t* disk, ccos_inode_t* directory, ccos_inode_t* file);
+ccos_error_t add_file_to_directory(ccos_disk_t* disk, ccos_inode_t* directory, ccos_inode_t* file);
 
 /**
  * @brief      Insert new directory entry into the directory, effectively making this directory a parent for the given
@@ -271,9 +272,9 @@ int add_file_to_directory(ccos_disk_t* disk, ccos_inode_t* directory, ccos_inode
  * @param      directory  The directory.
  * @param      file       The file.
  *
- * @return     0 on success, -1 otherwise.
+ * @return     CCOS_OK on success, error code otherwise.
  */
-int add_file_entry_to_dir_contents(ccos_disk_t* disk, ccos_inode_t* directory, ccos_inode_t* file);
+ccos_error_t add_file_entry_to_dir_contents(ccos_disk_t* disk, ccos_inode_t* directory, ccos_inode_t* file);
 
 /**
  * @brief      Delete file entry from the parent directory.
@@ -281,9 +282,9 @@ int add_file_entry_to_dir_contents(ccos_disk_t* disk, ccos_inode_t* directory, c
  * @param[in]  disk  Compass disk image.
  * @param      file  The file.
  *
- * @return     0 on success, -1 otherwise.
+ * @return     CCOS_OK on success, error code otherwise.
  */
-int delete_file_from_parent_dir(ccos_disk_t* disk, ccos_inode_t* file);
+ccos_error_t delete_file_from_parent_dir(ccos_disk_t* disk, ccos_inode_t* file);
 
 /**
  * @brief      Rename file inode without directory changes.
@@ -303,10 +304,10 @@ void rename_file_unchecked(ccos_disk_t* disk, ccos_inode_t* file, const char* ne
  * @param      name_length  Name length.
  * @param      type_length  File type length.
  *
- * @return     0 on success, -1 otherwise.
+ * @return     CCOS_OK on success, error code otherwise.
  */
-int parse_file_name(const short_string_t* file_name, char* basename, char* type, size_t* name_length,
-                    size_t* type_length);
+ccos_error_t parse_file_name(const short_string_t* file_name, char* basename, char* type, size_t* name_length,
+                             size_t* type_length);
 
 /**
  * @brief      Extract list of files stored in the directory by parsing directory raw contents.
@@ -317,11 +318,11 @@ int parse_file_name(const short_string_t* file_name, char* basename, char* type,
  * @param[in]  entry_count          Number of files in the directory.
  * @param      entries              Array of files located in the directory.
  *
- * @return     0 on success, -1 otherwise.
+ * @return     CCOS_OK on success, error code otherwise.
  */
-int parse_directory_data(ccos_disk_t* disk,
-                         const uint8_t* directory_data, size_t directory_data_size,
-                         uint16_t entry_count, parsed_directory_element_t** entries);
+ccos_error_t parse_directory_data(ccos_disk_t* disk,
+                                  const uint8_t* directory_data, size_t directory_data_size,
+                                  uint16_t entry_count, parsed_directory_element_t** entries);
 
 /**
  * @brief      Read raw data from the image at a given block. Notice it won't allocate any memory, just return a pointer
@@ -332,9 +333,9 @@ int parse_directory_data(ccos_disk_t* disk,
  * @param      start  Start address of the raw data.
  * @param      size   The size of a raw data.
  *
- * @return     0 on success, -1 otherwise.
+ * @return     CCOS_OK on success, error code otherwise.
  */
-int get_block_data(ccos_disk_t* disk, uint16_t block, const uint8_t** start, size_t* size);
+ccos_error_t get_block_data(ccos_disk_t* disk, uint16_t block, const uint8_t** start, size_t* size);
 
 /**
  * @brief      Return info about free blocks in a CCOS image.
@@ -344,10 +345,10 @@ int get_block_data(ccos_disk_t* disk, uint16_t block, const uint8_t** start, siz
  * @param      free_blocks_count  Pointer to free blocks count.
  * @param      free_blocks        Pointer to the free blocks array.
  *
- * @return     0 on success, -1 otherwise.
+ * @return     CCOS_OK on success, error code otherwise.
  */
-int get_free_blocks(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list,
-                    size_t* free_blocks_count, uint16_t** free_blocks) ;
+ccos_error_t get_free_blocks(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list,
+                             size_t* free_blocks_count, uint16_t** free_blocks);
 
 /**
  * @brief      Find the index of a file in the directory data.
@@ -378,9 +379,9 @@ int is_root_dir(const ccos_inode_t* file);
  * @param      new_date  The new date variable.
  * @param      type      Date type to replace (CREATED - creation, MODIF - modification, EXPIR - expiration).
  *
- * @return     0 on success, -1 otherwise.
+ * @return     CCOS_OK on success, error code otherwise.
  */
-int change_date(ccos_disk_t* disk, ccos_inode_t* file, ccos_date_t new_date, date_type_t type);
+ccos_error_t change_date(ccos_disk_t* disk, ccos_inode_t* file, ccos_date_t new_date, date_type_t type);
 
 /**
  * @brief      Changes the version of a file or folder.

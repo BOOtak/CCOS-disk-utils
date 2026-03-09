@@ -32,7 +32,7 @@ static int traverse_ccos_image(ccos_disk_t* disk, ccos_inode_t* dir, const char*
                                on_file_t on_file, on_dir_t on_dir, void* arg) {
   uint16_t files_count = 0;
   ccos_inode_t** dir_contents = NULL;
-  if (ccos_get_dir_contents(disk, dir, &files_count, &dir_contents) == -1) {
+  if (ccos_get_dir_contents(disk, dir, &files_count, &dir_contents) != CCOS_OK) {
     fprintf(stderr, "Unable to get root dir contents!\n");
     return -1;
   }
@@ -50,7 +50,7 @@ static int traverse_ccos_image(ccos_disk_t* disk, ccos_inode_t* dir, const char*
       TRACE("%d: directory", i + 1);
       char subdir_name[CCOS_MAX_FILE_NAME];
       memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
-      if (ccos_parse_file_name(dir_contents[i], subdir_name, NULL, NULL, NULL) == -1) {
+      if (ccos_parse_file_name(dir_contents[i], subdir_name, NULL, NULL, NULL) != CCOS_OK) {
         free(dir_contents);
         return -1;
       }
@@ -229,7 +229,7 @@ static traverse_callback_result_t dump_dir_tree_on_file(
 
   size_t file_size = 0;
   uint8_t* file_data = NULL;
-  if (ccos_read_file(disk, file, &file_data, &file_size) == -1) {
+  if (ccos_read_file(disk, file, &file_data, &file_size) != CCOS_OK) {
     fprintf(stderr, "Unable to dump file at 0x%x: Unable to get file contents!\n", file->header.file_id);
     if (file_data != NULL) {
       free(file_data);
@@ -269,7 +269,7 @@ static traverse_callback_result_t dump_dir_tree_on_dir(
 ) {
   char subdir_name[CCOS_MAX_FILE_NAME];
   memset(subdir_name, 0, CCOS_MAX_FILE_NAME);
-  if (ccos_parse_file_name(dir, subdir_name, NULL, NULL, NULL) == -1) {
+  if (ccos_parse_file_name(dir, subdir_name, NULL, NULL, NULL) != CCOS_OK) {
     fprintf(stderr, "Unable to dump directory at 0x%x: Unable to get directory name!\n", dir->header.file_id);
     return -1;
   }
@@ -497,7 +497,7 @@ static int find_filename(ccos_disk_t* disk, ccos_inode_t* root_dir, const char* 
                          int verbose) {
   find_file_data_t find_file_data = {.target_name = filename, .target_file = 0};
 
-  if (traverse_ccos_image(disk, root_dir, "", 0, find_file_on_file, find_file_on_file, &find_file_data) == -1) {
+  if (traverse_ccos_image(disk, root_dir, "", 0, find_file_on_file, find_file_on_file, &find_file_data) != 0) {
     fprintf(stderr, "Unable to find file in image: Unable to complete search!\n");
     return -1;
   }
@@ -557,7 +557,7 @@ int replace_file(ccos_disk_t* disk, const char* path, const char* filename, cons
     return -1;
   }
 
-  if (ccos_replace_file(disk, found_file, file_contents, file_size) == -1) {
+  if (ccos_replace_file(disk, found_file, file_contents, file_size) != CCOS_OK) {
     fprintf(stderr, "Unable to overwrite file %s in the image!\n", filename);
     free(file_contents);
     return -1;
@@ -744,7 +744,7 @@ int delete_file(ccos_disk_t* disk, const char* path, const char* filename, int i
     return -1;
   }
 
-  if (ccos_delete_file(disk, file) == -1) {
+  if (ccos_delete_file(disk, file) != CCOS_OK) {
     fprintf(stderr, "Unable to delete file %s!\n", filename);
     free(data);
     return -1;
@@ -808,7 +808,7 @@ int rename_file(ccos_disk_t* disk, char* path, char* file_name, char* new_name, 
     return -1;
   }
 
-  if (ccos_rename_file(disk, file, new_name, NULL) == -1) {
+  if (ccos_rename_file(disk, file, new_name, NULL) != CCOS_OK) {
     char* old_file_name = short_string_to_string(ccos_get_file_name(file));
     fprintf(stderr, "Unable to rename file %s to %s!\n", old_file_name, new_name);
     free(old_file_name);

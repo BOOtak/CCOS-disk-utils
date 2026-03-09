@@ -285,7 +285,9 @@ int main(int argc, char** argv) {
     case MODE_PRINT: {
       res = print_image_info(disk, path, short_format);
       if (res == 0) {
-        size_t free_bytes = ccos_calc_free_space(disk);
+        size_t free_bytes = 0;
+        // TODO: Handle error.
+        ccos_calc_free_space(disk, &free_bytes);
         printf("Free space: " SIZE_T " bytes.\n", free_bytes);
       }
       break;
