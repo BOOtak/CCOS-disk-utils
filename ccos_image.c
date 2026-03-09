@@ -163,38 +163,6 @@ ccos_error_t ccos_set_disk_label(ccos_disk_t* disk, const char* label) {
   return CCOS_OK;
 }
 
-ccos_error_t ccos_get_image_map(ccos_disk_t* disk, block_type_t** image_map, size_t* free_blocks_count) {
-  size_t block_size = get_block_size(disk);
-  size_t block_count = disk->size / block_size;
-  if (block_count * block_size != disk->size) {
-    fprintf(stderr, "Warn: image size (" SIZE_T " bytes) is not a multiple of a block size (" SIZE_T " bytes)\n",
-            disk->size, block_size);
-  }
-
-  *image_map = (block_type_t*)calloc(block_count, sizeof(block_type_t));
-  if (*image_map == NULL) {
-    fprintf(stderr, "Unable to allocate memory for " SIZE_T " blocks in block map: %s!\n",
-            block_count, strerror(errno));
-    return CCOS_ENOMEM;
-  }
-
-  *free_blocks_count = 0;
-  for (int i = 0; i < block_count; ++i) {
-    uint32_t block_header = *(uint32_t*)&disk->data[i * block_size];
-    block_type_t block_type = UNKNOWN;
-    if (block_header == CCOS_EMPTY_BLOCK_MARKER) {
-      *free_blocks_count = *free_blocks_count + 1;
-      block_type = EMPTY;
-    } else {
-      block_type = DATA;
-    }
-
-    (*image_map)[i] = block_type;
-  }
-
-  return CCOS_OK;
-}
-
 ccos_error_t ccos_read_file(ccos_disk_t* disk, ccos_inode_t* file, uint8_t** file_data, size_t* file_size) {
   size_t blocks_count = 0;
   uint16_t* blocks = NULL;

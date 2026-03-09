@@ -142,18 +142,6 @@ ccos_date_t ccos_get_datetime(void);
 ccos_error_t ccos_replace_file(ccos_disk_t* disk, ccos_inode_t* file, const uint8_t* file_data, uint32_t file_size);
 
 /**
- * @brief      Get info about blocks in the image. Traverse all blocks in the CCOS image and return array filled with
- * corresponding block types.
- *
- * @param[in]  disk               Compass disk image.
- * @param      image_map          Block types array.
- * @param      free_blocks_count  The free blocks count.
- *
- * @return     CCOS_OK on success, error code otherwise.
- */
-ccos_error_t ccos_get_image_map(ccos_disk_t* disk, block_type_t** image_map, size_t* free_blocks_count);
-
-/**
  * @brief      Read file contents into memory buffer.
  *
  * @param[in]  disk       Compass disk image.
