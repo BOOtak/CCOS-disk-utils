@@ -1,12 +1,15 @@
 #include "ccos_image.h"
 #include "ccos_error.h"
 #include "ccos_private.h"
+#include "ccos_string.h"
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
+#include <stdbool.h>
 
 #define CCOS_DIR_TYPE "subject"
 
@@ -45,42 +48,39 @@ ccos_error_t ccos_set_exp_date(ccos_disk_t* disk, ccos_inode_t* file, ccos_date_
 ccos_error_t ccos_get_dir_contents(ccos_disk_t* disk, ccos_inode_t* dir, uint16_t* entry_count, ccos_inode_t*** entries) {
   uint8_t* dir_contents = NULL;
   size_t dir_size = 0;
+
   ccos_error_t err = ccos_read_file(disk, dir, &dir_contents, &dir_size);
   if (err != CCOS_OK) {
-    fprintf(stderr, "Unable to get directory contents: Unable to read directory!\n");
-    if (dir_contents != NULL) {
-      free(dir_contents);
-    }
     return err;
   }
+
+  // TODO: Do we really need entry count here?
+  uint16_t dir_count = dir->desc.dir_count;
 
   parsed_directory_element_t* elements = NULL;
-  // TODO: Do we really need entry count here?
-  *entry_count = dir->desc.dir_count;
-  err = parse_directory_data(disk, dir_contents, dir_size, *entry_count, &elements);
-  free(dir_contents);
 
+  err = parse_directory_data(disk, dir_contents, dir_size, dir_count, &elements);
   if (err != CCOS_OK) {
-    fprintf(stderr, "Unable to get directory contents: Unable to parse directory data!\n");
-    if (elements != NULL) {
-      free(elements);
-    }
+    free(dir_contents);
     return err;
   }
 
-  *entries = (ccos_inode_t**)calloc(*entry_count, sizeof(ccos_inode_t*));
-  if (*entries == NULL) {
-    fprintf(stderr, "Unable to get directory contents: Unable to allocate memory for directory entries: %s!\n",
-            strerror(errno));
-    free(elements);
+  ccos_inode_t** dir_entries = calloc(dir_count, sizeof(ccos_inode_t*));
+  if (dir_entries == NULL) {
+    free(dir_contents);
     return CCOS_ENOMEM;
   }
 
-  for (int j = 0; j < *entry_count; ++j) {
-    (*entries)[j] = (elements)[j].file;
+  for (int j = 0; j < dir_count; ++j) {
+    dir_entries[j] = elements[j].file;
   }
 
+  *entries = dir_entries;
+  *entry_count = dir_count;
+
+  free(dir_contents);
   free(elements);
+
   return CCOS_OK;
 }
 
