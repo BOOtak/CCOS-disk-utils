@@ -13,8 +13,6 @@
 #include <string.h>
 #include <time.h>
 
-#define SECTOR(disk_ptr, id) ((void*)(disk_ptr)->data + (id) * (disk_ptr)->sector_size)
-
 typedef struct {
   uint16_t sector;
   uint16_t count;
@@ -81,7 +79,7 @@ static bitmask_info_t calculate_bitmask_info(uint16_t sector_size, size_t disk_s
 static ccos_bitmask_list_t init_bitmask(ccos_disk_t* disk, bitmask_info_t info) {
   // Initialize empty bitmask.
   for (size_t i = 0; i < info.count; i++) {
-    ccos_bitmask_t* bitmask = (ccos_bitmask_t*)SECTOR(disk, info.sector + i);
+    ccos_bitmask_t* bitmask = (ccos_bitmask_t*)ccos_disk_read(disk, info.sector + i);
 
     memset(bitmask, 0x00, disk->sector_size);
   
@@ -111,7 +109,7 @@ static ccos_bitmask_list_t init_bitmask(ccos_disk_t* disk, bitmask_info_t info) 
 static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list) {
   uint16_t id = disk->superblock_fid;
 
-  ccos_inode_t* root_dir = (ccos_inode_t*)SECTOR(disk, id);
+  ccos_inode_t* root_dir = (ccos_inode_t*)ccos_disk_read(disk, id);
 
   memset(root_dir, 0x00, disk->sector_size);
 
@@ -154,7 +152,7 @@ static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_lis
 
   update_inode_checksums(disk, root_dir);
 
-  ccos_block_header_t* superblock_entry = (ccos_block_header_t*)SECTOR(disk, superblock_entry_block);
+  ccos_block_header_t* superblock_entry = (ccos_block_header_t*)ccos_disk_read(disk, superblock_entry_block);
   memset(superblock_entry, 0x00, disk->sector_size);
   superblock_entry->file_id = id;
   superblock_entry->file_fragment_index = 0;
@@ -170,7 +168,7 @@ static void write_boot_code(ccos_disk_t* disk, disk_format_t format, ccos_bitmas
   size_t offset = sizeof(ccos_boot_sector_t) / disk->sector_size;
 
   for (size_t i = 0; i < pages; i++) {
-    memcpy(SECTOR(disk, offset + i), boot_code + i * disk->sector_size, disk->sector_size);
+    memcpy(ccos_disk_read(disk, offset + i), boot_code + i * disk->sector_size, disk->sector_size);
     mark_block(disk, bitmask_list, offset + i, 1);
   }
 }
@@ -190,7 +188,7 @@ static void write_boot_sector(ccos_disk_t* disk, disk_format_t format, ccos_bitm
 
   size_t pages = sizeof(ccos_boot_sector_t) / disk->sector_size;
   for (size_t i = 0; i < pages; i++) {
-    memcpy(SECTOR(disk, i), &boot_sector + i * disk->sector_size, disk->sector_size);
+    memcpy(ccos_disk_read(disk, i), &boot_sector + i * disk->sector_size, disk->sector_size);
     mark_block(disk, bitmask_list, i, 1);
   }
 }

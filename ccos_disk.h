@@ -22,6 +22,16 @@ typedef struct {
   uint8_t patch;
 } ccos_version_t;
 
+/**
+ * @brief  Returns a pointer to the start of the given sector.
+ * 
+ * @param  disk    Compass disk image.
+ * @param  sector  Sector number.
+ * 
+ * @return Pointer or NULL if sector is out of bounds.
+ */
+void* ccos_disk_read(ccos_disk_t* disk, uint16_t sector);
+
 #ifdef __cplusplus
 }
 #endif

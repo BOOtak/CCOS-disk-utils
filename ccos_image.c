@@ -1,4 +1,5 @@
 #include "ccos_image.h"
+#include "ccos_disk.h"
 #include "ccos_error.h"
 #include "ccos_private.h"
 #include "ccos_string.h"
@@ -459,7 +460,7 @@ ccos_inode_t* ccos_add_file(ccos_disk_t* disk, ccos_inode_t* dest_directory,
 }
 
 ccos_inode_t* ccos_get_root_dir(ccos_disk_t* disk) {
-  ccos_inode_t* root = get_sector(disk, disk->superblock_fid);
+  ccos_inode_t* root = ccos_disk_read(disk, disk->superblock_fid);
   if (root == NULL) {
     return NULL;
   }
@@ -513,7 +514,7 @@ ccos_error_t ccos_calc_free_space(ccos_disk_t* disk, size_t* free_space) {
 }
 
 ccos_inode_t* ccos_get_parent_dir(ccos_disk_t* disk, ccos_inode_t* file) {
-  return get_inode(disk, file->desc.dir_file_id);
+  return ccos_disk_read(disk, file->desc.dir_file_id);
 }
 
 ccos_error_t ccos_parse_file_name(const ccos_inode_t* inode, char* basename, char* type, size_t* name_length, size_t* type_length) {

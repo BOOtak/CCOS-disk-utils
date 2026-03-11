@@ -1,17 +1,11 @@
-//
-// Format tests
-//
-
 #include <criterion/criterion.h>
 
-#include <ccos_private.h>
-
-#include <criterion/internal/assert.h>
-#include <criterion/logging.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
+
 #include "ccos_disk.h"
 #include "ccos_format.h"
 
@@ -30,15 +24,15 @@ static void display_bad_sector(const uint8_t* actual, size_t sector_size) {
   }
 }
 
-static void compare_disk_with_ref(const ccos_disk_t* disk, const uint8_t* expected) {
-  const size_t sector_count = disk->size / disk->sector_size;
+static void compare_disk_with_ref(ccos_disk_t* disk, uint8_t* expected) {
+  const uint16_t sector_count = disk->size / disk->sector_size;
 
-  for (size_t i = 0; i < sector_count; i++) {
-    const uint8_t* actual_sector = disk->data + i * disk->sector_size;
+  for (uint16_t i = 0; i < sector_count; i++) {
+    const uint8_t* actual_sector = ccos_disk_read(disk, i);
     const uint8_t* expected_sector = expected + i * disk->sector_size;
   
     if (memcmp(actual_sector, expected_sector, disk->sector_size)) {
-      cr_log_error("Sector %zu mismatch", i);
+      cr_log_error("Sector %" PRIu16 " mismatch", i);
 
       cr_log_error("Actual sector:");
       display_bad_sector(actual_sector, disk->sector_size);

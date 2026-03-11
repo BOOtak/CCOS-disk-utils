@@ -11,6 +11,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 add_library(ccos_api STATIC
         ccos_disk.h
+        ccos_disk.c
         ccos_error.h
         ccos_error.c
         ccos_image.h

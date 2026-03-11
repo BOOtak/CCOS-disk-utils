@@ -109,26 +109,6 @@ void update_content_inode_checksums(ccos_disk_t* disk, ccos_content_inode_t* con
 void update_bitmask_checksum(ccos_disk_t* disk, ccos_bitmask_t* bitmask);
 
 /**
- * @brief      Get pointer to the given disk block.
- *
- * @param[in]  disk   Compass disk image.
- * @param[in]  block  The block number.
- *
- * @return     Pointer to block or NULL if block is out of disk bounds.
- */
-void* get_sector(ccos_disk_t* disk, uint16_t block);
-
-/**
- * @brief      Get the CCOS filesystem inode at the given block.
- *
- * @param[in]  disk   Compass disk image.
- * @param[in]  block  The block number of the inode.
- *
- * @return     Pointer to CCOS filesystem inode structure.
- */
-ccos_inode_t* get_inode(ccos_disk_t* disk, uint16_t block);
-
-/**
  * @brief      Parse an inode and return the list of the file content blocks.
  *
  * @param[in]  disk          Compass disk image.
@@ -190,16 +170,6 @@ ccos_inode_t* init_inode(ccos_disk_t* disk, uint16_t block, uint16_t parent_dir_
  * @return     New content inode on success, NULL otherwise.
  */
 ccos_content_inode_t* add_content_inode(ccos_disk_t* disk, ccos_inode_t* file, ccos_bitmask_list_t* bitmask_list);
-
-/**
- * @brief      Get content inode at the given block number.
- *
- * @param[in]  disk   Compass disk image.
- * @param[in]  block  Block number.
- *
- * @return     The content inode.
- */
-ccos_content_inode_t* get_content_inode(ccos_disk_t* disk, uint16_t block);
 
 /**
  * @brief      Gets the last content inode in the content inode list of the given file.
