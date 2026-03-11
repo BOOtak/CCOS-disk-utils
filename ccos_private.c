@@ -859,9 +859,13 @@ ccos_error_t delete_file_from_parent_dir(ccos_disk_t* disk, ccos_inode_t* file) 
 }
 
 void rename_file_unchecked(ccos_disk_t* disk, ccos_inode_t* file, const char* new_name) {
-  memset(file->desc.name, 0, CCOS_MAX_FILE_NAME);
-  snprintf(file->desc.name, CCOS_MAX_FILE_NAME, "%s", new_name);
-  file->desc.name_length = strlen(file->desc.name);
+  size_t len = strlen(new_name);
+
+  memset(file->desc.name, ' ', CCOS_MAX_FILE_NAME);
+  memcpy(file->desc.name, new_name, len);
+
+  file->desc.name_length = len;
+
   update_inode_checksums(disk, file);
 }
 

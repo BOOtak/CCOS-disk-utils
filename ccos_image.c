@@ -553,37 +553,39 @@ ccos_error_t ccos_rename_file(ccos_disk_t* disk, ccos_inode_t* file, const char*
   char name[CCOS_MAX_FILE_NAME] = {0};
   char type[CCOS_MAX_FILE_NAME] = {0};
 
-  if (!is_root_dir(file)) {
-    if (ccos_parse_file_name(file, name, type, NULL, NULL) != CCOS_OK) {
-      fprintf(stderr, "Unable to rename file: Unable to parse file name!\n");
-      return CCOS_EINVAL;
-    }
+  // TODO: Validate new_type is Subject if file is directory.
 
-    ccos_inode_t* parent_dir = ccos_get_parent_dir(disk, file);
+  if (is_root_dir(file)) {
+    return ccos_set_disk_label(disk, new_name);
+  }
 
-    ccos_error_t err = delete_file_from_parent_dir(disk, file);
-    if (err != CCOS_OK) {
-      fprintf(stderr, "Unable to rename file: Unable to delete old file entry from parent dir!\n");
-      return err;
-    }
+  if (ccos_parse_file_name(file, name, type, NULL, NULL) != CCOS_OK) {
+    fprintf(stderr, "Unable to rename file: Unable to parse file name!\n");
+    return CCOS_EINVAL;
+  }
 
-    memset(file->desc.name, 0, CCOS_MAX_FILE_NAME);
+  ccos_inode_t* parent_dir = ccos_get_parent_dir(disk, file);
 
-    if (new_type != NULL) {
-      snprintf(file->desc.name, CCOS_MAX_FILE_NAME, "%s~%s~", new_name, new_type);
-    } else {
-      snprintf(file->desc.name, CCOS_MAX_FILE_NAME, "%s~%s~", new_name, type);
-    }
+  ccos_error_t err = delete_file_from_parent_dir(disk, file);
+  if (err != CCOS_OK) {
+    fprintf(stderr, "Unable to rename file: Unable to delete old file entry from parent dir!\n");
+    return err;
+  }
 
-    file->desc.name_length = strlen(file->desc.name);
+  memset(file->desc.name, 0, CCOS_MAX_FILE_NAME);
 
-    err = add_file_to_directory(disk, parent_dir, file);
-    if (err != CCOS_OK) {
-      fprintf(stderr, "Unable to rename file: Unable to add new file entry from parent dir!\n");
-      return err;
-    }
+  if (new_type != NULL) {
+    snprintf(file->desc.name, CCOS_MAX_FILE_NAME, "%s~%s~", new_name, new_type);
   } else {
-    rename_file_unchecked(disk, file, new_name);
+    snprintf(file->desc.name, CCOS_MAX_FILE_NAME, "%s~%s~", new_name, type);
+  }
+
+  file->desc.name_length = strlen(file->desc.name);
+
+  err = add_file_to_directory(disk, parent_dir, file);
+  if (err != CCOS_OK) {
+    fprintf(stderr, "Unable to rename file: Unable to add new file entry from parent dir!\n");
+    return err;
   }
 
   return CCOS_OK;
