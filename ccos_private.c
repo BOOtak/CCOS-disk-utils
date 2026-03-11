@@ -107,81 +107,78 @@ void update_bitmask_checksum(ccos_disk_t* disk, ccos_bitmask_t* bitmask) {
 /* -------------------------------------------------------------------------- */
 
 ccos_error_t get_file_blocks(ccos_disk_t* disk, ccos_inode_t* file, size_t* blocks_count, uint16_t** blocks) {
-  size_t inode_max_blocks = get_inode_max_blocks(disk);
-  size_t content_inode_max_blocks = get_content_inode_max_blocks(disk);
+  // TODO: Check file checksum.
+  size_t total_blocks = disk->size / disk->sector_size;
 
-  *blocks = calloc(inode_max_blocks, sizeof(uint16_t));
-  if (*blocks == NULL) {
+  ccos_block_data_t* cur_block_info = &file->content_inode_info;
+  uint16_t* cur_blocks_list = get_inode_content_blocks(file);
+  size_t cur_blocks_count = get_inode_max_blocks(disk);
+
+  uint16_t* list = calloc(cur_blocks_count, sizeof(uint16_t));
+  if (list == NULL) {
     return CCOS_ENOMEM;
   }
 
-  size_t real_blocks_count = 0;
-  
-  uint16_t* file_content_blocks = get_inode_content_blocks(file);
-  for (int i = 0; i < inode_max_blocks; ++i) {
-    uint16_t content_block = file_content_blocks[i];
-    if (content_block == CCOS_CONTENT_BLOCKS_END_MARKER) {
-      continue;
-    }
+  size_t list_len = 0;
+  size_t list_cap = cur_blocks_count;
 
-    (*blocks)[real_blocks_count++] = content_block;
-  }
+  for (;;) {
+    // Realloc list.
+    if (list_cap - list_len < cur_blocks_count) {
+      size_t new_list_cap = list_cap + cur_blocks_count;
+      uint16_t* new_list = realloc(list, new_list_cap * sizeof(uint16_t));
 
-  TRACE("Block count in 0x%lx itself: %d", file->header.file_id, real_blocks_count);
-
-  if (file->content_inode_info.block_next != CCOS_INVALID_BLOCK) {
-    TRACE("Has more than 1 block!");
-    ccos_content_inode_t* content_inode = ccos_disk_read(disk, file->content_inode_info.block_next);
-    for (;;) {
-      TRACE("Processing extra block 0x%lx...", file->content_inode_info.block_next);
-
-      uint16_t checksum = calc_content_inode_checksum(disk, content_inode);
-
-      if (checksum != content_inode->content_inode_info.blocks_checksum) {
-        fprintf(stderr, "Warn: Blocks checksum mismatch: expected 0x%04hx, got 0x%04hx\n",
-                content_inode->content_inode_info.blocks_checksum, checksum);
-      }
-
-      uint16_t* extra_blocks = calloc(content_inode_max_blocks, sizeof(uint16_t));
-      if (extra_blocks == NULL) {
-        free(*blocks);
+      if (new_list == NULL) {
+        free(list);
         return CCOS_ENOMEM;
       }
 
-      uint16_t* content_blocks = get_content_inode_content_blocks(content_inode);
-
-      size_t extra_blocks_count = 0;
-      for (int i = 0; i < content_inode_max_blocks; ++i) {
-        uint16_t content_block = content_blocks[i];
-        if (content_block == CCOS_CONTENT_BLOCKS_END_MARKER) {
-          continue;
-        }
-
-        extra_blocks[extra_blocks_count++] = content_block;
-      }
-
-      TRACE("Extra block has %d blocks", extra_blocks_count);
-
-      uint16_t* new_blocks = realloc(*blocks, sizeof(uint16_t) * (real_blocks_count + extra_blocks_count));
-      if (new_blocks == NULL) {
-        free(*blocks);
-        return CCOS_ENOMEM;
-      } else {
-        *blocks = new_blocks;
-      }
-
-      memcpy(&(*blocks)[real_blocks_count], extra_blocks, sizeof(uint16_t) * extra_blocks_count);
-      real_blocks_count += extra_blocks_count;
-
-      if (content_inode->content_inode_info.block_next == CCOS_INVALID_BLOCK) {
-        break;
-      }
-
-      content_inode = ccos_disk_read(disk, content_inode->content_inode_info.block_next);
+      list = new_list;
+      list_cap = new_list_cap;
     }
+
+    // Copy list of content blocks.
+    for (int i = 0; i < cur_blocks_count; i++) {
+      uint16_t block = cur_blocks_list[i];
+
+      // For some reason, some bubble memory images had
+      // 0xFFFF in the middle of the list.
+      int is_marker = block == CCOS_CONTENT_BLOCKS_END_MARKER;
+
+      // GRIDOS32 image contains block numbers outside the image.
+      int is_oob = block >= total_blocks;
+
+      if (!is_marker && !is_oob) {
+        list[list_len++] = cur_blocks_list[i];
+      }
+    }
+
+    if (cur_block_info->block_next == CCOS_INVALID_BLOCK) {
+      break;
+    }
+
+    // Read next *content* inode.
+    ccos_content_inode_t* next_content_inode = ccos_disk_read(disk, cur_block_info->block_next);
+    if (next_content_inode == NULL) {
+      free(list);
+      return CCOS_EIO;
+    }
+
+    // TODO: Make a hard error instead of printf to stderr.
+    uint16_t next_checksum = calc_content_inode_checksum(disk, next_content_inode);
+    if (next_checksum != next_content_inode->content_inode_info.blocks_checksum) {
+      fprintf(stderr, "Warn: Blocks checksum mismatch: expected 0x%04hx, got 0x%04hx\n",
+              next_content_inode->content_inode_info.blocks_checksum, next_checksum);
+    }
+
+    cur_block_info = &next_content_inode->content_inode_info;
+    cur_blocks_list = get_content_inode_content_blocks(next_content_inode);
+    cur_blocks_count = get_content_inode_max_blocks(disk);
   }
 
-  *blocks_count = real_blocks_count;
+  *blocks = list;
+  *blocks_count = list_len;
+
   return CCOS_OK;
 }
 
