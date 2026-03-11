@@ -172,7 +172,8 @@ ccos_error_t ccos_read_file(ccos_disk_t* disk, ccos_inode_t* file, uint8_t** fil
     return err;
   }
 
-  *file_size = file->desc.file_size;
+  size_t actual_size = file->desc.file_size;
+
   // Probably work-around for compatibility with older CCOS releases?
   // In some cases, inode->dir_length != inode->file_size, e.g. root dir might have file_size = 0x1F8 bytes (maximum
   // size of a file with one content block), and dir_length = 0xD8 (just some number below 0x1F8). In those cases the
@@ -181,41 +182,46 @@ ccos_error_t ccos_read_file(ccos_disk_t* disk, ccos_inode_t* file, uint8_t** fil
     if (file->desc.file_size != file->desc.dir_length) {
       TRACE("dir_length != file_size (%d != %d), fallback to dir_length.\n",
             file->desc.dir_length, file->desc.file_size);
-      *file_size = file->desc.dir_length;
+      actual_size = file->desc.dir_length;
     }
   }
-  uint32_t written = 0;
 
-  *file_data = (uint8_t*)calloc(*file_size, sizeof(uint8_t));
-  if (*file_data == NULL) {
-    fprintf(stderr, "Unable to allocate " SIZE_T " bytes for file id 0x%x!\n", *file_size, file->header.file_id);
+  uint8_t* data = calloc(actual_size, sizeof(uint8_t));
+  if (data == NULL) {
     free(blocks);
     return CCOS_ENOMEM;
   }
 
+  uint32_t written = 0;
+
   for (int i = 0; i < blocks_count; ++i) {
     const uint8_t* data_start = NULL;
     size_t data_size = 0;
+
     err = get_block_data(disk, blocks[i], &data_start, &data_size);
     if (err != CCOS_OK) {
       fprintf(stderr, "Unable to get data for data block 0x%x, file at 0x%x\n", blocks[i], file->header.file_id);
-      free(*file_data);
+      free(data);
       free(blocks);
       return err;
     }
 
-    size_t copy_size = MIN(*file_size - written, data_size);
-    memcpy(&((*file_data)[written]), data_start, copy_size);
+    size_t copy_size = MIN(actual_size - written, data_size);
+    memcpy(&data[written], data_start, copy_size);
 
     written += copy_size;
   }
 
-  if (written != *file_size) {
-    fprintf(stderr, "Warn: File size (" SIZE_T ") != amount of bytes read (%u) at file 0x%x!\n", *file_size, written,
+  if (written != actual_size) {
+    fprintf(stderr, "Warn: File size (" SIZE_T ") != amount of bytes read (%u) at file 0x%x!\n", actual_size, written,
             file->header.file_id);
   }
 
+  *file_size = actual_size;
+  *file_data = data;
+
   free(blocks);
+
   return CCOS_OK;
 }
 
