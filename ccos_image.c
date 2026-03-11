@@ -89,8 +89,7 @@ int ccos_is_dir(const ccos_inode_t* file) {
     return 1;
   }
 
-  char type[CCOS_MAX_FILE_NAME];
-  memset(type, 0, CCOS_MAX_FILE_NAME);
+  char type[CCOS_MAX_FILE_NAME] = {0};
 
   if (ccos_parse_file_name(file, NULL, type, NULL, NULL) != CCOS_OK) {
     return 0;
@@ -115,9 +114,9 @@ ccos_error_t ccos_replace_file(ccos_disk_t* disk, ccos_inode_t* file, const uint
 
   size_t block_count = 0;
   uint16_t* blocks = NULL;
+
   ccos_error_t err = get_file_blocks(disk, file, &block_count, &blocks);
   if (err != CCOS_OK) {
-    fprintf(stderr, "Unable to write file to image: Unable to get file blocks from the block!\n");
     return err;
   }
 
@@ -429,7 +428,6 @@ ccos_inode_t* ccos_add_file(ccos_disk_t* disk, ccos_inode_t* dest_directory,
   mark_block(disk, &bitmask_list, free_block, 1);
   ccos_inode_t* new_file = init_inode(disk, free_block, dest_directory->header.file_id);
 
-  TRACE("Filling file info...");
   new_file->desc.file_size = file_size;
   new_file->desc.dir_file_id = dest_directory->header.file_id;
   new_file->desc.name_length = strlen(file_name);
@@ -509,20 +507,19 @@ ccos_error_t ccos_calc_free_space(ccos_disk_t* disk, size_t* free_space) {
 }
 
 ccos_inode_t* ccos_get_parent_dir(ccos_disk_t* disk, ccos_inode_t* file) {
-  uint16_t parent_dir_id = file->desc.dir_file_id;
-  return get_inode(disk, parent_dir_id);
+  return get_inode(disk, file->desc.dir_file_id);
 }
 
 ccos_error_t ccos_parse_file_name(const ccos_inode_t* inode, char* basename, char* type, size_t* name_length, size_t* type_length) {
-  return parse_file_name((const short_string_t*)&(inode->desc.name_length), basename, type, name_length, type_length);
+  return parse_file_name((const short_string_t*)&inode->desc.name_length, basename, type, name_length, type_length);
 }
 
 ccos_inode_t* ccos_create_dir(ccos_disk_t* disk, ccos_inode_t* parent_dir, const char* directory_name) {
   const char* dir_suffix = "~subject~";
 
+  // TODO: Validate directory_name length.
   char* filename = (char*)calloc(strlen(directory_name) + strlen(dir_suffix) + 1, sizeof(char));
   if (filename == NULL) {
-    fprintf(stderr, "Unable to create directory: Unable to allocate memory for directory name!\n");
     return NULL;
   }
 
@@ -537,7 +534,12 @@ ccos_inode_t* ccos_create_dir(ccos_disk_t* disk, ccos_inode_t* parent_dir, const
   }
 
   // I have no idea what I'm doing. I'm filling different fields of newly created file to match Programs~Subject~ from
-  // real images
+  // real images.
+  // 
+  // TODO: This code duplicates the code from formatting.
+  // It's worth double-checking whether these fields are populated in Subjects,
+  // and if so, creating a common function to avoid duplicating the magic.
+  // This will also allow to leave the code for working with the checksum inside private.
   new_directory->desc.uses_8087 = 1;
   new_directory->desc.pswd_len = 0xC;
   new_directory->desc.pswd[0] = '\x29';

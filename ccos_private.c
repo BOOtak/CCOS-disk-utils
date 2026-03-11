@@ -131,7 +131,6 @@ ccos_error_t get_file_blocks(ccos_disk_t* disk, ccos_inode_t* file, size_t* bloc
 
   *blocks = calloc(inode_max_blocks, sizeof(uint16_t));
   if (*blocks == NULL) {
-    TRACE("Failed to alloc memory for inode blocks");
     return CCOS_ENOMEM;
   }
 
@@ -164,7 +163,6 @@ ccos_error_t get_file_blocks(ccos_disk_t* disk, ccos_inode_t* file, size_t* bloc
 
       uint16_t* extra_blocks = calloc(content_inode_max_blocks, sizeof(uint16_t));
       if (extra_blocks == NULL) {
-        fprintf(stderr, "Unable to allocate memory for extra blocks: %s!\n", strerror(errno));
         free(*blocks);
         return CCOS_ENOMEM;
       }
@@ -185,7 +183,6 @@ ccos_error_t get_file_blocks(ccos_disk_t* disk, ccos_inode_t* file, size_t* bloc
 
       uint16_t* new_blocks = realloc(*blocks, sizeof(uint16_t) * (real_blocks_count + extra_blocks_count));
       if (new_blocks == NULL) {
-        fprintf(stderr, "Unable to realloc memory for content blocks: %s!\n", strerror(errno));
         free(*blocks);
         return CCOS_ENOMEM;
       } else {
@@ -629,7 +626,6 @@ static ccos_error_t create_directory_entry(ccos_inode_t* file, int is_last, size
   *entry_size = reverse_length + sizeof(last_entry_flag);
   *directory_entry = (uint8_t*)calloc(*entry_size, sizeof(uint8_t));
   if (*directory_entry == NULL) {
-    fprintf(stderr, "Unable to allocate %d bytes for new directory entry: %s!\n", reverse_length + 1, strerror(errno));
     return CCOS_ENOMEM;
   }
 
@@ -983,8 +979,6 @@ ccos_error_t get_free_blocks(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_lis
   TRACE("Free blocks: %d", *free_blocks_count);
   *free_blocks = (uint16_t*)calloc(*free_blocks_count, sizeof(uint16_t));
   if (*free_blocks == NULL) {
-    fprintf(stderr, "Unable to allocate " SIZE_T " bytes for free blocks: %s!\n", *free_blocks_count * sizeof(uint16_t),
-            strerror(errno));
     return CCOS_ENOMEM;
   }
 
