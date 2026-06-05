@@ -364,9 +364,14 @@ is_occupied          = (bitmap_byte & mask) != 0
 
 `bit_index` 0 is the least significant bit of the byte.
 
-When allocating a sector, set the corresponding bit to 1 and increment the
-`allocated` field in every bitmap sector. When freeing a sector, clear the bit
-to 0 and decrement the `allocated` field in every bitmap sector.
+When allocating a sector, set the corresponding bit to 1. When freeing a sector,
+clear the corresponding bit to 0.
+
+Observed multi-bitmap images show that the occupied-sector count is maintained
+only in the first bitmap sector's `allocated` field. Later bitmap sectors are
+not required to maintain this counter. GRiD-OS `InitializeMedia` writes a value
+there while formatting a volume, for unknown reasons, but later file operations
+do not appear to keep those copies current.
 
 === `ccos_bitmask_t`
 
@@ -400,8 +405,8 @@ index.
 | `allocated`
 | 6
 | 2
-| *Requires verification.* Appears to store the total number of occupied
-sectors in the volume. Every bitmap sector is expected to carry the same value.
+| In bitmap sector fragment 0, this stores the total number of occupied sectors
+in the volume. In later bitmap sector fragments this counter is not maintained.
 
 | `bytes`
 | 8
@@ -1096,15 +1101,20 @@ A writer must keep these structures consistent after every change:
 * directory entries in the parent directory stream;
 * inode and content inode sector-reference lists;
 * payload sector headers;
-* allocation bitmap bits and `allocated` counts;
+* allocation bitmap bits and the first bitmap sector's authoritative
+  `allocated` count;
 * metadata, sector-list, content inode and bitmap checksums.
 
 === Allocate or Free a Sector
 
 To allocate a sector, find a zero bit in the allocation bitmap, set it to 1,
-increment `allocated` in every bitmap sector and recalculate affected bitmap
-checksums. To free a sector, clear its bitmap bit, decrement `allocated` in
-every bitmap sector and recalculate affected bitmap checksums.
+increment the first bitmap sector's authoritative `allocated` count. To free a
+sector, clear its bitmap bit and decrement the first bitmap sector's
+authoritative `allocated` count.
+
+Do not treat differing `allocated` values in later bitmap sectors as an image
+error. Real multi-bitmap images commonly leave those fields at the value written
+while formatting the volume.
 
 === Create a Directory
 
@@ -1276,7 +1286,9 @@ A robust implementation should validate at least:
 * directory entry reads stay within `dir_length`;
 * directory `reverse_length` equals `name_length + 4`;
 * unused bitmap bits after the last volume sector are set;
-* bitmap `allocated` agrees with counted occupied bits;
+* the first bitmap sector's `allocated` agrees with counted occupied bits;
+* later bitmap sectors are not required to have `allocated` values matching the
+  first bitmap sector;
 * checksums match where present.
 
 [[known-unknowns]]
