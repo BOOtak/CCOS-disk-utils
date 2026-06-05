@@ -30,7 +30,6 @@ unknown.
 * <<volume-formatting,Volume Formatting>>
 * <<checksum-algorithm,Checksum Algorithm>>
 * <<validation-recommendations,Validation Recommendations>>
-* <<known-unknowns,Known Unknowns>>
 
 [[notation]]
 == Notation
@@ -469,9 +468,6 @@ fragment index. Inode sectors normally use 0.
 
 Size: 200 bytes.
 
-This descriptor is stored inside an inode at inode offset 4. Offsets below are
-relative to the start of the descriptor.
-
 [%header,cols="2,1,1,5"]
 |===
 | Name
@@ -479,18 +475,18 @@ relative to the start of the descriptor.
 | Size
 | Comment
 
-| `file_size`
+| `file_length`
 | 0
 | 4
 | File size in bytes. For directories, `dir_length` may be more authoritative
 when it differs from this value.
 
-| `name_length`
+| `file_name_length`
 | 4
 | 1
-| Number of meaningful bytes in `name`.
+| Number of meaningful bytes in `file_name`.
 
-| `name`
+| `file_name`
 | 5
 | 80
 | Internal file name storage. Unused bytes are often zero or space filled.
@@ -506,7 +502,7 @@ when it differs from this value.
 | Parent directory file id. For the superdirectory this equals the
 superdirectory inode's own `file_id`.
 
-| `mod_date`
+| `last_modified_date`
 | 98
 | 11
 | File modification timestamp.
@@ -516,40 +512,30 @@ superdirectory inode's own `file_id`.
 | 11
 | File expiration timestamp.
 
-| `machine_ID`
+| `machine_id`
 | 120
 | 4
-| Machine/workstation identifier field referenced from InteGRiD sources. Full
-semantics are unknown.
+| Semantics are unknown.
 
-| `comp`
+| `compressed`
 | 124
 | 1
-| Compatibility/computer type field referenced from InteGRiD sources. Full
-semantics are unknown.
+| Semantics are unknown.
 
-| `encry`
+| `encrypted`
 | 125
 | 1
-| Encryption-related flag or mode. Full semantics are unknown.
+| Semantics are unknown.
 
-| `protec`
+| `protected`
 | 126
 | 1
-| Protection flag. Existing comments suggest write protection; full semantics
-are unknown.
+| Semantics are unknown.
 
-| `pswd_len`
+| `pass_word`
 | 127
-| 1
-| Password length or password metadata byte. Mostly unused in CCOS 3.0+ images
-according to available source comments.
-
-| `pswd`
-| 128
-| 4
-| Password bytes or password metadata. Some subject directories use
-`29 ff 47 c7`.
+| 5
+| Semantics are unknown.
 
 | `dir_length`
 | 132
@@ -561,15 +547,15 @@ according to available source comments.
 | 2
 | Number of directory entries for directory files.
 
-| `pad`
+| `grid_write_1`
 | 138
 | 6
-| Reserved bytes.
+| Semantics are unknown.
 
-| `asc`
+| `machine_id_2`
 | 144
 | 1
-| Field referenced from InteGRiD sources. Full semantics are unknown.
+| Semantics are unknown.
 
 | `uses_8087`
 | 145
@@ -588,23 +574,22 @@ saved during context switches. Ignored for non-executable files.
 | 1
 | Minor component of the file version.
 
-| `system`
+| `machine_id_3`
 | 148
 | 4
-| System/workstation type field referenced from InteGRiD sources. Full
-semantics are unknown.
+| Semantics are unknown.
 
-| `pad2`
+| `grid_write_2`
 | 152
 | 11
-| Reserved bytes.
+| Semantics are unknown.
 
 | `version_patch`
 | 163
 | 1
 | Patch component of the file version.
 
-| `prop_length`
+| `property_length`
 | 164
 | 4
 | Number of bytes at the beginning of the file that store file properties and
@@ -625,21 +610,20 @@ are not considered normal file payload by higher-level consumers.
 | 2
 | File mode field referenced from InteGRiD sources. Full semantics are unknown.
 
-| `RDB`
+| `rainy_day_bytes`
 | 173
 | 3
-| Rainy Day Bytes. Purpose and consumer are unknown.
+| Semantics are unknown.
 
-| `UDB`
+| `user_defined_bytes`
 | 176
 | 20
-| User Defined Bytes. Purpose and consumer are unknown.
+| Semantics are unknown.
 
 | `grid_central_use`
 | 196
 | 2
-| Field reserved for GRiD Central or related software. Full semantics are
-unknown.
+| Semantics are unknown.
 
 | `metadata_checksum`
 | 198
@@ -993,10 +977,10 @@ File contents are stored in payload sectors. The file inode stores the first
 payload sector references directly. If a file needs more payload sectors than
 fit in the inode, the remaining references are stored in content inode sectors.
 
-The logical file size is normally `inode.desc.file_size`. For directory files,
+The logical file size is normally `inode.desc.file_length`. For directory files,
 readers should use `inode.desc.dir_length` when it differs from
-`inode.desc.file_size`, because some older or observed images have root or
-directory `file_size` values larger than the actual directory byte stream.
+`inode.desc.file_length`, because some older or observed images have root or
+directory `file_length` values larger than the actual directory byte stream.
 
 === File Payload Sector
 
@@ -1052,7 +1036,7 @@ The payload sector count needed for a file is:
 
 [source,text]
 ----
-payload_sector_count = ceil(file_size / logical_payload_size)
+payload_sector_count = ceil(file_length / logical_payload_size)
 ----
 
 where `logical_payload_size` is 252 for 256-byte media and 504 for 512-byte
@@ -1068,14 +1052,14 @@ files continue through a linked list of content inode sectors.
 direct_refs             = 20 for 256-byte media, 148 for 512-byte media
 refs_per_content_inode  = 120 for 256-byte media, 246 for 512-byte media
 payload_size            = 252 for 256-byte media, 504 for 512-byte media
-payload_sector_count    = ceil(file_size / payload_size)
+payload_sector_count    = ceil(file_length / payload_size)
 extra_ref_count         = max(0, payload_sector_count - direct_refs)
 content_inode_count     = ceil(extra_ref_count / refs_per_content_inode)
 ----
 
 There is no separate tree or extent structure for very large files. They keep
 using the same linear content inode chain until the file is complete or the
-volume runs out of sectors. The file size field is 32-bit, while individual
+volume runs out of sectors. The `file_length` field is 32-bit, while individual
 sector references are 16-bit; the practical maximum file size is therefore
 limited by both the volume sector count and the number of available metadata
 sectors for the content inode chain.
@@ -1097,7 +1081,7 @@ To read a file:
 
 A writer must keep these structures consistent after every change:
 
-* inode descriptor fields such as `file_size`, `dir_length` and `dir_count`;
+* inode descriptor fields such as `file_length`, `dir_length` and `dir_count`;
 * directory entries in the parent directory stream;
 * inode and content inode sector-reference lists;
 * payload sector headers;
@@ -1124,7 +1108,7 @@ To create a directory:
 . Allocate one inode sector for the directory.
 . Allocate one payload sector for the directory stream.
 . Initialize the payload sector with a single `0xff` end marker.
-. Initialize the inode as a directory: set `file_size` and `dir_length` to the
+. Initialize the inode as a directory: set `file_length` and `dir_length` to the
   directory stream length, set `dir_count` to 0 and set `dir_file_id` to the
   parent directory inode sector.
 . Store the payload sector number in the directory inode's first
@@ -1159,8 +1143,8 @@ To create a file:
   sector index.
 . Store payload sector numbers in the inode embedded references and then in
   content inode sectors as needed.
-. Set `file_size`, `name_length`, `name`, timestamps, parent directory id and
-  other descriptor fields.
+. Set `file_length`, `file_name_length`, `file_name`, timestamps, parent
+  directory id and other descriptor fields.
 . Add a directory entry to the parent directory stream.
 . Recalculate metadata, sector-list, content inode, parent directory and bitmap
   checksums.
@@ -1247,21 +1231,20 @@ Initial superdirectory fields:
 
 * `header.file_id = superblock_fid`
 * `header.file_fragment_index = 0`
-* `desc.file_size = 252` on 256-byte media, `504` on 512-byte media
+* `desc.file_length = 252` on 256-byte media, `504` on 512-byte media
 * `desc.dir_length = 0` in some observed formatted images; logically, an empty
   directory stream contains one byte (`0xff`), so a stricter formatter should
   set this to 1
 * `desc.dir_count = 0`
-* `desc.name_length = 0`
-* `desc.name` is space-filled
+* `desc.file_name_length = 0`
+* `desc.file_name` is space-filled
 * `desc.creation_date` is the current date/time returned by the embedding
   application
-* `desc.mod_date = desc.creation_date`
+* `desc.last_modified_date = desc.creation_date`
 * `desc.expiration_date` is all zero bytes
 * `desc.dir_file_id = header.file_id`
-* `desc.protec = 1`
-* `desc.pswd_len = 5`
-* `desc.pswd = 29 ff 47 c7`
+* `desc.protected = 1`
+* `desc.pass_word = 05 29 ff 47 c7`
 * `content_inode_info.header.file_id = superblock_fid`
 * `content_inode_info.header.file_fragment_index = 0`
 * `content_inode_info.block_next = 0xffff`
@@ -1290,15 +1273,3 @@ A robust implementation should validate at least:
 * later bitmap sectors are not required to have `allocated` values matching the
   first bitmap sector;
 * checksums match where present.
-
-[[known-unknowns]]
-== Known Unknowns
-
-The following descriptor fields are preserved and checksummed, but their full
-meaning is not yet documented here:
-
-`machine_ID`, `comp`, `encry`, `protec`, `pswd_len`, `pswd`, `asc`, `system`,
-`rom`, `rom_id`, `mode`, `RDB`, `UDB`, `grid_central_use`.
-
-Future work should confirm their meanings from original GRiD/InteGRiD
-documentation or from a larger corpus of known-good images.
