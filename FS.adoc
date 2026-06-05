@@ -1,0 +1,1243 @@
+= CCFS File System Specification
+:toc:
+:toclevels: 4
+:sectnums:
+
+== Introduction
+
+This document describes the on-storage format of the Compass Computer File
+System used by GRiD-OS / CCOS on the GRiD Compass. CCFS is used by the Compass
+both on internal Bubble Memory and on external disks.
+
+The specification is based on observed GRiD-OS images, available CCOS
+filesystem tooling and field names found in InteGRiD source references. It is
+intended to be sufficient for an independent compatible reader/writer. Fields
+whose full meaning is not known are preserved in the layout and marked as
+unknown.
+
+== Notation
+
+Offsets are zero based and relative to the start of the described structure
+unless stated otherwise. Numbers with `0x` are hexadecimal. Other numbers are
+decimal. Multi-byte integer fields are little-endian. Structures are byte
+packed.
+
+This document uses the term sector for the filesystem allocation unit. Some
+field and structure names inherited from source references use legacy names;
+those names are kept as identifiers.
+
+== Hierarchy and Names
+
+CCFS is hierarchical, but GRiD-OS does not support arbitrary nested folders in
+the user-visible model. The expected hierarchy is:
+
+[source,text]
+----
+Device -> Subject -> File
+----
+
+A subject is the CCOS directory in GRiD-OS / CCOS terms. Subject files use the
+type `Subject`.
+
+The root directory name is used as the partition name. On a Compass,
+the user interface displays this name when it is present. If the root
+directory name is empty, the interface falls back to a default storage name,
+for example `Hard Disk` or `Portable Floppy`, depending on the device.
+
+Names are length-delimited byte strings, not NUL-terminated strings. Normal
+names use this form:
+
+[source,text]
+----
+BaseName~Type~
+----
+
+Examples:
+
+[source,text]
+----
+Programs~Subject~
+Executive~Run~
+TypeGRiD5x8~Font~
+----
+
+The first `~` separates the base name from the type. The final `~` terminates
+the type and is part of the stored name.
+
+`Run` files can include a target file type after a space:
+
+[source,text]
+----
+BaseName~Run Font~
+----
+
+In this example, opening a `Font` file causes GRiD-OS to launch this `Run`
+binary as the handler for that file type.
+
+Passwords, when encoded in the visible name, are appended after a `|` character
+at the end of the file name.
+
+== Sector Sizes
+
+CCFS supports two sector-size variants for two storage classes. Internal
+Compass Bubble Memory uses 256-byte sectors. External disk and floppy media use
+512-byte sectors. Structures whose usable area, array length, padding or
+checksum range differs between these media variants are marked in the relevant
+section.
+
+== Boot Sector
+
+The first 512 bytes of a CCFS image contain a boot sector.
+
+The boot sector is partially compatible with the IBM PC MBR layout: it reserves
+the conventional partition table area at offset 446 and the final signature
+word at offset 510. CCFS also uses Compass-specific fields before the boot code
+area to locate the allocation bitmap and the superdirectory.
+
+On GRiD-OS media, 2048 bytes of the additional boot code follow immediately
+after the 512-byte boot sector region.
+
+=== `ccos_boot_sector_t`
+
+Size: 512 bytes.
+
+[%header,cols="2,1,1,5"]
+|===
+| Name
+| Offset
+| Size
+| Comment
+
+| `header`
+| 0
+| 14
+| Boot sector signature/header bytes. Known GRiD-OS images use
+`System Disk!!` followed by a NUL byte.
+
+| `bytes_per_page`
+| 14
+| 2
+| Media bytes per page/sector as recorded by the boot sector.
+
+| `pages_per_track`
+| 16
+| 2
+| Geometry field: pages/sectors per track.
+
+| `tracks_per_cylinder`
+| 18
+| 2
+| Geometry field: tracks per cylinder.
+
+| `num_cylinders`
+| 20
+| 2
+| Geometry field: cylinder count.
+
+| `second_side_count`
+| 22
+| 1
+| Geometry/media field.
+
+| `valid_info_flag`
+| 23
+| 2
+| Boot/media information validity flag.
+
+| `dummy`
+| 25
+| 5
+| Reserved bytes.
+
+| `bitmap_fid`
+| 30
+| 2
+| Sector number of the first allocation bitmap sector.
+
+| `superblock_fid`
+| 32
+| 2
+| Sector number of the superdirectory inode.
+
+| `min_dir_pages`
+| 34
+| 2
+| Minimum directory page count.
+
+| `log_page_size`
+| 36
+| 2
+| Logical page size.
+
+| `boot_code`
+| 38
+| 406
+| First-stage boot code area inside the 512-byte boot sector.
+
+| `partition_indicator`
+| 444
+| 2
+| Partition table marker/indicator. Exact CCOS semantics are unknown.
+
+| `partition_table`
+| 446
+| 64
+| Four 16-byte partition table entries in the conventional MBR location.
+
+| `last_word_flag`
+| 510
+| 2
+| Final boot sector word. On IBM PC MBR media this is `0xaa55`.
+|===
+
+=== `ccos_boot_sector_partition_t`
+
+Size: 16 bytes.
+
+This is the partition table entry embedded in the boot sector. It follows the
+conventional IBM PC MBR partition entry layout.
+
+[%header,cols="2,1,1,5"]
+|===
+| Name
+| Offset
+| Size
+| Comment
+
+| `boot_indicator`
+| 0
+| 1
+| Bootable/active flag. Standard MBR active partitions use `0x80`; inactive
+entries use `0x00`.
+
+| `begin_head`
+| 1
+| 1
+| CHS start head.
+
+| `begin_sector`
+| 2
+| 1
+| CHS start sector byte. In standard MBR encoding this also carries high
+cylinder bits.
+
+| `begin_cylinder`
+| 3
+| 1
+| CHS start cylinder low byte.
+
+| `system_indicator`
+| 4
+| 1
+| Partition type byte.
+
+| `ending_head`
+| 5
+| 1
+| CHS end head.
+
+| `ending_sector`
+| 6
+| 1
+| CHS end sector byte. In standard MBR encoding this also carries high cylinder
+bits.
+
+| `ending_cylinder`
+| 7
+| 1
+| CHS end cylinder low byte.
+
+| `relative_sector`
+| 8
+| 4
+| LBA of the first sector of the partition, relative to the beginning of the
+disk.
+
+| `num_sectors`
+| 12
+| 4
+| Number of sectors in the partition.
+|===
+
+== Superdirectory
+
+The superdirectory is the root directory of the filesystem. Its inode sector is
+the filesystem entry point for directory traversal. It is a normal CCFS
+directory in its on-storage structure; its only structural special case is that
+its parent directory id points back to itself:
+
+[source,text]
+----
+desc.dir_file_id == header.file_id == superblock_fid
+----
+
+Its payload follows the normal directory stream format; see
+<<directory-structure>>.
+
+The preferred location source is `ccos_boot_sector_t.superblock_fid`. If that
+field is zero or the boot sector does not provide usable filesystem entry
+points, GRiD-OS relies on media parameters returned by the disk Status response.
+
+For external disk and floppy devices, the fallback entry sectors are provided
+by device firmware through the Status response:
+
+* `0x0121` for smaller 512-byte external disk or floppy images.
+* `0x2420` for larger 512-byte hard disk images.
+
+For 256-byte Bubble Memory images, the observed superdirectory sector is
+`0x03fe`.
+
+== Allocation Bitmap
+
+The allocation bitmap tracks which sectors are occupied in the volume. A bit
+value of 1 means the sector is occupied. A bit value of 0 means the sector is
+free. A writer must update it whenever it allocates or frees an inode, content
+inode, payload sector or bitmap sector.
+
+The preferred location source is `ccos_boot_sector_t.bitmap_fid`, which points
+to the first bitmap sector. If that field is zero or the boot sector does not
+provide usable filesystem entry points, GRiD-OS relies on media parameters
+returned by the disk Status response, as it does for the superdirectory.
+
+For external disk and floppy devices, the fallback first bitmap sector is
+provided by device firmware through the Status response:
+
+* `0x0120` for 512-byte floppy images.
+* `0x2400` for 512-byte hard disk images.
+
+For 256-byte Bubble Memory images, the observed first bitmap sector is
+`0x03fd`.
+
+On Bubble Memory, one bitmap sector stores 248 bitmap bytes and covers 1984
+filesystem sectors. On external disk/floppy media, one bitmap sector stores 500
+bitmap bytes and covers 4000 filesystem sectors.
+
+The amount of storage occupied by the bitmap is:
+
+[source,text]
+----
+volume_sector_count           = volume_size / sector_size
+bitmap_bytes_per_sector       = 248 for 256-byte media, 500 for 512-byte media
+sectors_per_bitmap_sector     = bitmap_bytes_per_sector * 8
+required_bitmap_bytes         = ceil(volume_sector_count / 8)
+bitmap_sector_count           = ceil(required_bitmap_bytes / bitmap_bytes_per_sector)
+bitmap_storage_bytes          = bitmap_sector_count * sector_size
+----
+
+To test whether a sector is free or occupied:
+
+[source,text]
+----
+bitmap_sector_index = sector_number / sectors_per_bitmap_sector
+local_sector        = sector_number % sectors_per_bitmap_sector
+byte_index          = local_sector / 8
+bit_index           = local_sector % 8
+mask                = 1 << bit_index
+bitmap_sector_number = bitmap_fid + bitmap_sector_index
+bitmap_sector        = read_sector(bitmap_sector_number)
+bitmap_byte          = bitmap_sector.bytes[byte_index]
+is_occupied          = (bitmap_byte & mask) != 0
+----
+
+`bit_index` 0 is the least significant bit of the byte.
+
+When allocating a sector, set the corresponding bit to 1 and increment the
+`allocated` field in every bitmap sector. When freeing a sector, clear the bit
+to 0 and decrement the `allocated` field in every bitmap sector.
+
+=== `ccos_bitmask_t`
+
+Nominal structure size: 512 bytes.
+
+Actual bytes stored on disk equal the media sector size. On 256-byte media only
+the first 256 bytes are part of the bitmap sector; on 512-byte media all 512
+bytes are part of the bitmap sector.
+
+[%header,cols="2,1,1,5"]
+|===
+| Name
+| Offset
+| Size
+| Comment
+
+| `header`
+| 0
+| 4
+| Bitmap sector header. `header.file_id` is the first bitmap sector id, equal
+to `bitmap_fid`. `header.file_fragment_index` is the zero-based bitmap sector
+index.
+
+| `checksum`
+| 4
+| 2
+| Bitmap sector checksum. See <<Checksums>>.
+
+| `allocated`
+| 6
+| 2
+| *Requires verification.* Appears to store the total number of occupied
+sectors in the volume. Every bitmap sector is expected to carry the same value.
+
+| `bytes`
+| 8
+| Variable
+| Allocation bitmap bytes. Bits are ordered least-significant bit first.
+
+| `padding`
+| End
+| Variable
+| Unused bytes excluded from the bitmap checksum.
+|===
+
+Media-specific bitmap area:
+
+* 256-byte sectors: bitmap bytes at `8..255`, 248 bytes, no padding, covers
+  1984 sectors.
+* 512-byte sectors: bitmap bytes at `8..507`, 500 bytes, padding at `508..511`,
+  covers 4000 sectors.
+
+== Inode and Common Sector Structures
+
+=== `ccos_date_t`
+
+Size: 11 bytes.
+
+This timestamp structure appears in inode descriptors.
+
+[%header,cols="2,1,1,5"]
+|===
+| Name
+| Offset
+| Size
+| Comment
+
+| `year`
+| 0
+| 2
+| Calendar year.
+
+| `month`
+| 2
+| 1
+| Calendar month.
+
+| `day`
+| 3
+| 1
+| Day of month.
+
+| `hour`
+| 4
+| 1
+| Hour.
+
+| `minute`
+| 5
+| 1
+| Minute.
+
+| `second`
+| 6
+| 1
+| Second.
+
+| `tenthOfSec`
+| 7
+| 1
+| Tenths of a second.
+
+| `dayOfWeek`
+| 8
+| 1
+| Day-of-week value. Numbering is unknown.
+
+| `dayOfYear`
+| 9
+| 2
+| Day-of-year value. Numbering base is unknown.
+|===
+
+=== `ccos_block_header_t`
+
+Size: 4 bytes.
+
+Most sector types begin with this common header.
+
+[%header,cols="2,1,1,5"]
+|===
+| Name
+| Offset
+| Size
+| Comment
+
+| `file_id`
+| 0
+| 2
+| Owner file id. For an inode this must be the inode sector number. For payload
+sectors and content inode sectors this is the owning file id. For bitmap
+sectors this is `bitmap_fid`.
+
+| `file_fragment_index`
+| 2
+| 2
+| Fragment index within the owner file or metadata stream. Payload data sectors
+use a zero-based increasing index. Bitmap sectors use a zero-based bitmap
+fragment index. Inode sectors normally use 0.
+|===
+
+=== `ccos_block_data_t`
+
+Size: 12 bytes.
+
+This is the sector-list header used by the main inode and by each content inode.
+It describes a chain of sectors that contain arrays of payload sector numbers.
+
+[%header,cols="2,1,1,5"]
+|===
+| Name
+| Offset
+| Size
+| Comment
+
+| `header`
+| 0
+| 4
+| Owner header for this sector-list node. Its `file_id` is the file id whose
+payload sector list is being described.
+
+| `blocks_checksum`
+| 4
+| 2
+| Checksum of this sector-list node. See <<Checksums>>.
+
+| `block_next`
+| 6
+| 2
+| Sector number of the next content inode. `0xffff` terminates the chain.
+
+| `block_current`
+| 8
+| 2
+| Sector number of the current sector-list node. In the main inode this is the
+inode sector id. In a content inode this is the content inode sector id.
+
+| `block_prev`
+| 10
+| 2
+| Sector number of the previous sector-list node. `0xffff` means there is no
+previous node.
+|===
+
+=== `ccos_inode_desc_t`
+
+Size: 200 bytes.
+
+This descriptor is stored inside an inode at inode offset 4. Offsets below are
+relative to the start of the descriptor.
+
+[%header,cols="2,1,1,5"]
+|===
+| Name
+| Offset
+| Size
+| Comment
+
+| `file_size`
+| 0
+| 4
+| File size in bytes. For directories, `dir_length` may be more authoritative
+when it differs from this value.
+
+| `name_length`
+| 4
+| 1
+| Number of meaningful bytes in `name`.
+
+| `name`
+| 5
+| 80
+| Internal file name storage. Unused bytes are often zero or space filled.
+
+| `creation_date`
+| 85
+| 11
+| File creation timestamp.
+
+| `dir_file_id`
+| 96
+| 2
+| Parent directory file id. For the superdirectory this equals the
+superdirectory inode's own `file_id`.
+
+| `mod_date`
+| 98
+| 11
+| File modification timestamp.
+
+| `expiration_date`
+| 109
+| 11
+| File expiration timestamp.
+
+| `machine_ID`
+| 120
+| 4
+| Machine/workstation identifier field referenced from InteGRiD sources. Full
+semantics are unknown.
+
+| `comp`
+| 124
+| 1
+| Compatibility/computer type field referenced from InteGRiD sources. Full
+semantics are unknown.
+
+| `encry`
+| 125
+| 1
+| Encryption-related flag or mode. Full semantics are unknown.
+
+| `protec`
+| 126
+| 1
+| Protection flag. Existing comments suggest write protection; full semantics
+are unknown.
+
+| `pswd_len`
+| 127
+| 1
+| Password length or password metadata byte. Mostly unused in CCOS 3.0+ images
+according to available source comments.
+
+| `pswd`
+| 128
+| 4
+| Password bytes or password metadata. Some subject directories use
+`29 ff 47 c7`.
+
+| `dir_length`
+| 132
+| 4
+| Directory byte length for directory files.
+
+| `dir_count`
+| 136
+| 2
+| Number of directory entries for directory files.
+
+| `pad`
+| 138
+| 6
+| Reserved bytes.
+
+| `asc`
+| 144
+| 1
+| Field referenced from InteGRiD sources. Full semantics are unknown.
+
+| `uses_8087`
+| 145
+| 1
+| Numeric coprocessor usage flag in observed metadata.
+
+| `version_major`
+| 146
+| 1
+| Major component of the file version.
+
+| `version_minor`
+| 147
+| 1
+| Minor component of the file version.
+
+| `system`
+| 148
+| 4
+| System/workstation type field referenced from InteGRiD sources. Full
+semantics are unknown.
+
+| `pad2`
+| 152
+| 11
+| Reserved bytes.
+
+| `version_patch`
+| 163
+| 1
+| Patch component of the file version.
+
+| `prop_length`
+| 164
+| 4
+| Number of bytes at the beginning of the file that store file properties and
+are not considered normal file payload by higher-level consumers.
+
+| `rom`
+| 168
+| 1
+| ROM-related flag referenced from InteGRiD sources. Full semantics are unknown.
+
+| `rom_id`
+| 169
+| 2
+| ROM identifier referenced from InteGRiD sources. Full semantics are unknown.
+
+| `mode`
+| 171
+| 2
+| File mode field referenced from InteGRiD sources. Full semantics are unknown.
+
+| `RDB`
+| 173
+| 3
+| Field referenced from InteGRiD sources. Full semantics are unknown.
+
+| `UDB`
+| 176
+| 20
+| Field referenced from InteGRiD sources. Full semantics are unknown.
+
+| `grid_central_use`
+| 196
+| 2
+| Field reserved for GRiD Central or related software. Full semantics are
+unknown.
+
+| `metadata_checksum`
+| 198
+| 2
+| Additive checksum over inode bytes `[0, 202)`. See <<Checksums>>.
+|===
+
+=== `ccos_inode_t`
+
+Nominal structure size: 512 bytes.
+
+Actual bytes stored on disk equal the media sector size. On 256-byte media only
+the first 256 bytes are part of the inode sector; on 512-byte media all 512
+bytes are part of the inode sector.
+
+[%header,cols="2,1,1,5"]
+|===
+| Name
+| Offset
+| Size
+| Comment
+
+| `header`
+| 0
+| 4
+| Inode sector header. `header.file_id` must equal the inode sector number.
+`header.file_fragment_index` is normally 0.
+
+| `desc`
+| 4
+| 200
+| File metadata descriptor.
+
+| `content_inode_info`
+| 204
+| 12
+| Embedded sector-list header for the file. This is the first node of the
+payload sector list.
+
+| `sector_refs`
+| 216
+| Variable
+| Embedded array of payload sector numbers. Active length depends on sector
+size. Unused entries are normally `0xffff`.
+|===
+
+Media-specific embedded sector-reference area:
+
+* 256-byte sectors: offset 216, 20 references, byte range `216..255`.
+* 512-byte sectors: offset 216, 148 references, byte range `216..511`.
+
+For compatibility with observed images, readers should ignore `0xffff` entries
+wherever they appear in the array, instead of stopping at the first one.
+
+== File Content Sectors
+
+A file's payload sector list starts in the main inode. If the embedded inode
+array is full, additional sector numbers are stored in content inode sectors.
+Content inode sectors form a linked list through the `block_next`,
+`block_current` and `block_prev` fields of `ccos_block_data_t`.
+
+Sector-reference fields use `0xffff` as the invalid sector reference value. It
+acts as a null pointer in chain links and marks unused entries in
+sector-reference arrays.
+
+=== `ccos_content_inode_t`
+
+Nominal structure size: 512 bytes.
+
+A content inode is an extension node for a file's payload sector-number list.
+It does not contain file data.
+
+[%header,cols="2,1,1,5"]
+|===
+| Name
+| Offset
+| Size
+| Comment
+
+| `content_inode_info`
+| 0
+| 12
+| Sector-list header for this extension node.
+
+| `sector_refs`
+| 12
+| Variable
+| Additional payload sector-number array. Unused entries are normally
+`0xffff`.
+
+| `padding`
+| End
+| Variable
+| Unused bytes excluded from the content inode checksum.
+|===
+
+Media-specific layout:
+
+* 256-byte sectors: references at `12..251`, 120 references, padding at
+  `252..255`.
+* 512-byte sectors: references at `12..503`, 246 references, padding at
+  `504..511`.
+
+The chain starts at `inode.content_inode_info.block_next`. Each node points to
+the next node using its `content_inode_info.block_next`. `0xffff` terminates
+the chain. The `block_current` and `block_prev` fields should match the
+physical chain links and are useful for validation and reverse traversal.
+
+=== File Payload Sector
+
+Payload sectors are not represented by a separate named structure in the
+project, but their layout is fixed.
+
+[%header,cols="2,1,1,5"]
+|===
+| Name
+| Offset
+| Size
+| Comment
+
+| `header`
+| 0
+| 4
+| `file_id` is the owner inode id. `file_fragment_index` is the zero-based
+payload sector index.
+
+| `data`
+| 4
+| Variable
+| File data bytes.
+
+| `unused_tail`
+| End
+| Variable
+| On 512-byte media, the current logical payload size leaves 4 trailing bytes
+outside the file data area.
+|===
+
+Media-specific payload area:
+
+* 256-byte sectors: header `0..3`, data `4..255`, no ignored tail. The logical
+  payload size is 252 bytes.
+* 512-byte sectors: header `0..3`, data `4..507`, ignored tail `508..511`. The
+  logical payload size is 504 bytes.
+
+[[directory-structure]]
+== Directory Structure
+
+Directories are ordinary files whose payload is a marker-delimited directory
+stream. The inode descriptor field `dir_count` stores the expected number of
+entries. Directory entries are sorted case-insensitively by parsed base name
+first, then by parsed type.
+
+=== Directory Entry
+
+Directory entries are variable-length records inside directory file data.
+
+Fixed entry prefix size: 3 bytes.
+
+[%header,cols="2,1,1,5"]
+|===
+| Name
+| Offset
+| Size
+| Comment
+
+| `sector`
+| 0
+| 2
+| Inode sector number/file id of the referenced file.
+
+| `name_length`
+| 2
+| 1
+| Number of file name bytes following the fixed prefix.
+|===
+
+Full serialized entry, excluding the marker byte before it:
+
+[%header,cols="2,1,1,5"]
+|===
+| Name
+| Offset
+| Size
+| Comment
+
+| `sector`
+| 0
+| 2
+| Inode sector number/file id of the referenced file.
+
+| `name_length`
+| 2
+| 1
+| Number of file name bytes in `name`.
+
+| `name`
+| 3
+| `N`
+| Raw file name bytes copied from the referenced inode descriptor.
+
+| `reverse_length`
+| `3 + N`
+| 1
+| Entry length excluding the following marker byte. Must be `N + 4`.
+|===
+
+=== Directory Stream
+
+Directory payload is a marker-delimited stream:
+
+[source,text]
+----
+marker0, entry0, marker1, entry1, marker2, ..., entryN, markerN+1
+----
+
+Marker values:
+
+* `0x00`: an entry follows this marker.
+* `0xff`: end of directory. No entry follows this marker.
+
+An empty directory payload is one byte:
+
+[source,text]
+----
+ff
+----
+
+For each entry:
+
+[source,text]
+----
+entry_size_without_following_marker = name_length + 4
+serialized_size_including_marker    = name_length + 5
+reverse_length                      = name_length + 4
+----
+
+== Reading a File
+
+To read a file:
+
+. Validate or load the inode at the file id sector.
+. Build the payload sector list from the inode's embedded sector-reference
+  array.
+. Follow `inode.content_inode_info.block_next` through all content inode
+  sectors.
+. Append each content inode's sector-reference array to the payload sector
+  list.
+. Ignore entries equal to `0xffff`.
+. For compatibility with observed images, ignore payload sector numbers outside
+  the image instead of treating them as fatal during read-only enumeration.
+. Read each payload sector from offset 4.
+. Copy at most the file's logical size.
+
+The logical file size is normally `inode.desc.file_size`. For directory files,
+readers should use `inode.desc.dir_length` when it differs from
+`inode.desc.file_size`, because some older or observed images have root or
+directory `file_size` values larger than the actual directory byte stream.
+
+Payload sector count needed for a write is:
+
+[source,text]
+----
+required_payload_sectors = ceil(file_size / logical_payload_size)
+----
+
+where `logical_payload_size` is 252 for 256-byte media and 504 for 512-byte
+media.
+
+== Writing a File
+
+A writer must keep these structures consistent:
+
+* the inode descriptor `file_size`;
+* for directories, `dir_length` and `dir_count`;
+* the inode embedded sector-reference list;
+* any content inode chain;
+* payload sector headers;
+* allocation bitmap occupation bits and `allocated` counts;
+* metadata, sector-list, content inode and bitmap checksums.
+
+When allocating a new payload sector:
+
+. Find a zero bit in the allocation bitmap.
+. Mark the bit as occupied.
+. Increment `allocated` in every bitmap sector.
+. Set the payload sector header `file_id` to the owner inode id.
+. Set the payload sector header `file_fragment_index` to the zero-based payload
+  sector index.
+. Insert the sector number into the first available slot in the inode or last
+  content inode sector-list node.
+. Allocate a new content inode if the current list node is full.
+. Recalculate affected checksums.
+
+When freeing a payload sector:
+
+. Remove its sector number from the owning sector-reference list.
+. Clear or erase the sector.
+. Mark its bitmap bit as free.
+. Decrement `allocated` in every bitmap sector.
+. Remove now-empty content inode nodes if applicable.
+. Recalculate affected checksums.
+
+== Parsing a Directory
+
+Let `data` be the directory payload and `size` be its byte length.
+
+Directory parsing starts at offset 0:
+
+. Read one marker byte.
+. If the marker is `0xff`, stop.
+. If the marker is not `0x00`, the directory stream is malformed.
+. Read a directory entry at the following offset.
+. Let `N = name_length`.
+. Verify that `reverse_length == N + 4`.
+. Resolve `sector` as an inode sector number.
+. Advance by `N + 4` bytes to the next marker.
+. Repeat until `0xff` or until `dir_count` entries have been read.
+
+A robust implementation should check all bounds before reading entry fields.
+
+== Checksums
+
+All checksums are 16-bit additive checksums over little-endian words.
+
+Algorithm:
+
+[source,text]
+----
+sum = 0
+for each pair of bytes lo, hi:
+    sum = (sum + (hi << 8) + lo) & 0xffff
+if one byte remains:
+    sum = (sum + byte) & 0xffff
+return sum
+----
+
+=== Inode Metadata Checksum
+
+Stored in `inode.desc.metadata_checksum`, at absolute inode offset 202.
+
+Covered byte range:
+
+[source,text]
+----
+inode bytes [0, 202)
+----
+
+This covers the inode sector header and descriptor bytes before
+`metadata_checksum`. It excludes the `metadata_checksum` field itself and all
+sector-list data.
+
+=== Inode Sector-List Checksum
+
+Stored in `inode.content_inode_info.blocks_checksum`, at absolute inode offset
+208.
+
+Checksum input starts at `inode.content_inode_info.block_next`, absolute inode
+offset 210.
+
+The byte count used by known compatible implementations is:
+
+[source,text]
+----
+get_log_block_size(media) - sizeof(ccos_inode_desc_t) - offsetof(ccos_block_data_t, block_next)
+----
+
+Here `get_log_block_size(media)` is 252 on 256-byte media and 504 on 512-byte
+media.
+
+Covered ranges:
+
+* 256-byte sectors: 46 bytes, inode bytes `210..255`. This covers
+  `block_next`, `block_current`, `block_prev` and all 20 embedded references.
+* 512-byte sectors: 298 bytes, inode bytes `210..507`. This covers
+  `block_next`, `block_current`, `block_prev` and 146 of the 148 embedded
+  references. The final 4 inode bytes, i.e. the final two embedded references,
+  are not included by the current algorithm.
+
+After the additive checksum over the byte range, add:
+
+[source,text]
+----
+inode.content_inode_info.header.file_id
+inode.content_inode_info.header.file_fragment_index
+----
+
+Then store the 16-bit result.
+
+=== Content Inode Checksum
+
+Stored in `content_inode.content_inode_info.blocks_checksum`, at content inode
+offset 4.
+
+Checksum input starts at `content_inode.content_inode_info.block_next`, content
+inode offset 6.
+
+Covered ranges:
+
+* 256-byte sectors: 246 bytes, content inode bytes `6..251`. This excludes
+  padding bytes `252..255`.
+* 512-byte sectors: 498 bytes, content inode bytes `6..503`. This excludes
+  padding bytes `504..511`.
+
+After the additive checksum over the byte range, add:
+
+[source,text]
+----
+content_inode.content_inode_info.header.file_id
+content_inode.content_inode_info.header.file_fragment_index
+----
+
+Then store the 16-bit result.
+
+=== Bitmap Checksum
+
+Stored in `bitmask.checksum`, at bitmap sector offset 4.
+
+Checksum input starts at `bitmask.allocated`, bitmap sector offset 6.
+
+Covered ranges:
+
+* 256-byte sectors: 250 bytes, bitmap sector bytes `6..255`. This covers
+  `allocated` and all 248 bitmap bytes.
+* 512-byte sectors: 502 bytes, bitmap sector bytes `6..507`. This covers
+  `allocated` and all 500 bitmap bytes and excludes padding bytes `508..511`.
+
+After the additive checksum over the byte range, add:
+
+[source,text]
+----
+bitmask.header.file_id
+bitmask.header.file_fragment_index
+----
+
+Then store the 16-bit result.
+
+== Formatting Rules
+
+Existing CCOS images may differ, but these rules describe the normal formatted
+layout expected by GRiD-OS-compatible media.
+
+Disk image sizes are normally multiples of 512 bytes. This also applies to
+256-byte Bubble Memory images.
+
+Every sector is initialized as:
+
+[source,text]
+----
+bytes 0..3   = ff ff ff ff
+bytes 4..end = 55
+----
+
+For a general implementation, compute the minimum bitmap size as:
+
+[source,text]
+----
+volume_sector_count = volume_size / sector_size
+required_bytes      = (volume_sector_count + 7) / 8
+bytes_per_bitmap    = 248 for 256-byte media, 500 for 512-byte media
+bitmap_count        = (required_bytes + bytes_per_bitmap - 1) / bytes_per_bitmap
+----
+
+A formatter should create consecutive bitmap sectors starting at `bitmap_fid`.
+In the last bitmap sector, unused bits after the last volume sector should be
+set to 1.
+
+Some existing formatted images use this simpler calculation:
+
+[source,text]
+----
+sector_count     = disk_size / sector_size
+required_bytes   = sector_count / 8
+bitmap_count     = required_bytes / bytes_per_bitmap + 1
+tail_offset      = required_bytes % bytes_per_bitmap
+tail_length      = bytes_per_bitmap - tail_offset
+----
+
+After bitmap initialization, mark the bitmap sectors themselves as occupied.
+
+The superdirectory inode is written at `superblock_fid`. Formatters normally
+zero the whole superdirectory inode sector first; fields not mentioned below
+remain zero unless changed by checksum calculation.
+
+Initial superdirectory fields:
+
+* `header.file_id = superblock_fid`
+* `header.file_fragment_index = 0`
+* `desc.file_size = 252` on 256-byte media, `504` on 512-byte media
+* `desc.dir_length = 0` in some observed formatted images; logically, an empty
+  directory stream contains one byte (`0xff`), so a stricter formatter should
+  set this to 1
+* `desc.dir_count = 0`
+* `desc.name_length = 0`
+* `desc.name` is space-filled
+* `desc.creation_date` is the current date/time returned by the embedding
+  application
+* `desc.mod_date = desc.creation_date`
+* `desc.expiration_date` is all zero bytes
+* `desc.dir_file_id = header.file_id`
+* `desc.protec = 1`
+* `desc.pswd_len = 5`
+* `desc.pswd = 29 ff 47 c7`
+* `content_inode_info.header.file_id = superblock_fid`
+* `content_inode_info.header.file_fragment_index = 0`
+* `content_inode_info.block_next = 0xffff`
+* `content_inode_info.block_current = superblock_fid`
+* `content_inode_info.block_prev = 0xffff`
+
+The superdirectory inode embedded sector-reference list is filled with
+`0xffff`, then entry 0 is set to `superblock_fid + 1`. That sector is
+initialized as the superdirectory payload sector. Its payload starts with the
+directory last-entry marker `0xff`, making the superdirectory initially empty.
+
+== Validation Recommendations
+
+A robust implementation should validate at least:
+
+* boot sector `bitmap_fid` and `superblock_fid` are within the image;
+* superdirectory inode `header.file_id == superblock_fid`;
+* inode `header.file_id == content_inode_info.header.file_id`;
+* sector references are either `0xffff` or within the image sector count;
+* content inode chains do not cycle;
+* directory entry reads stay within `dir_length`;
+* directory `reverse_length` equals `name_length + 4`;
+* unused bitmap bits after the last volume sector are set;
+* bitmap `allocated` agrees with counted occupied bits;
+* checksums match where present.
+
+== Known Unknowns
+
+The following descriptor fields are preserved and checksummed, but their full
+meaning is not yet documented here:
+
+`machine_ID`, `comp`, `encry`, `protec`, `pswd_len`, `pswd`, `asc`,
+`uses_8087`, `system`, `rom`, `rom_id`, `mode`, `RDB`, `UDB`,
+`grid_central_use`.
+
+Future work should confirm their meanings from original GRiD/InteGRiD
+documentation or from a larger corpus of known-good images.
