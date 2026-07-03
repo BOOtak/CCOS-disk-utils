@@ -81,6 +81,18 @@ ccos_inode_t* ccos_get_root_dir(ccos_disk_t* disk);
 ccos_error_t ccos_get_dir_contents(ccos_disk_t* disk, ccos_inode_t* dir, uint16_t* entry_count, ccos_inode_t*** entries);
 
 /**
+ * @brief      Find file in a directory by full CCOS file name.
+ *
+ * @param[in]  disk       Compass disk image.
+ * @param[in]  dir        Directory inode.
+ * @param[in]  file_name  Full file name, including type markers (e.g. Demo~Text~).
+ * @param      file       Found file inode.
+ *
+ * @return     CCOS_OK on success, CCOS_ENOENT if not found, error code otherwise.
+ */
+ccos_error_t ccos_find_file_by_name(ccos_disk_t* disk, ccos_inode_t* dir, const char* file_name, ccos_inode_t** file);
+
+/**
  * @brief      Determine whether the given inode is a directory's inode.
  *
  * @param[in]  file  The file to check.

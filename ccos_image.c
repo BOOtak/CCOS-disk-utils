@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <time.h>
 #include <ctype.h>
 #include <stdbool.h>
@@ -83,6 +84,34 @@ ccos_error_t ccos_get_dir_contents(ccos_disk_t* disk, ccos_inode_t* dir, uint16_
   free(elements);
 
   return CCOS_OK;
+}
+
+ccos_error_t ccos_find_file_by_name(ccos_disk_t* disk, ccos_inode_t* dir, const char* file_name, ccos_inode_t** file) {
+  if (disk == NULL || dir == NULL || file_name == NULL || file == NULL) {
+    return CCOS_EINVAL;
+  }
+
+  uint16_t entry_count = 0;
+  ccos_inode_t** entries = NULL;
+  ccos_error_t err = ccos_get_dir_contents(disk, dir, &entry_count, &entries);
+  if (err != CCOS_OK) {
+    return err;
+  }
+
+  size_t file_name_length = strlen(file_name);
+  for (uint16_t i = 0; i < entry_count; ++i) {
+    const short_string_t* entry_name = ccos_get_file_name(entries[i]);
+    if (entry_name->length == file_name_length &&
+        strncasecmp(entry_name->data, file_name, entry_name->length) == 0) {
+      *file = entries[i];
+      free(entries);
+      return CCOS_OK;
+    }
+  }
+
+  free(entries);
+  *file = NULL;
+  return CCOS_ENOENT;
 }
 
 int ccos_is_dir(const ccos_inode_t* file) {
@@ -418,6 +447,26 @@ ccos_error_t ccos_delete_file(ccos_disk_t* disk, ccos_inode_t* file) {
   return CCOS_OK;
 }
 
+static void erase_unlinked_file(ccos_disk_t* disk, ccos_inode_t* file, ccos_bitmask_list_t* bitmask_list) {
+  size_t blocks_count = 0;
+  uint16_t* blocks = NULL;
+
+  if (get_file_blocks(disk, file, &blocks_count, &blocks) == CCOS_OK) {
+    for (int i = 0; i < blocks_count; ++i) {
+      erase_block(disk, blocks[i], bitmask_list);
+    }
+    free(blocks);
+  }
+
+  while (file->content_inode_info.block_next != CCOS_INVALID_BLOCK) {
+    if (remove_content_inode(disk, file, bitmask_list) != CCOS_OK) {
+      break;
+    }
+  }
+
+  erase_block(disk, file->header.file_id, bitmask_list);
+}
+
 ccos_inode_t* ccos_add_file(ccos_disk_t* disk, ccos_inode_t* dest_directory,
                             uint8_t* file_data, size_t file_size, const char* file_name) {
   ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(disk);
@@ -447,12 +496,14 @@ ccos_inode_t* ccos_add_file(ccos_disk_t* disk, ccos_inode_t* dest_directory,
   TRACE("Writing file 0x%lx", new_file->header.file_id);
   if (ccos_write_file(disk, new_file, file_data, file_size) != CCOS_OK) {
     fprintf(stderr, "Unable to write file to file with id 0x%x!\n", new_file->header.file_id);
+    erase_unlinked_file(disk, new_file, &bitmask_list);
     return NULL;
   }
 
   if (add_file_to_directory(disk, dest_directory, new_file) != CCOS_OK) {
     fprintf(stderr, "Unable to copy file: unable to add new file with id 0x%x to the directory with id 0x%x!\n",
             new_file->header.file_id, dest_directory->header.file_id);
+    erase_unlinked_file(disk, new_file, &bitmask_list);
     return NULL;
   }
 
