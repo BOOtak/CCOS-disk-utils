@@ -382,7 +382,19 @@ ccos_error_t remove_content_inode(ccos_disk_t* disk, ccos_inode_t* file, ccos_bi
 
   ccos_content_inode_t* prev_inode = NULL;
   ccos_block_data_t* prev_block_data = &(file->content_inode_info);
-  ccos_content_inode_t* last_content_inode = get_last_content_inode(disk, file);
+  ccos_content_inode_t* last_content_inode = ccos_disk_read(disk, file->content_inode_info.block_next);
+  if (last_content_inode == NULL) {
+    return CCOS_EIO;
+  }
+
+  while (last_content_inode->content_inode_info.block_next != CCOS_INVALID_BLOCK) {
+    prev_inode = last_content_inode;
+    prev_block_data = &(last_content_inode->content_inode_info);
+    last_content_inode = ccos_disk_read(disk, last_content_inode->content_inode_info.block_next);
+    if (last_content_inode == NULL) {
+      return CCOS_EIO;
+    }
+  }
 
   erase_block(disk, last_content_inode->content_inode_info.block_current, bitmask_list);
 
