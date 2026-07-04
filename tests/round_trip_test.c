@@ -48,10 +48,12 @@ static void assert_file_contents(ccos_disk_t* disk, ccos_inode_t* file, const ui
   free(actual);
 }
 
-static void assert_round_trip(size_t file_size, const char* file_name) {
+static void assert_round_trip(disk_format_t format, size_t image_size, uint16_t expected_sector_size,
+                              size_t file_size, const char* file_name) {
   ccos_disk_t disk;
-  int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024, &disk);
+  int ret = ccos_new_disk_image(format, image_size, &disk);
   cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
+  cr_assert_eq(disk.sector_size, expected_sector_size);
 
   uint8_t* expected = create_test_data(file_size);
   cr_assert_not_null(expected, "Failed to allocate test data");
@@ -127,13 +129,25 @@ static void assert_round_trip(size_t file_size, const char* file_name) {
 }
 
 Test(round_trip, small_file_less_than_sector) {
-  assert_round_trip(128, "Small~Data~");
+  assert_round_trip(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024, 512, 128, "Small~Data~");
 }
 
 Test(round_trip, medium_file_several_sectors) {
-  assert_round_trip(4096, "Medium~Data~");
+  assert_round_trip(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024, 512, 4096, "Medium~Data~");
 }
 
 Test(round_trip, large_file_up_to_one_megabyte) {
-  assert_round_trip(1024 * 1024, "Large~Data~");
+  assert_round_trip(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024, 512, 1024 * 1024, "Large~Data~");
+}
+
+Test(round_trip, small_file_less_than_256_byte_sector) {
+  assert_round_trip(CCOS_DISK_FORMAT_BUBMEM, 2 * 1024 * 1024, 256, 128, "Small256~Data~");
+}
+
+Test(round_trip, medium_file_several_256_byte_sectors) {
+  assert_round_trip(CCOS_DISK_FORMAT_BUBMEM, 2 * 1024 * 1024, 256, 4096, "Medium256~Data~");
+}
+
+Test(round_trip, large_file_up_to_one_megabyte_on_256_byte_sectors) {
+  assert_round_trip(CCOS_DISK_FORMAT_BUBMEM, 2 * 1024 * 1024, 256, 1024 * 1024, "Large256~Data~");
 }
