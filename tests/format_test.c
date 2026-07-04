@@ -1,5 +1,6 @@
 #include <criterion/criterion.h>
 
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -137,4 +138,14 @@ Test(format, hdd_10mb) {
 
   free(disk.data);
   free(expected);
+}
+
+Test(format, reject_512_bad_count) {
+  ccos_disk_t disk;
+  cr_assert_eq(ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, 721 * 512, &disk), EINVAL);
+}
+
+Test(format, reject_256_bad_count) {
+  ccos_disk_t disk;
+  cr_assert_eq(ccos_new_disk_image(CCOS_DISK_FORMAT_BUBMEM, 1026 * 256, &disk), EINVAL);
 }
