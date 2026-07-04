@@ -386,7 +386,7 @@ void mark_block(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list, uint16_t b
 ccos_inode_t* init_inode(ccos_disk_t* disk, uint16_t block, uint16_t parent_dir_block) {
   TRACE("Initializing inode at 0x%x!", block);
   ccos_inode_t* inode = ccos_disk_read(disk, block);
-  memset(inode, 0, sizeof(ccos_inode_t));
+  memset(inode, 0, disk->sector_size);
   inode->header.file_id = block;
   inode->desc.dir_file_id = parent_dir_block;
   inode->content_inode_info.header.file_id = block;
@@ -628,7 +628,7 @@ uint16_t add_block_to_file(ccos_disk_t* disk, ccos_inode_t* file, ccos_bitmask_l
   // append new content block to the list; mark next block in the list as invalid; update checksum;
   content_blocks[last_content_block_index] = new_block;
   TRACE("Content block at %d is now 0x%x.", last_content_block_index, content_blocks[last_content_block_index]);
-  if (last_content_block_index < content_blocks_count) {
+  if (last_content_block_index + 1 < content_blocks_count) {
     content_blocks[last_content_block_index + 1] = CCOS_INVALID_BLOCK;
   }
 
@@ -660,6 +660,15 @@ ccos_error_t add_file_to_directory(ccos_disk_t* disk, ccos_inode_t* directory, c
 ccos_error_t parse_directory_data(ccos_disk_t* disk,
                                   const uint8_t* directory_data, size_t directory_data_size,
                                   uint16_t entry_count, parsed_directory_element_t** entries) {
+  if (disk == NULL || directory_data == NULL || entries == NULL) {
+    return CCOS_EINVAL;
+  }
+
+  *entries = NULL;
+  if (entry_count == 0) {
+    return CCOS_OK;
+  }
+
   *entries = (parsed_directory_element_t*)calloc(entry_count, sizeof(parsed_directory_element_t));
   if (*entries == NULL) {
     return CCOS_ENOMEM;
@@ -701,6 +710,10 @@ ccos_error_t parse_directory_data(ccos_disk_t* disk,
 //        | file id  |  name   |      name       |    NN+1    | last entry |
 //        |          | length  |                 |            |    flag    |
 static ccos_error_t create_directory_entry(ccos_inode_t* file, int is_last, size_t* entry_size, uint8_t** directory_entry) {
+  if (file == NULL || entry_size == NULL || directory_entry == NULL || file->desc.name_length > CCOS_MAX_FILE_NAME) {
+    return CCOS_EINVAL;
+  }
+
   uint8_t reverse_length = file->desc.name_length + sizeof(dir_entry_t) + sizeof(reverse_length);
   uint8_t last_entry_flag = is_last ? CCOS_DIR_LAST_ENTRY_MARKER : 0;
   *entry_size = reverse_length + sizeof(last_entry_flag);
@@ -749,6 +762,7 @@ ccos_error_t add_file_entry_to_dir_contents(ccos_disk_t* disk, ccos_inode_t* dir
   err = parse_directory_data(disk, directory_data, dir_size, directory->desc.dir_count, &elements);
   if (err != CCOS_OK) {
     fprintf(stderr, "Unable to add file to directory files list: Unable to parse directory data!\n");
+    free(directory_data);
     return err;
   }
 
@@ -759,6 +773,7 @@ ccos_error_t add_file_entry_to_dir_contents(ccos_disk_t* disk, ccos_inode_t* dir
     // TODO: add option to overwrite existing file
     fprintf(stderr, "Unable to add file %*s to the directory: File exists!\n", file->desc.name_length, file->desc.name);
     free(directory_data);
+    free(elements);
     return CCOS_EEXIST;
   }
 
@@ -790,6 +805,7 @@ ccos_error_t add_file_entry_to_dir_contents(ccos_disk_t* disk, ccos_inode_t* dir
     fprintf(stderr, "Unable to realloc " SIZE_T " bytes for the directory contents: %s!\n", new_dir_size,
             strerror(errno));
     free(directory_data);
+    free(elements);
     free(new_file_entry);
     return CCOS_ENOMEM;
   } else {
@@ -833,6 +849,7 @@ ccos_error_t add_file_entry_to_dir_contents(ccos_disk_t* disk, ccos_inode_t* dir
   // 5. Save changes
   err = ccos_write_file(disk, directory, directory_data, new_dir_size);
   free(directory_data);
+  free(elements);
   if (err != CCOS_OK) {
     fprintf(stderr, "Unable to update directory contents of dir with id=0x%x!\n", directory->header.file_id);
     return err;
@@ -987,32 +1004,45 @@ int find_file_index_in_directory_data(ccos_inode_t* file, ccos_inode_t* director
 
 ccos_error_t parse_file_name(const short_string_t* file_name, char* basename, char* type, size_t* name_length,
                               size_t* type_length) {
-  char* delim = strchr(file_name->data, '~');
+  if (file_name == NULL || file_name->length == 0 || file_name->length > CCOS_MAX_FILE_NAME) {
+    return CCOS_EINVAL;
+  }
+
+  // Find first tilda.
+  const size_t file_name_length = file_name->length;
+  const char* delim = memchr(file_name->data, '~', file_name_length);
   if (delim == NULL) {
     fprintf(stderr, "Invalid name \"%.*s\": no file type found!\n", file_name->length, file_name->data);
     return CCOS_EINVAL;
   }
 
-  char* last_char = strchr(delim + 1, '~');
-  if ((last_char + 1 - file_name->data) != file_name->length) {
+  // Find second tilda.
+  size_t type_offset = (size_t)(delim - file_name->data) + 1;
+  const char* last_char = memchr(file_name->data + type_offset, '~', file_name_length - type_offset);
+  if (last_char == NULL || (size_t)(last_char + 1 - file_name->data) != file_name_length) {
     fprintf(stderr, "Invalid name \"%.*s\": invalid file type format!\n", file_name->length, file_name->data);
     return CCOS_EINVAL;
   }
 
+  size_t basename_len = (size_t)(delim - file_name->data);
+  size_t type_len = (size_t)(last_char - delim - 1);
+
   if (name_length != NULL) {
-    *name_length = (delim - file_name->data);
+    *name_length = basename_len;
   }
 
   if (type_length != NULL) {
-    *type_length = strlen(delim + 1) - 1;
+    *type_length = type_len;
   }
 
   if (basename != NULL) {
-    strncpy(basename, file_name->data, (delim - file_name->data));
+    memcpy(basename, file_name->data, basename_len);
+    basename[basename_len] = '\0';
   }
 
   if (type != NULL) {
-    strncpy(type, delim + 1, strlen(delim + 1) - 1);
+    memcpy(type, delim + 1, type_len);
+    type[type_len] = '\0';
   }
 
   return CCOS_OK;

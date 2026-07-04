@@ -67,9 +67,18 @@ ccos_error_t ccos_get_dir_contents(ccos_disk_t* disk, ccos_inode_t* dir, uint16_
     return err;
   }
 
+  if (dir_count == 0) {
+    *entries = NULL;
+    *entry_count = 0;
+    free(dir_contents);
+    free(elements);
+    return CCOS_OK;
+  }
+
   ccos_inode_t** dir_entries = calloc(dir_count, sizeof(ccos_inode_t*));
   if (dir_entries == NULL) {
     free(dir_contents);
+    free(elements);
     return CCOS_ENOMEM;
   }
 
@@ -133,6 +142,10 @@ int ccos_is_dir(const ccos_inode_t* file) {
 }
 
 ccos_error_t ccos_replace_file(ccos_disk_t* disk, ccos_inode_t* file, const uint8_t* file_data, uint32_t file_size) {
+  if (disk == NULL || file == NULL || (file_data == NULL && file_size > 0)) {
+    return CCOS_EINVAL;
+  }
+
   uint32_t inode_file_size = file->desc.file_size;
   if (inode_file_size != file_size) {
     fprintf(stderr,
@@ -152,7 +165,7 @@ ccos_error_t ccos_replace_file(ccos_disk_t* disk, ccos_inode_t* file, const uint
 
   const uint8_t* image_data_part = file_data;
   size_t written_size = 0;
-  for (size_t i = 0; i < block_count; ++i) {
+  for (size_t i = 0; i < block_count && written_size < file_size; ++i) {
     const uint8_t* start = NULL;
     size_t data_size = 0;
     err = get_block_data(disk, blocks[i], &start, &data_size);
@@ -162,9 +175,10 @@ ccos_error_t ccos_replace_file(ccos_disk_t* disk, ccos_inode_t* file, const uint
       return err;
     }
 
-    memcpy((uint8_t*)start, image_data_part, MIN(data_size, file_size - written_size));
-    image_data_part += data_size;
-    written_size += data_size;
+    size_t copy_size = MIN(data_size, file_size - written_size);
+    memcpy((uint8_t*)start, image_data_part, copy_size);
+    image_data_part += copy_size;
+    written_size += copy_size;
   }
 
   free(blocks);
@@ -256,6 +270,10 @@ ccos_error_t ccos_read_file(ccos_disk_t* disk, ccos_inode_t* file, uint8_t** fil
 }
 
 ccos_error_t ccos_write_file(ccos_disk_t* disk, ccos_inode_t* file, const uint8_t* file_data, size_t file_size) {
+  if (disk == NULL || file == NULL || (file_data == NULL && file_size > 0)) {
+    return CCOS_EINVAL;
+  }
+
   size_t blocks_count = 0;
   uint16_t* blocks = NULL;
 
@@ -312,10 +330,15 @@ ccos_error_t ccos_write_file(ccos_disk_t* disk, ccos_inode_t* file, const uint8_
   }
 
   size_t written = 0;
-  for (int i = 0; i < blocks_count; ++i) {
+  for (size_t i = 0; i < blocks_count && written < file_size; ++i) {
     uint8_t* start = NULL;
     size_t data_size = 0;
-    get_block_data(disk, blocks[i], (const uint8_t**)&start, &data_size);
+    err = get_block_data(disk, blocks[i], (const uint8_t**)&start, &data_size);
+    if (err != CCOS_OK) {
+      fprintf(stderr, "Unable to write data: Unable to get target block address!\n");
+      free(blocks);
+      return err;
+    }
 
     size_t copy_size = MIN(file_size - written, data_size);
     memcpy(start, &(file_data[written]), copy_size);
@@ -469,6 +492,16 @@ static void erase_unlinked_file(ccos_disk_t* disk, ccos_inode_t* file, ccos_bitm
 
 ccos_inode_t* ccos_add_file(ccos_disk_t* disk, ccos_inode_t* dest_directory,
                             uint8_t* file_data, size_t file_size, const char* file_name) {
+  if (disk == NULL || dest_directory == NULL || file_name == NULL || (file_data == NULL && file_size > 0)) {
+    return NULL;
+  }
+
+  size_t file_name_length = strlen(file_name);
+  if (file_name_length == 0 || file_name_length > CCOS_MAX_FILE_NAME) {
+    fprintf(stderr, "Unable to add file: invalid file name length!\n");
+    return NULL;
+  }
+
   ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(disk);
   if (bitmask_list.length == 0) {
     fprintf(stderr, "Unable to add file: Unable to find bitmask in the image!\n");
@@ -486,8 +519,8 @@ ccos_inode_t* ccos_add_file(ccos_disk_t* disk, ccos_inode_t* dest_directory,
 
   new_file->desc.file_size = file_size;
   new_file->desc.dir_file_id = dest_directory->header.file_id;
-  new_file->desc.name_length = strlen(file_name);
-  strncpy(new_file->desc.name, file_name, strlen(file_name));
+  new_file->desc.name_length = file_name_length;
+  memcpy(new_file->desc.name, file_name, file_name_length);
 
   new_file->desc.creation_date = ccos_get_datetime();
   new_file->desc.mod_date = new_file->desc.creation_date;
@@ -566,18 +599,37 @@ ccos_error_t ccos_parse_file_name(const ccos_inode_t* inode, char* basename, cha
 }
 
 ccos_inode_t* ccos_create_dir(ccos_disk_t* disk, ccos_inode_t* parent_dir, const char* directory_name) {
-  const char* dir_suffix = "~subject~";
+  if (disk == NULL || parent_dir == NULL || directory_name == NULL) {
+    return NULL;
+  }
 
-  // TODO: Validate directory_name length.
-  char* filename = (char*)calloc(strlen(directory_name) + strlen(dir_suffix) + 1, sizeof(char));
+  const char* dir_suffix = "~Subject~";
+  size_t dir_size = get_dir_default_size(disk);
+  if (dir_size == SIZE_MAX) {
+    return NULL;
+  }
+
+  size_t filename_size = strlen(directory_name) + strlen(dir_suffix);
+  if (filename_size > CCOS_MAX_FILE_NAME) {
+    return NULL;
+  }
+
+  char* filename = (char*)calloc(filename_size + 1, sizeof(char));
   if (filename == NULL) {
     return NULL;
   }
 
-  sprintf(filename, "%s%s", directory_name, dir_suffix);
+  snprintf(filename, filename_size + 1, "%s%s", directory_name, dir_suffix);
 
-  uint8_t directory_contents = CCOS_DIR_LAST_ENTRY_MARKER;
-  ccos_inode_t* new_directory = ccos_add_file(disk, parent_dir, &directory_contents, get_dir_default_size(disk), filename);
+  uint8_t* directory_contents = (uint8_t*)calloc(dir_size, sizeof(uint8_t));
+  if (directory_contents == NULL) {
+    free(filename);
+    return NULL;
+  }
+
+  directory_contents[0] = CCOS_DIR_LAST_ENTRY_MARKER;
+  ccos_inode_t* new_directory = ccos_add_file(disk, parent_dir, directory_contents, dir_size, filename);
+  free(directory_contents);
   free(filename);
 
   if (new_directory == NULL) {
@@ -586,7 +638,7 @@ ccos_inode_t* ccos_create_dir(ccos_disk_t* disk, ccos_inode_t* parent_dir, const
 
   // I have no idea what I'm doing. I'm filling different fields of newly created file to match Programs~Subject~ from
   // real images.
-  // 
+  //
   // TODO: This code duplicates the code from formatting.
   // It's worth double-checking whether these fields are populated in Subjects,
   // and if so, creating a common function to avoid duplicating the magic.
