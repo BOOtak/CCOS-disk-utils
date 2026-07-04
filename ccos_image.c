@@ -539,7 +539,6 @@ ccos_error_t ccos_validate_file(ccos_disk_t* disk, const ccos_inode_t* file) {
 }
 
 ccos_error_t ccos_calc_free_space(ccos_disk_t* disk, size_t* free_space) {
-  uint16_t* free_blocks = NULL;
   size_t free_blocks_count = 0;
 
   ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(disk);
@@ -548,17 +547,11 @@ ccos_error_t ccos_calc_free_space(ccos_disk_t* disk, size_t* free_space) {
     return CCOS_ENOENT;
   }
 
-  ccos_error_t err = get_free_blocks(disk, &bitmask_list, &free_blocks_count, &free_blocks);
+  ccos_error_t err = get_free_blocks_count(disk, &bitmask_list, &free_blocks_count);
   if (err != CCOS_OK) {
     fprintf(stderr, "Unable to calculate free space: Unable to get free blocks!\n");
-    if (free_blocks != NULL) {
-      free(free_blocks);
-    }
-
     return err;
   }
-
-  free(free_blocks);
 
   *free_space = free_blocks_count * get_block_size(disk);
   return CCOS_OK;

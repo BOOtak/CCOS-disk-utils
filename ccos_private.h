@@ -10,6 +10,8 @@ extern "C" {
 #include "ccos_structure.h"
 #include "ccos_string.h"
 
+#include <stdbool.h>
+
 #define DEFAULT_SUPERBLOCK           0x121
 #define DEFAULT_HDD_SUPERBLOCK       0x2420
 #define DEFAULT_BUBBLE_SUPERBLOCK    0x3fe
@@ -130,6 +132,15 @@ ccos_error_t get_file_blocks(ccos_disk_t* disk, ccos_inode_t* file, size_t* bloc
 ccos_bitmask_list_t find_bitmask_blocks(ccos_disk_t* disk);
 
 /**
+ * @brief      Validate image bitmask metadata and log warnings on mismatch.
+ *
+ * @param[in]  disk  Compass disk image.
+ *
+ * @return     True when bitmask metadata is valid, false otherwise.
+ */
+bool validate_disk_bitmap(ccos_disk_t* disk);
+
+/**
  * @brief      Find available free block in the image and return it's number.
  *
  * @param[in]  disk          Compass disk image.
@@ -138,6 +149,18 @@ ccos_bitmask_list_t find_bitmask_blocks(ccos_disk_t* disk);
  * @return     The free block on success, CCOS_INVALID_BLOCK if no free space in the image.
  */
 uint16_t get_free_block(ccos_disk_t* disk, const ccos_bitmask_list_t* bitmask_list);
+
+/**
+ * @brief      Return count of free blocks in a CCOS image.
+ *
+ * @param[in]  disk               Compass disk image.
+ * @param[in]  bitmask_list       List of CCOS image bitmask blocks.
+ * @param      free_blocks_count  Pointer to free blocks count.
+ *
+ * @return     CCOS_OK on success, error code otherwise.
+ */
+ccos_error_t get_free_blocks_count(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list,
+                                   size_t* free_blocks_count);
 
 /**
  * @brief      Mark block in the bitmask as free or used.
@@ -306,19 +329,6 @@ ccos_error_t parse_directory_data(ccos_disk_t* disk,
  * @return     CCOS_OK on success, error code otherwise.
  */
 ccos_error_t get_block_data(ccos_disk_t* disk, uint16_t block, const uint8_t** start, size_t* size);
-
-/**
- * @brief      Return info about free blocks in a CCOS image.
- *
- * @param[in]  disk               Compass disk image.
- * @param[in]  bitmask_list       List of CCOS image bitmask blocks.
- * @param      free_blocks_count  Pointer to free blocks count.
- * @param      free_blocks        Pointer to the free blocks array.
- *
- * @return     CCOS_OK on success, error code otherwise.
- */
-ccos_error_t get_free_blocks(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list,
-                             size_t* free_blocks_count, uint16_t** free_blocks);
 
 /**
  * @brief      Find the index of a file in the directory data.

@@ -60,12 +60,15 @@ static bitmask_info_t calculate_bitmask_info(uint16_t sector_size, size_t disk_s
   const uint16_t sector_count = disk_size / sector_size;
   const uint16_t required_bytes = sector_count / 8;
   const uint16_t bytes_per_sector = sector_size == EXTDISK_SECTOR_SIZE ? BS512_BITMASK_SIZE : BS256_BITMASK_SIZE;
-  const uint16_t count = required_bytes / bytes_per_sector + 1;
+  const uint16_t count = (required_bytes + bytes_per_sector - 1) / bytes_per_sector;
 
   const uint16_t bitmask = superblock - count;
 
-  const uint16_t tail_length = bytes_per_sector - (required_bytes % bytes_per_sector);
-  const uint16_t tail_offset = required_bytes % bytes_per_sector;
+  uint16_t tail_offset = required_bytes % bytes_per_sector;
+  if (tail_offset == 0) {
+    tail_offset = bytes_per_sector;
+  }
+  const uint16_t tail_length = bytes_per_sector - tail_offset;
 
   // Combine and return.
   return (bitmask_info_t) {
@@ -82,11 +85,11 @@ static ccos_bitmask_list_t init_bitmask(ccos_disk_t* disk, bitmask_info_t info) 
     ccos_bitmask_t* bitmask = (ccos_bitmask_t*)ccos_disk_read(disk, info.sector + i);
 
     memset(bitmask, 0x00, disk->sector_size);
-  
+
     bitmask->header.file_id = info.sector;
     bitmask->header.file_fragment_index = i;
     bitmask->allocated = 0;
-  
+
     if (i == info.count - 1) {
       uint8_t* bitmask_bytes = get_bitmask_bytes(bitmask);
       memset(bitmask_bytes + info.tail_offset, 0xff, info.tail_length);
@@ -202,6 +205,11 @@ int ccos_new_disk_image(disk_format_t format, size_t disk_size, ccos_disk_t* out
   uint16_t sector_size = format == CCOS_DISK_FORMAT_BUBMEM
     ? BUBBLES_SECTOR_SIZE
     : EXTDISK_SECTOR_SIZE;
+
+  if ((disk_size / sector_size) % 8 != 0) {
+    TRACE("Format image: sector count %zu is not a multiple of 8", disk_size / sector_size);
+    return EINVAL;
+  }
 
   uint8_t* data = new_empty_image(sector_size, disk_size);
   if (data == NULL) {

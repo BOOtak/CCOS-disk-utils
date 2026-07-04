@@ -279,6 +279,7 @@ int main(int argc, char** argv) {
 
   disk->data = file_contents;
   disk->size = file_size;
+  validate_disk_bitmap(disk);
 
   int res;
   switch (mode) {
