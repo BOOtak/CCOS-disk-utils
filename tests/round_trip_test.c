@@ -65,7 +65,7 @@ static void assert_round_trip(disk_format_t format, size_t image_size, uint16_t 
   cr_assert_not_null(subject, "ccos_create_dir failed");
   cr_assert_eq(ccos_validate_file(&disk, subject), CCOS_OK);
   cr_assert_eq(ccos_validate_file(&disk, root), CCOS_OK);
-  assert_file_name(subject, "RoundTrip~subject~");
+  assert_file_name(subject, "RoundTrip~Subject~");
 
   uint16_t root_entry_count = 0;
   ccos_inode_t** root_entries = NULL;
