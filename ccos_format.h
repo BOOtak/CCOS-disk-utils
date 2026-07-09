@@ -21,11 +21,11 @@ typedef enum {
  *
  * @param[in]  format        The disk format to use (e.g., DISK_FORMAT_COMPASS).
  * @param[in]  disk_size     Total size of the image in bytes, should be a multiple of 512.
- * @param[out] output        Pointer to the resulting disk image structure.
+ * @param[out] output        Pointer to the resulting disk image handle.
  *
  * @return     0 on success, or an error code.
  */
-int ccos_new_disk_image(disk_format_t format, size_t disk_size, ccos_disk_t* output);
+int ccos_new_disk_image(disk_format_t format, size_t disk_size, ccos_disk_t** output);
 
 #ifdef __cplusplus
 }

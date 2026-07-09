@@ -230,18 +230,17 @@ typedef struct {
 } dir_entry_t;
 #pragma pack(pop)
 
-size_t get_block_size(ccos_disk_t* disk);
-size_t get_log_block_size(ccos_disk_t* disk);
-size_t get_inode_max_blocks(ccos_disk_t* disk);
-size_t get_content_inode_padding(ccos_disk_t* disk);
-size_t get_content_inode_max_blocks(ccos_disk_t* disk);
-size_t get_bitmask_size(ccos_disk_t* disk);
-size_t get_bitmask_blocks(ccos_disk_t* disk);
-size_t get_dir_default_size(ccos_disk_t* disk);
+size_t ccos_get_log_sector_size(ccos_disk_t* disk);
+size_t ccos_get_inode_max_sectors(ccos_disk_t* disk);
+size_t ccos_get_content_inode_padding(ccos_disk_t* disk);
+size_t ccos_get_content_inode_max_sectors(ccos_disk_t* disk);
+size_t ccos_get_bitmask_size(ccos_disk_t* disk);
+size_t ccos_get_bitmask_sectors(ccos_disk_t* disk);
+size_t ccos_get_dir_default_size(ccos_disk_t* disk);
 
-uint16_t* get_inode_content_blocks(ccos_inode_t* inode);
-uint16_t* get_content_inode_content_blocks(ccos_content_inode_t* inode);
-uint8_t* get_bitmask_bytes(ccos_bitmask_t* bitmask);
+uint16_t* ccos_get_inode_content_sectors(ccos_inode_t* inode);
+uint16_t* ccos_get_content_inode_content_sectors(ccos_content_inode_t* inode);
+uint8_t* ccos_get_bitmask_bytes(ccos_bitmask_t* bitmask);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,8 @@
 #ifndef STRING_UTILS_H
 #define STRING_UTILS_H
 
+#include "ccos_string.h"
+
 #include <stdint.h>
 
 /**
@@ -38,5 +40,14 @@ const char* trim_string(const char* src, char symbol);
  * @return     Pointer to the trimmed string.
  */
 const char* rtrim_string(const char* src, char symbol);
+
+/**
+ * @brief      Convert the string from the internal short string format into C string.
+ *
+ * @param[in]  short_string  The short string.
+ *
+ * @return     Pointer to allocated C string on success, NULL otherwise.
+ */
+char* short_string_to_string(const short_string_t* short_string);
 
 #endif  // STRING_UTILS_H

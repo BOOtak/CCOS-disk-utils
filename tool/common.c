@@ -106,10 +106,11 @@ int save_image(const char* source_filename, ccos_disk_t* disk, int in_place) {
     return -1;
   }
 
-  size_t written = fwrite(disk->data, sizeof(uint8_t), disk->size, f);
+  size_t disk_size = ccos_disk_size(disk);
+  size_t written = fwrite(ccos_disk_data(disk), sizeof(uint8_t), disk_size, f);
   fclose(f);
-  if (written != disk->size) {
-    fprintf(stderr, "Write size mismatch: Expected " SIZE_T ", but only " SIZE_T " written!\n", disk->size, written);
+  if (written != disk_size) {
+    fprintf(stderr, "Write size mismatch: Expected " SIZE_T ", but only " SIZE_T " written!\n", disk_size, written);
     return -1;
   }
 

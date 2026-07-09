@@ -26,20 +26,22 @@ static void display_bad_sector(const uint8_t* actual, size_t sector_size) {
 }
 
 static void compare_disk_with_ref(ccos_disk_t* disk, uint8_t* expected) {
-  const uint16_t sector_count = disk->size / disk->sector_size;
+  const uint16_t sector_size = ccos_disk_sector_size(disk);
+  const uint16_t sector_count = ccos_disk_size(disk) / sector_size;
+  const uint8_t* actual = ccos_disk_data(disk);
 
   for (uint16_t i = 0; i < sector_count; i++) {
-    const uint8_t* actual_sector = ccos_disk_read(disk, i);
-    const uint8_t* expected_sector = expected + i * disk->sector_size;
+    const uint8_t* actual_sector = actual + i * sector_size;
+    const uint8_t* expected_sector = expected + i * sector_size;
   
-    if (memcmp(actual_sector, expected_sector, disk->sector_size)) {
+    if (memcmp(actual_sector, expected_sector, sector_size)) {
       cr_log_error("Sector %" PRIu16 " mismatch", i);
 
       cr_log_error("Actual sector:");
-      display_bad_sector(actual_sector, disk->sector_size);
+      display_bad_sector(actual_sector, sector_size);
 
       cr_log_error("Expected sector:");
-      display_bad_sector(expected_sector, disk->sector_size);
+      display_bad_sector(expected_sector, sector_size);
 
       cr_assert(!"Bad sector");
     }
@@ -75,7 +77,7 @@ static uint8_t* load_image(const char* path, size_t expected_size) {
 Test(format, bubbles) {
   size_t image_size = 3 * 128 * 1024;
 
-  ccos_disk_t disk;
+  ccos_disk_t* disk = NULL;
 
   int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_BUBMEM, image_size, &disk);
   cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
@@ -83,16 +85,16 @@ Test(format, bubbles) {
   uint8_t* expected = load_image("files/bubbles/empty.img", image_size);
   cr_assert_not_null(expected, "Failed to load expected image");
 
-  compare_disk_with_ref(&disk, expected);
+  compare_disk_with_ref(disk, expected);
 
-  free(disk.data);
+  ccos_disk_free(disk);
   free(expected);
 }
 
 Test(format, floppy_360k) {
   size_t image_size = 360 * 1024;
 
-  ccos_disk_t disk;
+  ccos_disk_t* disk = NULL;
 
   int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, image_size, &disk);
   cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
@@ -100,16 +102,16 @@ Test(format, floppy_360k) {
   uint8_t* expected = load_image("files/floppy 360k/empty.img", image_size);
   cr_assert_not_null(expected, "Failed to load expected image");
 
-  compare_disk_with_ref(&disk, expected);
+  compare_disk_with_ref(disk, expected);
 
-  free(disk.data);
+  ccos_disk_free(disk);
   free(expected);
 }
 
 Test(format, floppy_720k) {
   size_t image_size = 720 * 1024;
 
-  ccos_disk_t disk;
+  ccos_disk_t* disk = NULL;
 
   int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, image_size, &disk);
   cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
@@ -117,16 +119,16 @@ Test(format, floppy_720k) {
   uint8_t* expected = load_image("files/floppy 720k/empty.img", image_size);
   cr_assert_not_null(expected, "Failed to load expected image");
 
-  compare_disk_with_ref(&disk, expected);
+  compare_disk_with_ref(disk, expected);
 
-  free(disk.data);
+  ccos_disk_free(disk);
   free(expected);
 }
 
 Test(format, hdd_10mb) {
   size_t image_size = 10 * 1024 * 1024;
 
-  ccos_disk_t disk;
+  ccos_disk_t* disk = NULL;
 
   int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, image_size, &disk);
   cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
@@ -134,18 +136,18 @@ Test(format, hdd_10mb) {
   uint8_t* expected = load_image("files/hdd 10mb/empty.img", image_size);
   cr_assert_not_null(expected, "Failed to load expected image");
 
-  compare_disk_with_ref(&disk, expected);
+  compare_disk_with_ref(disk, expected);
 
-  free(disk.data);
+  ccos_disk_free(disk);
   free(expected);
 }
 
 Test(format, reject_512_bad_count) {
-  ccos_disk_t disk;
+  ccos_disk_t* disk = NULL;
   cr_assert_eq(ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, 721 * 512, &disk), EINVAL);
 }
 
 Test(format, reject_256_bad_count) {
-  ccos_disk_t disk;
+  ccos_disk_t* disk = NULL;
   cr_assert_eq(ccos_new_disk_image(CCOS_DISK_FORMAT_BUBMEM, 1026 * 256, &disk), EINVAL);
 }

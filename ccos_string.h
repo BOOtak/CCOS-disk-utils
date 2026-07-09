@@ -15,15 +15,6 @@ struct short_string_t_ {
   const char data[0xFF];
 };
 
-/**
- * @brief      Convert the string from the internal short string format into C string.
- *
- * @param[in]  short_string  The short string.
- *
- * @return     Pointer to allocated C string on success, NULL otherwise.
- */
-char* short_string_to_string(const short_string_t* short_string);
-
 #ifdef __cplusplus
 }
 #endif

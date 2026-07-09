@@ -54,15 +54,15 @@ static void assert_block_free_and_erased(ccos_disk_t* disk, uint16_t block) {
   cr_assert_not_null(block_data);
   cr_assert_eq(*block_data, CCOS_EMPTY_BLOCK_MARKER, "Block 0x%x is not erased", block);
 
-  ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(disk);
+  ccos_bitmask_list_t bitmask_list = ccos_find_bitmask_sectors(disk);
   cr_assert_gt(bitmask_list.length, 0);
 
-  size_t bitmask_blocks = get_bitmask_blocks(disk);
+  size_t bitmask_blocks = ccos_get_bitmask_sectors(disk);
   size_t bitmask_index = block / bitmask_blocks;
   size_t local_block = block - bitmask_index * bitmask_blocks;
   cr_assert_lt(bitmask_index, bitmask_list.length);
 
-  uint8_t* bitmask_bytes = get_bitmask_bytes(bitmask_list.bitmask_blocks[bitmask_index]);
+  uint8_t* bitmask_bytes = ccos_get_bitmask_bytes(bitmask_list.bitmask_blocks[bitmask_index]);
   cr_assert_eq(bitmask_bytes[local_block / 8] & (1u << (local_block % 8)), 0,
                "Block 0x%x is still marked as allocated", block);
 }
@@ -81,7 +81,7 @@ static block_snapshot_t collect_file_blocks(ccos_disk_t* disk, ccos_inode_t* fil
 
   size_t data_blocks_count = 0;
   uint16_t* data_blocks = NULL;
-  cr_assert_eq(get_file_blocks(disk, file, &data_blocks_count, &data_blocks), CCOS_OK);
+  cr_assert_eq(ccos_get_file_sectors(disk, file, &data_blocks_count, &data_blocks), CCOS_OK);
   for (size_t i = 0; i < data_blocks_count; ++i) {
     append_snapshot_block(&snapshot, data_blocks[i]);
   }
@@ -117,7 +117,7 @@ static void assert_file_contents(ccos_disk_t* disk, ccos_inode_t* file, const ui
 }
 
 static void assert_directory_state(ccos_disk_t* disk, ccos_inode_t* programs, test_file_t* files) {
-  cr_assert(validate_disk_bitmap(disk));
+  cr_assert(ccos_validate_disk_bitmap(disk));
   size_t free_space = 0;
   cr_assert_eq(ccos_calc_free_space(disk, &free_space), CCOS_OK);
 
@@ -157,12 +157,12 @@ static void run_delete_trip(disk_format_t format, size_t image_size, uint16_t ex
     "Epsilon~Data~",
   };
 
-  ccos_disk_t disk;
+  ccos_disk_t* disk = NULL;
   int ret = ccos_new_disk_image(format, image_size, &disk);
   cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
-  cr_assert_eq(disk.sector_size, expected_sector_size);
+  cr_assert_eq(ccos_disk_sector_size(disk), expected_sector_size);
 
-  const size_t data_block_size = get_log_block_size(&disk);
+  const size_t data_block_size = ccos_get_log_sector_size(disk);
   const size_t sizes[FILE_COUNT] = {
     16,
     data_block_size,
@@ -172,7 +172,7 @@ static void run_delete_trip(disk_format_t format, size_t image_size, uint16_t ex
   };
 
   test_file_t files[FILE_COUNT] = {0};
-  ccos_inode_t* programs = create_programs_dir(&disk);
+  ccos_inode_t* programs = create_programs_dir(disk);
 
   for (size_t i = 0; i < FILE_COUNT; ++i) {
     files[i].name = names[i];
@@ -180,38 +180,38 @@ static void run_delete_trip(disk_format_t format, size_t image_size, uint16_t ex
     files[i].data = create_random_data(files[i].size);
     cr_assert_not_null(files[i].data);
 
-    files[i].inode = ccos_add_file(&disk, programs, files[i].data, files[i].size, files[i].name);
+    files[i].inode = ccos_add_file(disk, programs, files[i].data, files[i].size, files[i].name);
     cr_assert_not_null(files[i].inode, "ccos_add_file failed for %s", files[i].name);
   }
 
-  assert_directory_state(&disk, programs, files);
+  assert_directory_state(disk, programs, files);
 
   const size_t order[FILE_COUNT] = {1, 0, 2, 3, 4};
   for (size_t order_index = 0; order_index < FILE_COUNT; ++order_index) {
     size_t file_index = order[order_index];
 
     for (size_t cycle = 0; cycle < DELETE_ADD_CYCLES; ++cycle) {
-      block_snapshot_t snapshot = collect_file_blocks(&disk, files[file_index].inode);
+      block_snapshot_t snapshot = collect_file_blocks(disk, files[file_index].inode);
 
-      cr_assert_eq(ccos_delete_file(&disk, files[file_index].inode), CCOS_OK);
-      assert_snapshot_blocks_freed(&disk, &snapshot);
-      cr_assert(validate_disk_bitmap(&disk));
+      cr_assert_eq(ccos_delete_file(disk, files[file_index].inode), CCOS_OK);
+      assert_snapshot_blocks_freed(disk, &snapshot);
+      cr_assert(ccos_validate_disk_bitmap(disk));
 
-      files[file_index].inode = ccos_add_file(&disk, programs, files[file_index].data, files[file_index].size,
+      files[file_index].inode = ccos_add_file(disk, programs, files[file_index].data, files[file_index].size,
                                               files[file_index].name);
       cr_assert_not_null(files[file_index].inode, "Re-add failed for %s", files[file_index].name);
-      assert_directory_state(&disk, programs, files);
+      assert_directory_state(disk, programs, files);
 
       free(snapshot.blocks);
     }
   }
 
-  assert_directory_state(&disk, programs, files);
+  assert_directory_state(disk, programs, files);
 
   for (size_t i = 0; i < FILE_COUNT; ++i) {
     free(files[i].data);
   }
-  free(disk.data);
+  ccos_disk_free(disk);
 }
 
 Test(delete_trip, repeated_delete_add_512_byte_sectors) {

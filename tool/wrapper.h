@@ -158,12 +158,12 @@ int rename_file(ccos_disk_t* disk, char* path, char* file_name, char* new_name, 
 /**
  * @brief      Create new blank CCOS image file.
  *
- * @param[in]  disk  Compass disk image.
- * @param[in]  path  Path where to create the new image file.
- * @param[in]  size  Size of the image in bytes. Must be a multiple of the sector size.
+ * @param[in]  sector_size  Image sector size.
+ * @param[in]  path         Path where to create the new image file.
+ * @param[in]  size         Size of the image in bytes. Must be a multiple of the sector size.
  *
  * @return     0 on success, -1 otherwise.
  */
-int create_blank_image(ccos_disk_t* disk, char* path, size_t size);
+int create_blank_image(uint16_t sector_size, char* path, size_t size);
 
 #endif  // WRAPPER_H

@@ -32,3 +32,13 @@ const char* rtrim_string(const char* src, char symbol) {
     ;
   return &(src[i]);
 }
+
+char* short_string_to_string(const short_string_t* short_string) {
+  char* result = calloc(short_string->length + 1, sizeof(char));
+  if (result == NULL) {
+    return NULL;
+  }
+
+  memcpy(result, short_string->data, short_string->length);
+  return result;
+}

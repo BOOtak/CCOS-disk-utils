@@ -125,20 +125,25 @@ static void print_usage() {
           "-l, --in-place           Write changes to the original image\n");
 }
 
-ccos_disk_t* default_ccos_context() {
-  ccos_disk_t* disk = malloc(sizeof(ccos_disk_t));
+typedef struct {
+  uint16_t sector_size;
+  uint16_t superblock;
+  uint16_t bitmap;
+} disk_options_t;
 
-  disk->sector_size = DEFAULT_SECTOR_SIZE;
-  disk->superblock_fid = DEFAULT_SUPERBLOCK;
-  disk->bitmap_fid = DEFAULT_BITMASK_BLOCK_ID;
-
-  return disk;
+static disk_options_t default_ccos_options(void) {
+  return (disk_options_t) {
+    .sector_size = DEFAULT_SECTOR_SIZE,
+    .superblock = DEFAULT_SUPERBLOCK,
+    .bitmap = DEFAULT_BITMASK_BLOCK_ID,
+  };
 }
 
 int main(int argc, char** argv) {
   op_mode_t mode = 0;
   char* path = NULL;
-  ccos_disk_t* disk = default_ccos_context();
+  disk_options_t disk_options = default_ccos_options();
+  ccos_disk_t* disk = NULL;
   char* filename = NULL;
   char* dir_name = NULL;
   char* target_name = NULL;
@@ -217,7 +222,7 @@ int main(int argc, char** argv) {
         mode = MODE_CREATE_BLANK;
 
         new_image_size = strtol(optarg, NULL, 10);
-        if (new_image_size <= 0 || new_image_size % disk->sector_size != 0) {
+        if (new_image_size <= 0 || new_image_size % disk_options.sector_size != 0) {
           printf("Invalid image size! Value must be positive and a multiple of the sector size\n");
           return 1;
         }
@@ -235,7 +240,7 @@ int main(int argc, char** argv) {
       case SECTOR_SIZE_OPT: {
         long sector_size = strtol(optarg, NULL, 10);
         if (sector_size == 256 || sector_size == 512) {
-          disk->sector_size = sector_size;
+          disk_options.sector_size = (uint16_t)sector_size;
           break;
         } else {
           printf("Invalid sector size! Allowed only 256 or 512\n");
@@ -244,12 +249,12 @@ int main(int argc, char** argv) {
       }
       case SUPERBLOCK_OPT: {
         long value = strtol(optarg, NULL, 16);
-        if (0 < value && value < 0xFFFF) {
-          disk->superblock_fid = value;
-          disk->bitmap_fid = value - 1;
+        if (1 < value && value < 0xFFFF) {
+          disk_options.superblock = (uint16_t)value;
+          disk_options.bitmap = (uint16_t)(value - 1);
           break;
         } else {
-          printf("Invalid superblock! Value must be in range 0x0001-0xFFFE\n");
+          printf("Invalid superblock! Value must be in range 0x0002-0xFFFE\n");
           return 1;
         }
       }
@@ -257,10 +262,10 @@ int main(int argc, char** argv) {
   }
 
   TRACE("Use image '%s' with sector size %d, superblock %#x, bitmap block %#x",
-        path, disk->sector_size, disk->superblock_fid, disk->bitmap_fid);
+        path, disk_options.sector_size, disk_options.superblock, disk_options.bitmap);
 
   if (mode == MODE_CREATE_BLANK) {
-    return create_blank_image(disk, path, new_image_size);
+    return create_blank_image(disk_options.sector_size, path, new_image_size);
   }
 
   uint8_t* file_contents = NULL;
@@ -277,9 +282,16 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  disk->data = file_contents;
-  disk->size = file_size;
-  validate_disk_bitmap(disk);
+  disk = disk_options.sector_size == 256
+    ? ccos_disk_new_bubble(file_contents, file_size, disk_options.superblock, disk_options.bitmap)
+    : ccos_disk_new_extdisk(file_contents, file_size, disk_options.superblock, disk_options.bitmap);
+  if (disk == NULL) {
+    fprintf(stderr, "Unable to initialize disk context!\n");
+    free(file_contents);
+    return -1;
+  }
+
+  ccos_validate_disk_bitmap(disk);
 
   int res;
   switch (mode) {
@@ -334,6 +346,6 @@ int main(int argc, char** argv) {
     }
   }
 
-  free(file_contents);
+  ccos_disk_free(disk);
   return res;
 }

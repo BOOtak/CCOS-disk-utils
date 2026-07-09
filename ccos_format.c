@@ -84,42 +84,42 @@ static ccos_bitmask_list_t init_bitmask(ccos_disk_t* disk, bitmask_info_t info) 
   for (size_t i = 0; i < info.count; i++) {
     ccos_bitmask_t* bitmask = (ccos_bitmask_t*)ccos_disk_read(disk, info.sector + i);
 
-    memset(bitmask, 0x00, disk->sector_size);
+    memset(bitmask, 0x00, ccos_disk_sector_size(disk));
 
     bitmask->header.file_id = info.sector;
     bitmask->header.file_fragment_index = i;
     bitmask->allocated = 0;
 
     if (i == info.count - 1) {
-      uint8_t* bitmask_bytes = get_bitmask_bytes(bitmask);
+      uint8_t* bitmask_bytes = ccos_get_bitmask_bytes(bitmask);
       memset(bitmask_bytes + info.tail_offset, 0xff, info.tail_length);
     }
 
-    update_bitmask_checksum(disk, bitmask);
+    ccos_update_bitmask_checksum(disk, bitmask);
   }
 
   // Build list of bitmask blocks.
-  ccos_bitmask_list_t bitmask_list = find_bitmask_blocks(disk);
+  ccos_bitmask_list_t bitmask_list = ccos_find_bitmask_sectors(disk);
 
   // Mark the bitmask blocks as used in the bitmask itself.
   for (size_t i = 0; i < info.count; i++) {
-    mark_block(disk, &bitmask_list, info.sector + i, 1);
+    ccos_mark_sector(disk, &bitmask_list, info.sector + i, 1);
   }
 
   return bitmask_list;
 }
 
 static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list) {
-  uint16_t id = disk->superblock_fid;
+  uint16_t id = ccos_disk_superblock(disk);
 
   ccos_inode_t* root_dir = (ccos_inode_t*)ccos_disk_read(disk, id);
 
-  memset(root_dir, 0x00, disk->sector_size);
+  memset(root_dir, 0x00, ccos_disk_sector_size(disk));
 
   root_dir->header.file_id = id;
   root_dir->header.file_fragment_index = 0;
 
-  root_dir->desc.file_size = get_dir_default_size(disk);
+  root_dir->desc.file_size = ccos_get_dir_default_size(disk);
 
   root_dir->desc.name_length = 0;
   memset(root_dir->desc.name, ' ', sizeof(root_dir->desc.name));
@@ -143,43 +143,43 @@ static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_lis
   root_dir->content_inode_info.block_current = id;
   root_dir->content_inode_info.block_prev = CCOS_INVALID_BLOCK;
 
-  mark_block(disk, bitmask_list, id, 1);
+  ccos_mark_sector(disk, bitmask_list, id, 1);
 
-  uint16_t* content_blocks = get_inode_content_blocks(root_dir);
-  size_t max_content_blocks = get_inode_max_blocks(disk);
+  uint16_t* content_blocks = ccos_get_inode_content_sectors(root_dir);
+  size_t max_content_blocks = ccos_get_inode_max_sectors(disk);
 
   memset(content_blocks, 0xFF, max_content_blocks * sizeof(uint16_t));
 
   uint16_t superblock_entry_block = id + 1;
   content_blocks[0] = superblock_entry_block;
 
-  update_inode_checksums(disk, root_dir);
+  ccos_update_inode_checksums(disk, root_dir);
 
   ccos_block_header_t* superblock_entry = (ccos_block_header_t*)ccos_disk_read(disk, superblock_entry_block);
-  memset(superblock_entry, 0x00, disk->sector_size);
+  memset(superblock_entry, 0x00, ccos_disk_sector_size(disk));
   superblock_entry->file_id = id;
   superblock_entry->file_fragment_index = 0;
   ((uint16_t*)superblock_entry)[2] = CCOS_DIR_LAST_ENTRY_MARKER;
 
-  mark_block(disk, bitmask_list, superblock_entry_block, 1);
+  ccos_mark_sector(disk, bitmask_list, superblock_entry_block, 1);
 }
 
 static void write_boot_code(ccos_disk_t* disk, disk_format_t format, ccos_bitmask_list_t* bitmask_list) {
   const uint8_t* boot_code = format == CCOS_DISK_FORMAT_GRIDCASE ? GRIDCASE_BOOT_CODE : COMPASS_BOOT_CODE;
 
-  size_t pages = BOOT_CODE_SIZE / disk->sector_size;
-  size_t offset = sizeof(ccos_boot_sector_t) / disk->sector_size;
+  size_t pages = BOOT_CODE_SIZE / ccos_disk_sector_size(disk);
+  size_t offset = sizeof(ccos_boot_sector_t) / ccos_disk_sector_size(disk);
 
   for (size_t i = 0; i < pages; i++) {
-    memcpy(ccos_disk_read(disk, offset + i), boot_code + i * disk->sector_size, disk->sector_size);
-    mark_block(disk, bitmask_list, offset + i, 1);
+    memcpy(ccos_disk_read(disk, offset + i), boot_code + i * ccos_disk_sector_size(disk), ccos_disk_sector_size(disk));
+    ccos_mark_sector(disk, bitmask_list, offset + i, 1);
   }
 }
 
 static void write_boot_sector(ccos_disk_t* disk, disk_format_t format, ccos_bitmask_list_t* bitmask_list) {
   ccos_boot_sector_t boot_sector = (ccos_boot_sector_t) {
-    .superblock_fid = disk->superblock_fid,
-    .bitmap_fid = disk->bitmap_fid,
+    .superblock_fid = ccos_disk_superblock(disk),
+    .bitmap_fid = ccos_disk_bitmap(disk),
   };
 
   if (format == CCOS_DISK_FORMAT_GRIDCASE) {
@@ -189,14 +189,19 @@ static void write_boot_sector(ccos_disk_t* disk, disk_format_t format, ccos_bitm
     memcpy(boot_sector.header, COMPASS_BOOT_SECTOR_HEADER, BOOT_SECTOR_HEADER_SIZE);
   }
 
-  size_t pages = sizeof(ccos_boot_sector_t) / disk->sector_size;
+  size_t pages = sizeof(ccos_boot_sector_t) / ccos_disk_sector_size(disk);
   for (size_t i = 0; i < pages; i++) {
-    memcpy(ccos_disk_read(disk, i), &boot_sector + i * disk->sector_size, disk->sector_size);
-    mark_block(disk, bitmask_list, i, 1);
+    memcpy(ccos_disk_read(disk, i), &boot_sector + i * ccos_disk_sector_size(disk), ccos_disk_sector_size(disk));
+    ccos_mark_sector(disk, bitmask_list, i, 1);
   }
 }
 
-int ccos_new_disk_image(disk_format_t format, size_t disk_size, ccos_disk_t* output) {
+int ccos_new_disk_image(disk_format_t format, size_t disk_size, ccos_disk_t** output) {
+  if (output == NULL) {
+    return EINVAL;
+  }
+
+  *output = NULL;
   if (disk_size % EXTDISK_SECTOR_SIZE != 0) {
     TRACE("Format image: image size %zu is not a multiple of 512", disk_size);
     return EINVAL;
@@ -226,22 +231,23 @@ int ccos_new_disk_image(disk_format_t format, size_t disk_size, ccos_disk_t* out
       (size_t)bitmask.sector * sector_size >= disk_size)
   {
     TRACE("Format image: image size %zu too small", disk_size);
+    free(data);
     return EINVAL;
   }
 
-  ccos_disk_t disk = {
-    .sector_size = sector_size,
-    .superblock_fid = superblock,
-    .bitmap_fid = bitmask.sector,
-    .size = disk_size,
-    .data = data
-  };
+  ccos_disk_t* disk = sector_size == BUBBLES_SECTOR_SIZE
+    ? ccos_disk_new_bubble(data, disk_size, superblock, bitmask.sector)
+    : ccos_disk_new_extdisk(data, disk_size, superblock, bitmask.sector);
+  if (disk == NULL) {
+    free(data);
+    return ENOMEM;
+  }
 
-  ccos_bitmask_list_t bitmask_list = init_bitmask(&disk, bitmask);
-  write_superblock(&disk, &bitmask_list);
+  ccos_bitmask_list_t bitmask_list = init_bitmask(disk, bitmask);
+  write_superblock(disk, &bitmask_list);
 
-  write_boot_sector(&disk, format, &bitmask_list);
-  write_boot_code(&disk, format, &bitmask_list);
+  write_boot_sector(disk, format, &bitmask_list);
+  write_boot_code(disk, format, &bitmask_list);
 
   *output = disk;
 

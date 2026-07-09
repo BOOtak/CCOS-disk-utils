@@ -11,7 +11,7 @@ extern "C" {
 
 #include <stdio.h>
 
-typedef enum { UNKNOWN, DATA, EMPTY } block_type_t;
+typedef enum { CCOS_SECTOR_UNKNOWN, CCOS_SECTOR_DATA, CCOS_SECTOR_EMPTY } ccos_sector_type_t;
 
 #if defined(WIN32)
 #define SIZE_T "%I64d"

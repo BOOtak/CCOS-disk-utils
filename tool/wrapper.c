@@ -579,12 +579,13 @@ int replace_file(ccos_disk_t* disk, const char* path, const char* filename, cons
     return -1;
   }
 
-  size_t res = fwrite(disk->data, sizeof(uint8_t), disk->size, output);
+  size_t disk_size = ccos_disk_size(disk);
+  size_t res = fwrite(ccos_disk_data(disk), sizeof(uint8_t), disk_size, output);
   free(file_contents);
   fclose(output);
 
-  if (res != disk->size) {
-    fprintf(stderr, "Unable to write new image: written " SIZE_T ", expected " SIZE_T ": %s!\n", res, disk->size,
+  if (res != disk_size) {
+    fprintf(stderr, "Unable to write new image: written " SIZE_T ", expected " SIZE_T ": %s!\n", res, disk_size,
             strerror(errno));
     return -1;
   }
@@ -641,36 +642,37 @@ int copy_file(ccos_disk_t* src, const char* target_image, const char* filename, 
   }
 
   // TODO: Allow to copy file to disk with different properties.
-  ccos_disk_t dest = (ccos_disk_t) {
-    .sector_size = src->sector_size,
-    .superblock_fid = src->superblock_fid,
-    .bitmap_fid = src->bitmap_fid,
-    .data = dest_data,
-    .size = dest_size,
-  };
+  ccos_disk_t* dest = ccos_disk_sector_size(src) == 256
+    ? ccos_disk_new_bubble(dest_data, dest_size, ccos_disk_superblock(src), ccos_disk_bitmap(src))
+    : ccos_disk_new_extdisk(dest_data, dest_size, ccos_disk_superblock(src), ccos_disk_bitmap(src));
+  if (dest == NULL) {
+    fprintf(stderr, "Unable to initialize target disk context!\n");
+    free(dest_data);
+    return -1;
+  }
 
   ccos_inode_t* root_dir;
   if ((root_dir = ccos_get_root_dir(src)) == NULL) {
     fprintf(stderr, "Unable to get root directory of the source image!\n");
-    free(dest.data);
+    ccos_disk_free(dest);
     return -1;
   }
 
   ccos_inode_t* dest_root_dir;
-  if ((dest_root_dir = ccos_get_root_dir(&dest)) == NULL) {
+  if ((dest_root_dir = ccos_get_root_dir(dest)) == NULL) {
     fprintf(stderr, "Unable to get root directory of the target image!\n");
-    free(dest.data);
+    ccos_disk_free(dest);
     return -1;
   }
 
-  if (do_copy_file(src,  root_dir, filename, &dest, dest_root_dir) == -1) {
+  if (do_copy_file(src, root_dir, filename, dest, dest_root_dir) == -1) {
     fprintf(stderr, "Unable to copy file \"%s\" in \"%s\"!\n", filename, target_image);
-    free(dest.data);
+    ccos_disk_free(dest);
     return -1;
   }
 
-  int res = save_image(target_image, &dest, in_place);
-  free(dest.data);
+  int res = save_image(target_image, dest, in_place);
+  ccos_disk_free(dest);
   return res;
 }
 
@@ -819,25 +821,26 @@ int rename_file(ccos_disk_t* disk, char* path, char* file_name, char* new_name, 
   return res;
 }
 
-int create_blank_image(ccos_disk_t* disk, char* path, size_t size) {
+int create_blank_image(uint16_t sector_size, char* path, size_t size) {
   if (path == NULL) {
     fprintf(stderr, "No target image is provided to copy file to!\n");
     return EINVAL;
   }
 
-  if (size % disk->sector_size != 0) {
-    fprintf(stderr, "Image size must be a multiple of the sector size %d\n", disk->sector_size);
+  if (size % sector_size != 0) {
+    fprintf(stderr, "Image size must be a multiple of the sector size %d\n", sector_size);
     return EINVAL;
   }
 
-  disk_format_t format = disk->sector_size == 256 ? CCOS_DISK_FORMAT_BUBMEM : CCOS_DISK_FORMAT_COMPASS;
-  int res = ccos_new_disk_image(format, size, disk);
+  disk_format_t format = sector_size == 256 ? CCOS_DISK_FORMAT_BUBMEM : CCOS_DISK_FORMAT_COMPASS;
+  ccos_disk_t* new_disk = NULL;
+  int res = ccos_new_disk_image(format, size, &new_disk);
   if (res) {
     fprintf(stderr, "Failed to create new disk image. Error code: %s\n", strerror(res));
     return res;
   }
 
-  res = save_image(path, disk, 1);
-  free(disk->data);
+  res = save_image(path, new_disk, 1);
+  ccos_disk_free(new_disk);
   return res;
 }

@@ -13,7 +13,7 @@ typedef enum {
   CCOS_ENOSPC,   /* No space left on image */
   CCOS_EEXIST,   /* File already exists in directory */
   CCOS_ENOENT,   /* No such file or entry in directory */
-  CCOS_ERANGE    /* Block or offset out of bounds */
+  CCOS_ERANGE    /* Sector or offset out of bounds */
 } ccos_error_t;
 
 /**
