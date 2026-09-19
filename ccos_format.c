@@ -191,7 +191,8 @@ static void write_boot_sector(ccos_disk_t* disk, disk_format_t format, ccos_bitm
 
   size_t pages = sizeof(ccos_boot_sector_t) / ccos_disk_sector_size(disk);
   for (size_t i = 0; i < pages; i++) {
-    memcpy(ccos_disk_read(disk, i), &boot_sector + i * ccos_disk_sector_size(disk), ccos_disk_sector_size(disk));
+    const uint8_t* source = (const uint8_t*)&boot_sector + i * ccos_disk_sector_size(disk);
+    memcpy(ccos_disk_read(disk, i), source, ccos_disk_sector_size(disk));
     ccos_mark_sector(disk, bitmask_list, i, 1);
   }
 }
