@@ -56,7 +56,7 @@ static size_t copy_bitmap_bytes(ccos_disk_t* disk, uint8_t** snapshot) {
   cr_assert_not_null(*snapshot);
 
   for (size_t i = 0; i < bitmask_list.length; ++i) {
-    memcpy(*snapshot + i * bitmask_size, ccos_get_bitmask_bytes(bitmask_list.bitmask_blocks[i]), bitmask_size);
+    memcpy(*snapshot + i * bitmask_size, ccos_get_bitmask_bytes(ccos_get_bitmask_blocks(disk, &bitmask_list)[i]), bitmask_size);
   }
 
   return snapshot_size;
@@ -84,10 +84,10 @@ static void clear_first_tail_bit(ccos_disk_t* disk) {
   cr_assert_lt(bitmask_index, bitmask_list.length);
 
   size_t local_block = block_count - bitmask_index * blocks_per_bitmask;
-  uint8_t* bytes = ccos_get_bitmask_bytes(bitmask_list.bitmask_blocks[bitmask_index]);
+  uint8_t* bytes = ccos_get_bitmask_bytes(ccos_get_bitmask_blocks(disk, &bitmask_list)[bitmask_index]);
   bytes[local_block / 8] &= ~(1u << (local_block % 8));
 
-  ccos_update_bitmask_checksum(disk, bitmask_list.bitmask_blocks[bitmask_index]);
+  ccos_update_bitmask_checksum(disk, ccos_get_bitmask_blocks(disk, &bitmask_list)[bitmask_index]);
 }
 
 static void assert_free_blocks_count_is_valid(ccos_disk_t* disk) {
@@ -187,8 +187,8 @@ Test(bitmap, reject_bad_allocated) {
   cr_assert_gt(bitmask_list.length, 0);
 
   size_t block_count = ccos_disk_size(disk) / ccos_disk_sector_size(disk);
-  bitmask_list.bitmask_blocks[0]->allocated = block_count + 1;
-  ccos_update_bitmask_checksum(disk, bitmask_list.bitmask_blocks[0]);
+  ccos_get_bitmask_blocks(disk, &bitmask_list)[0]->allocated = block_count + 1;
+  ccos_update_bitmask_checksum(disk, ccos_get_bitmask_blocks(disk, &bitmask_list)[0]);
 
   size_t free_blocks_count = 123;
   cr_assert_eq(ccos_get_free_sectors_count(disk, &bitmask_list, &free_blocks_count), CCOS_EINVAL);
@@ -208,8 +208,8 @@ Test(bitmap, count_uses_bits, .init = cr_redirect_stderr) {
   size_t expected_free_count = 0;
   cr_assert_eq(ccos_get_free_sectors_count(disk, &bitmask_list, &expected_free_count), CCOS_OK);
 
-  bitmask_list.bitmask_blocks[0]->allocated = 0;
-  ccos_update_bitmask_checksum(disk, bitmask_list.bitmask_blocks[0]);
+  ccos_get_bitmask_blocks(disk, &bitmask_list)[0]->allocated = 0;
+  ccos_update_bitmask_checksum(disk, ccos_get_bitmask_blocks(disk, &bitmask_list)[0]);
 
   cr_assert_lt(expected_free_count, ccos_disk_size(disk) / ccos_disk_sector_size(disk));
 
@@ -243,8 +243,8 @@ Test(bitmap, validate_allocated_count, .init = cr_redirect_stderr) {
   size_t free_count = 0;
   cr_assert_eq(ccos_get_free_sectors_count(disk, &bitmask_list, &free_count), CCOS_OK);
 
-  bitmask_list.bitmask_blocks[0]->allocated = 0;
-  ccos_update_bitmask_checksum(disk, bitmask_list.bitmask_blocks[0]);
+  ccos_get_bitmask_blocks(disk, &bitmask_list)[0]->allocated = 0;
+  ccos_update_bitmask_checksum(disk, ccos_get_bitmask_blocks(disk, &bitmask_list)[0]);
 
   size_t block_count = ccos_disk_size(disk) / ccos_disk_sector_size(disk);
   char expected_warning[128];
@@ -266,7 +266,7 @@ Test(bitmap, validate_checksum, .init = cr_redirect_stderr) {
   ccos_bitmask_list_t bitmask_list = ccos_find_bitmask_sectors(disk);
   cr_assert_gt(bitmask_list.length, 0);
 
-  ccos_bitmask_t* bitmask = bitmask_list.bitmask_blocks[0];
+  ccos_bitmask_t* bitmask = ccos_get_bitmask_blocks(disk, &bitmask_list)[0];
   uint16_t stored_checksum = bitmask->checksum ^ 1u;
   uint16_t actual_checksum = bitmask->checksum;
   bitmask->checksum = stored_checksum;
@@ -375,6 +375,43 @@ Test(bitmap, inode_block_list_boundary) {
   assert_valid_bitmaps(disk);
 
   free(data_blocks);
+  free(file_data);
+  ccos_disk_free(disk);
+}
+
+Test(bitmap, content_inode_fragment_indices) {
+  ccos_disk_t* disk = NULL;
+  int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024, &disk);
+  cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
+
+  ccos_inode_t* subject = create_subject(disk);
+  const size_t content_inode_count = 3;
+  const size_t data_blocks_count = ccos_get_inode_max_sectors(disk)
+    + (content_inode_count - 1) * ccos_get_content_inode_max_sectors(disk) + 1;
+  const size_t file_size = data_blocks_count * ccos_get_log_sector_size(disk);
+  uint8_t* file_data = create_test_data(file_size);
+  cr_assert_not_null(file_data);
+
+  ccos_inode_t* file = ccos_add_file(disk, subject, file_data, file_size, "Indices~Data~");
+  cr_assert_not_null(file, "ccos_add_file failed");
+  cr_assert_eq(file->content_inode_info.header.file_fragment_index, 0);
+  cr_assert(ccos_is_valid_inode_checksum(disk, file));
+
+  uint16_t block = file->content_inode_info.block_next;
+  for (size_t i = 1; i <= content_inode_count; ++i) {
+    cr_assert_neq(block, CCOS_INVALID_BLOCK);
+    ccos_content_inode_t* content_inode = ccos_disk_read(disk, block);
+    cr_assert_not_null(content_inode);
+    cr_assert_eq(content_inode->content_inode_info.header.file_id, file->header.file_id);
+    cr_assert_eq(content_inode->content_inode_info.header.file_fragment_index, i);
+    cr_assert_eq(content_inode->content_inode_info.blocks_checksum,
+                 ccos_calc_content_inode_checksum(disk, content_inode));
+    block = content_inode->content_inode_info.block_next;
+  }
+  cr_assert_eq(block, CCOS_INVALID_BLOCK);
+
+  assert_valid_bitmaps(disk);
+
   free(file_data);
   ccos_disk_free(disk);
 }

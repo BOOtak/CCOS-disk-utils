@@ -430,7 +430,7 @@ ccos_content_inode_t* ccos_add_content_inode(ccos_disk_t* disk, ccos_inode_t* fi
   ccos_content_inode_t* content_inode = ccos_disk_read(disk, new_block);
 
   content_inode->content_inode_info.header.file_id = content_inode_info->header.file_id;
-  content_inode->content_inode_info.header.file_fragment_index = content_inode_info->header.file_fragment_index;
+  content_inode->content_inode_info.header.file_fragment_index = content_inode_info->header.file_fragment_index + 1;
   content_inode->content_inode_info.block_next = CCOS_INVALID_BLOCK;
   content_inode->content_inode_info.block_current = new_block;
   content_inode->content_inode_info.block_prev = content_inode_info->block_current;
