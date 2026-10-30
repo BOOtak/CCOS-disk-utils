@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #define CCOS_CONTENT_BLOCKS_END_MARKER 0xFFFF
 
@@ -747,8 +748,18 @@ static ccos_error_t create_directory_entry(ccos_inode_t* file, int is_last, size
   return CCOS_OK;
 }
 
-// find a place for the new filename in dir contents (all files are located there in alphabetical, case-insensitive
-// order), and insert it there
+static int find_directory_entry_index(ccos_inode_t* file, ccos_inode_t* directory,
+                                      parsed_directory_element_t* elements) {
+  for (int i = 0; i < directory->desc.dir_count; ++i) {
+    const short_string_t* name = ccos_get_file_name(elements[i].file);
+    if (name->length == file->desc.name_length &&
+        strncasecmp(name->data, file->desc.name, name->length) == 0) {
+      return i;
+    }
+  }
+  return directory->desc.dir_count;
+}
+
 ccos_error_t ccos_add_file_entry_to_dir_contents(ccos_disk_t* disk, ccos_inode_t* directory, ccos_inode_t* file) {
   TRACE("Directory size: %d bytes, length: %d, has %d entries",
         directory->desc.file_size, directory->desc.dir_length,
@@ -773,10 +784,7 @@ ccos_error_t ccos_add_file_entry_to_dir_contents(ccos_disk_t* disk, ccos_inode_t
     return err;
   }
 
-  // 1. Find place for the new file to insert
-  int i = ccos_find_file_index_in_directory_data(file, directory, elements);
-  if ((i < directory->desc.dir_count) && (file->desc.name_length == elements[i].file->desc.name_length) &&
-      !(strncasecmp(file->desc.name, elements[i].file->desc.name, file->desc.name_length))) {
+  if (find_directory_entry_index(file, directory, elements) < directory->desc.dir_count) {
     // TODO: add option to overwrite existing file
     fprintf(stderr, "Unable to add file %*s to the directory: File exists!\n", file->desc.name_length, file->desc.name);
     free(directory_data);
@@ -784,6 +792,7 @@ ccos_error_t ccos_add_file_entry_to_dir_contents(ccos_disk_t* disk, ccos_inode_t
     return CCOS_EEXIST;
   }
 
+  int i = ccos_find_directory_insertion_index(file, directory, elements);
   int new_entry_is_last = i == directory->desc.dir_count;
 
   // 2. Create new directory entry
@@ -890,9 +899,8 @@ ccos_error_t ccos_delete_file_from_parent_dir(ccos_disk_t* disk, ccos_inode_t* f
     }
 
     // Find place of the file to delete in directory data
-    int i = ccos_find_file_index_in_directory_data(file, parent_dir, elements);
-    if ((i < parent_dir->desc.dir_count) && (file->desc.name_length == elements[i].file->desc.name_length) &&
-        !(strncasecmp(file->desc.name, elements[i].file->desc.name, file->desc.name_length))) {
+    int i = find_directory_entry_index(file, parent_dir, elements);
+    if (i < parent_dir->desc.dir_count) {
       TRACE("File is found!");
     } else {
       fprintf(stderr, "Unable to find file \"%*s\" in directory \"%*s\"!\n",
@@ -969,44 +977,46 @@ void ccos_rename_file_unchecked(ccos_disk_t* disk, ccos_inode_t* file, const cha
   ccos_update_inode_checksums(disk, file);
 }
 
-int ccos_find_file_index_in_directory_data(ccos_inode_t* file, ccos_inode_t* directory,
-                                      parsed_directory_element_t* elements) {
-  char basename[CCOS_MAX_FILE_NAME] = {0};
-  char type[CCOS_MAX_FILE_NAME] = {0};
-  size_t basename_length = 0;
-  size_t type_length = 0;
-  ccos_parse_file_name(file, basename, type, &basename_length, &type_length);
+static unsigned char grid_filename_char_weight(unsigned char c) {
+  // Os.OsSubs.PLM~Text~ (StringGT): map '~' to 0 after ASCII uppercase conversion.
+  // os.promsubs.plm~Text~ (Upper): only 'a'..'z' change; all other bytes stay unchanged.
+  if (c == '~') {
+    return 0;
+  }
+  return c >= 'a' && c <= 'z' ? c - ('a' - 'A') : c;
+}
 
-  char entry_name[CCOS_MAX_FILE_NAME] = {0};
-  char entry_type[CCOS_MAX_FILE_NAME] = {0};
-  size_t entry_name_length = 0;
-  size_t entry_type_length = 0;
+int ccos_find_directory_insertion_index(ccos_inode_t* file, ccos_inode_t* directory,
+                                        parsed_directory_element_t* elements) {
+  const short_string_t* file_name = ccos_get_file_name(file);
 
-  int i;
-  for (i = 0; i < directory->desc.dir_count; ++i) {
-    TRACE("Parsing entry # %d...", i);
+  for (size_t i = 0; i < directory->desc.dir_count; ++i) {
+    const short_string_t* entry_name = ccos_get_file_name(elements[i].file);
 
-    memset(entry_name, 0, CCOS_MAX_FILE_NAME);
-    memset(entry_type, 0, CCOS_MAX_FILE_NAME);
-    ccos_parse_short_file_name((const short_string_t*)&(elements[i].file->desc.name_length), entry_name, entry_type, &entry_name_length,
-                    &entry_type_length);
+    // The first differing character determines the order.
+    size_t common_length = MIN(entry_name->length, file_name->length);
+    int res = 0;
+    for (size_t j = 0; j < common_length; ++j) {
+      int entry_weight = grid_filename_char_weight(entry_name->data[j]);
+      int file_weight = grid_filename_char_weight(file_name->data[j]);
 
-    TRACE("%s", entry_name);
+      res = entry_weight - file_weight;
+      if (res != 0) {
+        break;
+      }
+    }
 
-    // Compare filename and file type separately
-    int res = strcasecmp(entry_name, basename);
-    TRACE("%s %s %s", entry_name, res < 0 ? "<" : res > 0 ? ">" : "==", basename);
+    // If one name is a prefix of the other, the shorter name comes first.
     if (res == 0) {
-      res = strncasecmp(entry_type, type, MIN(entry_type_length, type_length));
-      TRACE("%s %s %s", entry_type, res < 0 ? "<" : res > 0 ? ">" : "==", type);
+      res = (int)entry_name->length - (int)file_name->length;
     }
 
     if (res >= 0) {
-      break;
+      return (int)i;
     }
   }
 
-  return i;
+  return directory->desc.dir_count;
 }
 
 ccos_error_t ccos_parse_short_file_name(const short_string_t* file_name, char* basename, char* type, size_t* name_length,

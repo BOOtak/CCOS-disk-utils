@@ -323,16 +323,17 @@ ccos_error_t ccos_parse_directory_data(ccos_disk_t* disk,
 ccos_error_t ccos_get_sector_data(ccos_disk_t* disk, uint16_t block, const uint8_t** start, size_t* size);
 
 /**
- * @brief      Find the index of a file in the directory data.
+ * @brief      Find where to insert a file in directory data ordered by GRiD-OS name comparison.
  *
- * @param[in]  file      The file to find.
- * @param[in]  directory The directory to search in.
+ * @param[in]  file      The file to insert.
+ * @param[in]  directory The directory to insert into.
  * @param[in]  elements  Array of parsed directory elements.
  *
- * @return     Index of the file in the directory on success, -1 otherwise.
+ * @return     Index of the first entry whose name is greater than or equal to the file name,
+ *             or directory->desc.dir_count to append. Does not check for duplicates elsewhere.
  */
-int ccos_find_file_index_in_directory_data(ccos_inode_t* file, ccos_inode_t* directory,
-                                      parsed_directory_element_t* elements);
+int ccos_find_directory_insertion_index(ccos_inode_t* file, ccos_inode_t* directory,
+                                        parsed_directory_element_t* elements);
 
 /**
  * @brief      Checks if the directory is root.
