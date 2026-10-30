@@ -494,6 +494,87 @@ Test(bitmap, duplicate_add_rollback) {
   ccos_disk_free(disk);
 }
 
+static void assert_truncate_to_zero(disk_format_t format, size_t image_size, size_t file_size) {
+  ccos_disk_t* disk = NULL;
+  int ret = ccos_new_disk_image(format, image_size, &disk);
+  cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
+
+  ccos_inode_t* subject = create_subject(disk);
+  size_t free_space_before = 0;
+  cr_assert_eq(ccos_calc_free_space(disk, &free_space_before), CCOS_OK);
+
+  uint8_t* file_data = create_test_data(file_size);
+  cr_assert_not_null(file_data);
+
+  ccos_inode_t* file = ccos_add_file(disk, subject, file_data, file_size, "Truncate~Data~");
+  cr_assert_not_null(file, "ccos_add_file failed");
+  cr_assert_eq(ccos_validate_file(disk, file), CCOS_OK);
+
+  uint16_t content_inode_block = file->content_inode_info.block_next;
+  cr_assert_eq(ccos_write_file(disk, file, NULL, 0), CCOS_OK);
+  cr_assert_eq(file->desc.file_size, 0);
+  cr_assert_eq(file->content_inode_info.block_next, CCOS_INVALID_BLOCK);
+  cr_assert_eq(ccos_validate_file(disk, file), CCOS_OK);
+  if (content_inode_block != CCOS_INVALID_BLOCK) {
+    assert_block_erased(disk, content_inode_block);
+  }
+
+  size_t blocks_count = 0;
+  uint16_t* blocks = NULL;
+  cr_assert_eq(ccos_get_file_sectors(disk, file, &blocks_count, &blocks), CCOS_OK);
+  cr_assert_eq(blocks_count, 0);
+  free(blocks);
+
+  uint16_t entry_count = 0;
+  ccos_inode_t** entries = NULL;
+  cr_assert_eq(ccos_get_dir_contents(disk, subject, &entry_count, &entries), CCOS_OK);
+  cr_assert_eq(entry_count, 1);
+  cr_assert_eq(entries[0], file);
+  free(entries);
+
+  assert_valid_bitmaps(disk);
+  size_t free_space_after = 0;
+  cr_assert_eq(ccos_calc_free_space(disk, &free_space_after), CCOS_OK);
+  cr_assert_eq(free_space_after, free_space_before - ccos_disk_sector_size(disk));
+
+  free(file_data);
+  ccos_disk_free(disk);
+}
+
+Test(bitmap, truncate_one_byte_to_zero_512) {
+  assert_truncate_to_zero(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024, 1);
+}
+
+Test(bitmap, truncate_full_sector_to_zero_512) {
+  assert_truncate_to_zero(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024, BS512_LOG_BLOCK_SIZE);
+}
+
+Test(bitmap, truncate_two_sectors_to_zero_512) {
+  assert_truncate_to_zero(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024, BS512_LOG_BLOCK_SIZE + 1);
+}
+
+Test(bitmap, truncate_content_inode_to_zero_512) {
+  assert_truncate_to_zero(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024,
+                          BS512_INODE_MAX_BLOCKS * BS512_LOG_BLOCK_SIZE + 1);
+}
+
+Test(bitmap, truncate_one_byte_to_zero_256) {
+  assert_truncate_to_zero(CCOS_DISK_FORMAT_BUBMEM, 3 * 128 * 1024, 1);
+}
+
+Test(bitmap, truncate_full_sector_to_zero_256) {
+  assert_truncate_to_zero(CCOS_DISK_FORMAT_BUBMEM, 3 * 128 * 1024, BS256_LOG_BLOCK_SIZE);
+}
+
+Test(bitmap, truncate_two_sectors_to_zero_256) {
+  assert_truncate_to_zero(CCOS_DISK_FORMAT_BUBMEM, 3 * 128 * 1024, BS256_LOG_BLOCK_SIZE + 1);
+}
+
+Test(bitmap, truncate_content_inode_to_zero_256) {
+  assert_truncate_to_zero(CCOS_DISK_FORMAT_BUBMEM, 3 * 128 * 1024,
+                          BS256_INODE_MAX_BLOCKS * BS256_LOG_BLOCK_SIZE + 1);
+}
+
 Test(bitmap, duplicate_copy_rollback) {
   ccos_disk_t* disk = NULL;
   int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024, &disk);

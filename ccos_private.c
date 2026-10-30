@@ -539,12 +539,13 @@ ccos_error_t ccos_remove_sector_from_file(ccos_disk_t* disk, ccos_inode_t* file,
     *(uint16_t*)&(content_blocks[last_content_block_index - 1]) = CCOS_INVALID_BLOCK;
   }
 
-  if (last_content_block_index <= 1) {
+  if (last_content_inode != NULL && last_content_block_index <= 1) {
     ccos_error_t err = ccos_remove_content_inode(disk, file, bitmask_list);
     if (err != CCOS_OK) {
       fprintf(stderr, "Unable to remove content inode after freeing block at file 0x%x!\n", file->header.file_id);
       return err;
     }
+    return CCOS_OK;
   }
 
   if (last_content_inode != NULL) {
@@ -624,6 +625,7 @@ uint16_t ccos_add_sector_to_file(ccos_disk_t* disk, ccos_inode_t* file, ccos_bit
     ccos_content_inode_t* new_content_inode = ccos_add_content_inode(disk, file, bitmask_list);
     if (new_content_inode == NULL) {
       fprintf(stderr, "Unable to append new content inode to the file: no free space!\n");
+      ccos_erase_sector(disk, new_block, bitmask_list);
       return CCOS_INVALID_BLOCK;
     }
 
