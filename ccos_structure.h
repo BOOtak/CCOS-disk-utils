@@ -29,7 +29,8 @@ extern "C" {
 
 #define BS512_BLOCK_SIZE                (512)
 #define BS512_LOG_BLOCK_SIZE            (BS512_BLOCK_SIZE - sizeof(ccos_block_header_t) - 4)
-#define BS512_INODE_MAX_BLOCKS          ((BS512_BLOCK_SIZE - INODE_BLOCKS_OFFSET) / 2)
+#define BS512_INODE_PADDING             (4)
+#define BS512_INODE_MAX_BLOCKS          ((BS512_BLOCK_SIZE - INODE_BLOCKS_OFFSET - BS512_INODE_PADDING) / 2)
 #define BS512_CONTENT_INODE_PADDING     (8)
 #define BS512_CONTENT_INODE_MAX_BLOCKS  ((BS512_BLOCK_SIZE - sizeof(ccos_block_data_t) - BS512_CONTENT_INODE_PADDING) / 2)
 #define BS512_BITMASK_PADDING           (4)
@@ -171,7 +172,10 @@ typedef struct ccos_inode_t_ {
   ccos_block_data_t content_inode_info;
   union {
     struct { uint16_t blocks[BS256_INODE_MAX_BLOCKS]; } bs256;
-    struct { uint16_t blocks[BS512_INODE_MAX_BLOCKS]; } bs512;
+    struct {
+      uint16_t blocks[BS512_INODE_MAX_BLOCKS];
+      uint8_t padding[BS512_INODE_PADDING];
+    } bs512;
   } content;
 } ccos_inode_t;
 #pragma pack(pop)

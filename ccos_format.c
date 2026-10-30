@@ -149,6 +149,9 @@ static void write_superblock(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_lis
   size_t max_content_blocks = ccos_get_inode_max_sectors(disk);
 
   memset(content_blocks, 0xFF, max_content_blocks * sizeof(uint16_t));
+  if (ccos_disk_sector_size(disk) == BS512_BLOCK_SIZE) {
+    memset(root_dir->content.bs512.padding, 0xFF, sizeof(root_dir->content.bs512.padding));
+  }
 
   uint16_t superblock_entry_block = id + 1;
   content_blocks[0] = superblock_entry_block;

@@ -343,6 +343,42 @@ Test(bitmap, delete_restores_bitmap) {
   ccos_disk_free(disk);
 }
 
+Test(bitmap, inode_block_list_boundary) {
+  ccos_disk_t* disk = NULL;
+  int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024, &disk);
+  cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
+
+  cr_assert_eq(ccos_get_inode_max_sectors(disk), 146);
+  cr_assert_eq(sizeof(ccos_inode_t), 512);
+  cr_assert_eq(offsetof(ccos_inode_t, content.bs512.padding), 508);
+
+  ccos_inode_t* subject = create_subject(disk);
+  assert_valid_bitmaps(disk);
+
+  const size_t file_size = 147 * ccos_get_log_sector_size(disk);
+  uint8_t* file_data = create_test_data(file_size);
+  cr_assert_not_null(file_data);
+
+  ccos_inode_t* file = ccos_add_file(disk, subject, file_data, file_size, "Boundary~Data~");
+  cr_assert_not_null(file, "ccos_add_file failed");
+  cr_assert_neq(file->content_inode_info.block_next, CCOS_INVALID_BLOCK);
+
+  // Padding must not be interpreted as additional block numbers.
+  memset(file->content.bs512.padding, 0, sizeof(file->content.bs512.padding));
+  cr_assert(ccos_is_valid_inode_checksum(disk, file));
+
+  size_t data_blocks_count = 0;
+  uint16_t* data_blocks = NULL;
+  cr_assert_eq(ccos_get_file_sectors(disk, file, &data_blocks_count, &data_blocks), CCOS_OK);
+  cr_assert_eq(data_blocks_count, 147);
+
+  assert_valid_bitmaps(disk);
+
+  free(data_blocks);
+  free(file_data);
+  ccos_disk_free(disk);
+}
+
 Test(bitmap, delete_large_file) {
   ccos_disk_t* disk = NULL;
   int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024, &disk);
