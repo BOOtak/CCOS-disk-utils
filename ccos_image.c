@@ -361,6 +361,8 @@ ccos_error_t ccos_write_file(ccos_disk_t* disk, ccos_inode_t* file, const uint8_
   return CCOS_OK;
 }
 
+static void erase_unlinked_file(ccos_disk_t* disk, ccos_inode_t* file, ccos_bitmask_list_t* bitmask_list);
+
 // allocate block for the new file inode; copy file inode over; write file contents to the new file; add new file to the
 // directory
 ccos_error_t ccos_copy_file(ccos_disk_t* src, ccos_inode_t* src_file,
@@ -386,6 +388,7 @@ ccos_error_t ccos_copy_file(ccos_disk_t* src, ccos_inode_t* src_file,
   ccos_error_t err = ccos_read_file(src, src_file, &file_data, &file_size);
   if (err != CCOS_OK) {
     fprintf(stderr, "Unable to read source file with id 0x%x!\n", src_file->header.file_id);
+    erase_unlinked_file(dest, new_file, &dest_bitmask_list);
     return err;
   }
 
@@ -398,6 +401,7 @@ ccos_error_t ccos_copy_file(ccos_disk_t* src, ccos_inode_t* src_file,
   free(file_data);
   if (err != CCOS_OK) {
     fprintf(stderr, "Unable to write file to file with id 0x%x!\n", free_block);
+    erase_unlinked_file(dest, new_file, &dest_bitmask_list);
     return err;
   }
 
@@ -405,6 +409,7 @@ ccos_error_t ccos_copy_file(ccos_disk_t* src, ccos_inode_t* src_file,
   if (err != CCOS_OK) {
     fprintf(stderr, "Unable to copy file: unable to add new file with id 0x%x to the directory with id 0x%x!\n",
             new_file->header.file_id, dest_directory->header.file_id);
+    erase_unlinked_file(dest, new_file, &dest_bitmask_list);
   }
   return err;
 }

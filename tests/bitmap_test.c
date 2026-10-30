@@ -493,3 +493,244 @@ Test(bitmap, duplicate_add_rollback) {
   free(bitmap_before);
   ccos_disk_free(disk);
 }
+
+Test(bitmap, duplicate_copy_rollback) {
+  ccos_disk_t* disk = NULL;
+  int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024, &disk);
+  cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
+
+  ccos_inode_t* subject = create_subject(disk);
+  uint8_t file_data[] = {0x10, 0x20, 0x30, 0x40};
+  ccos_inode_t* file = ccos_add_file(disk, subject, file_data, sizeof(file_data), "Copy~Data~");
+  cr_assert_not_null(file, "ccos_add_file failed");
+
+  size_t free_space_before = 0;
+  cr_assert_eq(ccos_calc_free_space(disk, &free_space_before), CCOS_OK);
+  uint8_t* bitmap_before = NULL;
+  size_t bitmap_before_size = copy_bitmap_bytes(disk, &bitmap_before);
+
+  cr_assert_eq(ccos_copy_file(disk, file, disk, subject), CCOS_EEXIST);
+
+  uint16_t entry_count = 0;
+  ccos_inode_t** entries = NULL;
+  cr_assert_eq(ccos_get_dir_contents(disk, subject, &entry_count, &entries), CCOS_OK);
+  cr_assert_eq(entry_count, 1);
+  cr_assert_eq(entries[0], file);
+  free(entries);
+
+  uint8_t* actual = NULL;
+  size_t actual_size = 0;
+  cr_assert_eq(ccos_read_file(disk, file, &actual, &actual_size), CCOS_OK);
+  cr_assert_eq(actual_size, sizeof(file_data));
+  cr_assert_eq(memcmp(actual, file_data, actual_size), 0);
+  free(actual);
+
+  assert_valid_bitmaps(disk);
+  size_t free_space_after = 0;
+  cr_assert_eq(ccos_calc_free_space(disk, &free_space_after), CCOS_OK);
+  cr_assert_eq(free_space_after, free_space_before);
+  assert_bitmap_bytes_equal(disk, bitmap_before, bitmap_before_size);
+
+  free(bitmap_before);
+  ccos_disk_free(disk);
+}
+
+Test(bitmap, copy_read_error_rollback) {
+  ccos_disk_t* disk = NULL;
+  int ret = ccos_new_disk_image(CCOS_DISK_FORMAT_COMPASS, 10 * 1024 * 1024, &disk);
+  cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
+
+  ccos_inode_t* subject = create_subject(disk);
+  ccos_inode_t* destination = ccos_create_dir(disk, ccos_get_root_dir(disk), "Destination");
+  cr_assert_not_null(destination, "ccos_create_dir failed");
+  uint8_t file_data[] = {0x10, 0x20, 0x30, 0x40};
+  ccos_inode_t* file = ccos_add_file(disk, subject, file_data, sizeof(file_data), "Copy~Data~");
+  cr_assert_not_null(file, "ccos_add_file failed");
+
+  // A continuation block outside the image makes reading the source fail.
+  file->content_inode_info.block_next = ccos_disk_size(disk) / ccos_disk_sector_size(disk);
+  ccos_update_inode_checksums(disk, file);
+
+  size_t free_space_before = 0;
+  cr_assert_eq(ccos_calc_free_space(disk, &free_space_before), CCOS_OK);
+  uint8_t* bitmap_before = NULL;
+  size_t bitmap_before_size = copy_bitmap_bytes(disk, &bitmap_before);
+
+  cr_assert_eq(ccos_copy_file(disk, file, disk, destination), CCOS_EIO);
+
+  uint16_t entry_count = 0;
+  ccos_inode_t** entries = NULL;
+  cr_assert_eq(ccos_get_dir_contents(disk, destination, &entry_count, &entries), CCOS_OK);
+  cr_assert_eq(entry_count, 0);
+  free(entries);
+  cr_assert_eq(ccos_validate_file(disk, destination), CCOS_OK);
+
+  cr_assert_eq(ccos_get_dir_contents(disk, subject, &entry_count, &entries), CCOS_OK);
+  cr_assert_eq(entry_count, 1);
+  cr_assert_eq(entries[0], file);
+  free(entries);
+
+  assert_valid_bitmaps(disk);
+  size_t free_space_after = 0;
+  cr_assert_eq(ccos_calc_free_space(disk, &free_space_after), CCOS_OK);
+  cr_assert_eq(free_space_after, free_space_before);
+  assert_bitmap_bytes_equal(disk, bitmap_before, bitmap_before_size);
+
+  free(bitmap_before);
+  ccos_disk_free(disk);
+}
+
+static void assert_copy_no_space_rollback(disk_format_t format, size_t image_size,
+                                          size_t data_blocks_count, size_t remaining_blocks) {
+  ccos_disk_t* disk = NULL;
+  int ret = ccos_new_disk_image(format, image_size, &disk);
+  cr_assert_eq(ret, 0, "ccos_new_disk_image failed");
+
+  ccos_inode_t* subject = create_subject(disk);
+  ccos_inode_t* destination = ccos_create_dir(disk, ccos_get_root_dir(disk), "Destination");
+  cr_assert_not_null(destination, "ccos_create_dir failed");
+
+  size_t file_size = data_blocks_count * ccos_get_log_sector_size(disk);
+  uint8_t* file_data = create_test_data(file_size);
+  cr_assert_not_null(file_data);
+  ccos_inode_t* file = ccos_add_file(disk, subject, file_data, file_size, "Copy~Data~");
+  cr_assert_not_null(file, "ccos_add_file failed");
+
+  ccos_bitmask_list_t bitmask_list = ccos_find_bitmask_sectors(disk);
+  size_t free_blocks_count = 0;
+  cr_assert_eq(ccos_get_free_sectors_count(disk, &bitmask_list, &free_blocks_count), CCOS_OK);
+  cr_assert_geq(free_blocks_count, remaining_blocks);
+  while (free_blocks_count > remaining_blocks) {
+    uint16_t block = ccos_get_free_sector(disk, &bitmask_list);
+    cr_assert_neq(block, CCOS_INVALID_BLOCK);
+    ccos_mark_sector(disk, &bitmask_list, block, 1);
+    free_blocks_count--;
+  }
+
+  size_t free_space_before = 0;
+  cr_assert_eq(ccos_calc_free_space(disk, &free_space_before), CCOS_OK);
+  cr_assert_eq(free_space_before, remaining_blocks * ccos_disk_sector_size(disk));
+  uint8_t* bitmap_before = NULL;
+  size_t bitmap_before_size = copy_bitmap_bytes(disk, &bitmap_before);
+
+  cr_assert_eq(ccos_copy_file(disk, file, disk, destination), CCOS_ENOSPC);
+
+  uint16_t entry_count = 0;
+  ccos_inode_t** entries = NULL;
+  cr_assert_eq(ccos_get_dir_contents(disk, destination, &entry_count, &entries), CCOS_OK);
+  cr_assert_eq(entry_count, 0);
+  free(entries);
+  cr_assert_eq(ccos_validate_file(disk, destination), CCOS_OK);
+  cr_assert_eq(ccos_validate_file(disk, file), CCOS_OK);
+
+  uint8_t* actual = NULL;
+  size_t actual_size = 0;
+  cr_assert_eq(ccos_read_file(disk, file, &actual, &actual_size), CCOS_OK);
+  cr_assert_eq(actual_size, file_size);
+  cr_assert_eq(memcmp(actual, file_data, file_size), 0);
+  free(actual);
+
+  assert_valid_bitmaps(disk);
+  size_t free_space_after = 0;
+  cr_assert_eq(ccos_calc_free_space(disk, &free_space_after), CCOS_OK);
+  cr_assert_eq(free_space_after, free_space_before);
+  assert_bitmap_bytes_equal(disk, bitmap_before, bitmap_before_size);
+
+  free(bitmap_before);
+  free(file_data);
+  ccos_disk_free(disk);
+}
+
+Test(bitmap, copy_no_space_rollback) {
+  // Leave room for the copied header and only one of its two data blocks.
+  assert_copy_no_space_rollback(CCOS_DISK_FORMAT_COMPASS, 720 * 512, 2, 2);
+}
+
+Test(bitmap, copy_no_space_rollback_256) {
+  assert_copy_no_space_rollback(CCOS_DISK_FORMAT_BUBMEM, 3 * 128 * 1024, 2, 2);
+}
+
+Test(bitmap, copy_no_space_for_content_inode_rollback) {
+  // The last free block holds data, leaving no room for its continuation FAR.
+  assert_copy_no_space_rollback(CCOS_DISK_FORMAT_COMPASS, 720 * 512,
+                                BS512_INODE_MAX_BLOCKS + 1, BS512_INODE_MAX_BLOCKS + 2);
+}
+
+Test(bitmap, copy_no_space_for_content_inode_rollback_256) {
+  assert_copy_no_space_rollback(CCOS_DISK_FORMAT_BUBMEM, 3 * 128 * 1024,
+                                BS256_INODE_MAX_BLOCKS + 1, BS256_INODE_MAX_BLOCKS + 2);
+}
+
+static void assert_copy_directory_no_space_rollback(disk_format_t format, size_t image_size) {
+  ccos_disk_t* disk = NULL;
+  cr_assert_eq(ccos_new_disk_image(format, image_size, &disk), 0);
+  ccos_inode_t* subject = create_subject(disk);
+  ccos_inode_t* destination = ccos_create_dir(disk, ccos_get_root_dir(disk), "Destination");
+  cr_assert_not_null(destination);
+
+  char name[CCOS_MAX_FILE_NAME];
+  memset(name, 'X', sizeof(name));
+  memcpy(name + sizeof(name) - 7, "~Data~", 7);
+  size_t entry_size = strlen(name) + sizeof(dir_entry_t) + 2;
+  size_t entry_count = (ccos_get_log_sector_size(disk) - 1) / entry_size;
+  uint8_t data[] = {0x42};
+  for (size_t i = 0; i < entry_count; ++i) {
+    name[0] = 'A' + i;
+    cr_assert_not_null(ccos_add_file(disk, destination, data, sizeof(data), name));
+  }
+  name[0] = 'Z';
+  ccos_inode_t* file = ccos_add_file(disk, subject, data, sizeof(data), name);
+  cr_assert_not_null(file);
+
+  uint8_t* directory_before = NULL;
+  size_t directory_size = 0;
+  cr_assert_eq(ccos_read_file(disk, destination, &directory_before, &directory_size), CCOS_OK);
+  cr_assert_leq(directory_size, ccos_get_log_sector_size(disk));
+  cr_assert_gt(directory_size + entry_size, ccos_get_log_sector_size(disk));
+  uint8_t inode_before[BS512_BLOCK_SIZE];
+  memcpy(inode_before, destination, ccos_disk_sector_size(disk));
+
+  // The file fits, but adding its directory entry needs one more sector.
+  ccos_bitmask_list_t bitmask_list = ccos_find_bitmask_sectors(disk);
+  size_t free_blocks = 0;
+  cr_assert_eq(ccos_get_free_sectors_count(disk, &bitmask_list, &free_blocks), CCOS_OK);
+  while (free_blocks > 2) {
+    uint16_t block = ccos_get_free_sector(disk, &bitmask_list);
+    cr_assert_neq(block, CCOS_INVALID_BLOCK);
+    ccos_mark_sector(disk, &bitmask_list, block, 1);
+    free_blocks--;
+  }
+  uint8_t* bitmap_before = NULL;
+  size_t bitmap_size = copy_bitmap_bytes(disk, &bitmap_before);
+  size_t free_before = 0;
+  cr_assert_eq(ccos_calc_free_space(disk, &free_before), CCOS_OK);
+  cr_assert_eq(free_before, 2 * ccos_disk_sector_size(disk));
+
+  cr_assert_eq(ccos_copy_file(disk, file, disk, destination), CCOS_ENOSPC);
+
+  uint8_t* directory_after = NULL;
+  size_t actual_size = 0;
+  cr_assert_eq(ccos_read_file(disk, destination, &directory_after, &actual_size), CCOS_OK);
+  cr_assert_eq(actual_size, directory_size);
+  cr_assert_eq(memcmp(directory_after, directory_before, directory_size), 0);
+  cr_assert_eq(memcmp(destination, inode_before, ccos_disk_sector_size(disk)), 0);
+  assert_bitmap_bytes_equal(disk, bitmap_before, bitmap_size);
+  assert_valid_bitmaps(disk);
+  size_t free_after = 0;
+  cr_assert_eq(ccos_calc_free_space(disk, &free_after), CCOS_OK);
+  cr_assert_eq(free_after, free_before);
+  cr_assert_eq(ccos_validate_file(disk, file), CCOS_OK);
+
+  free(directory_after);
+  free(directory_before);
+  free(bitmap_before);
+  ccos_disk_free(disk);
+}
+
+Test(bitmap, copy_directory_no_space_rollback) {
+  assert_copy_directory_no_space_rollback(CCOS_DISK_FORMAT_COMPASS, 720 * 512);
+}
+
+Test(bitmap, copy_directory_no_space_rollback_256) {
+  assert_copy_directory_no_space_rollback(CCOS_DISK_FORMAT_BUBMEM, 3 * 128 * 1024);
+}
