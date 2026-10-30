@@ -25,6 +25,7 @@ extern "C" {
 #define BS256_BITMASK_PADDING           (0)
 #define BS256_BITMASK_SIZE              (BS256_BLOCK_SIZE - sizeof(ccos_block_header_t) - 2 - 2 - BS256_BITMASK_PADDING)
 #define BS256_BITMASK_BLOCKS            (BS256_BITMASK_SIZE * 8)
+#define BS256_MAX_BITMASK_BLOCKS        ((UINT16_MAX + BS256_BITMASK_BLOCKS - 1) / BS256_BITMASK_BLOCKS)
 #define BS256_DIR_DEFAULT_SIZE          BS256_LOG_BLOCK_SIZE
 
 #define BS512_BLOCK_SIZE                (512)
@@ -36,13 +37,11 @@ extern "C" {
 #define BS512_BITMASK_PADDING           (4)
 #define BS512_BITMASK_SIZE              (BS512_BLOCK_SIZE - sizeof(ccos_block_header_t) - 2 - 2 - BS512_BITMASK_PADDING)
 #define BS512_BITMASK_BLOCKS            (BS512_BITMASK_SIZE * 8)
+#define BS512_MAX_BITMASK_BLOCKS        ((UINT16_MAX + BS512_BITMASK_BLOCKS - 1) / BS512_BITMASK_BLOCKS)
 #define BS512_DIR_DEFAULT_SIZE          BS512_LOG_BLOCK_SIZE
 
 #define BUBBLES_SECTOR_SIZE  BS256_BLOCK_SIZE
 #define EXTDISK_SECTOR_SIZE  BS512_BLOCK_SIZE
-
-// Block number is 2 bytes => max blocks = 65535; each bitmask stores 4000 blocks => we need 17 bitmask blocks max
-#define MAX_BITMASK_BLOCKS_IN_IMAGE 17
 
 #define CCOS_DIR_ENTRIES_OFFSET 0x1
 #define CCOS_DIR_ENTRY_SUFFIX_LENGTH 0x2
@@ -223,7 +222,10 @@ static_assert(sizeof(ccos_bitmask_t) == 512, "bad bitmask size");
 #pragma pack(push, 1)
 typedef struct {
   size_t length;
-  ccos_bitmask_t* bitmask_blocks[MAX_BITMASK_BLOCKS_IN_IMAGE];
+  union {
+    struct { ccos_bitmask_t* blocks[BS256_MAX_BITMASK_BLOCKS]; } bs256;
+    struct { ccos_bitmask_t* blocks[BS512_MAX_BITMASK_BLOCKS]; } bs512;
+  } content;
 } ccos_bitmask_list_t;
 #pragma pack(pop)
 
@@ -240,11 +242,13 @@ size_t ccos_get_content_inode_padding(ccos_disk_t* disk);
 size_t ccos_get_content_inode_max_sectors(ccos_disk_t* disk);
 size_t ccos_get_bitmask_size(ccos_disk_t* disk);
 size_t ccos_get_bitmask_sectors(ccos_disk_t* disk);
+size_t ccos_get_max_bitmask_blocks(ccos_disk_t* disk);
 size_t ccos_get_dir_default_size(ccos_disk_t* disk);
 
 uint16_t* ccos_get_inode_content_sectors(ccos_inode_t* inode);
 uint16_t* ccos_get_content_inode_content_sectors(ccos_content_inode_t* inode);
 uint8_t* ccos_get_bitmask_bytes(ccos_bitmask_t* bitmask);
+ccos_bitmask_t* const* ccos_get_bitmask_blocks(ccos_disk_t* disk, const ccos_bitmask_list_t* bitmask_list);
 
 #ifdef __cplusplus
 }

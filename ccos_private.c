@@ -210,24 +210,31 @@ ccos_bitmask_list_t ccos_find_bitmask_sectors(ccos_disk_t* disk) {
   }
 
   size_t block_size = ccos_disk_sector_size(disk);
+  size_t block_count = ccos_disk_size(disk) / block_size;
 
   uint16_t bitmask_id = first_bitmask_block->header.file_id;
-  uint32_t bitmask_addr = bitmask_id * block_size;
 
-  for (size_t i = 0; i < MAX_BITMASK_BLOCKS_IN_IMAGE; i++) {
-    uint32_t offset = bitmask_addr + i * block_size;
-    ccos_block_header_t* header = (ccos_block_header_t*)ccos_disk_read(disk, (uint16_t)(offset / block_size));
-    if (header->file_id == bitmask_id) {
-      if (header->file_fragment_index != i) {
-        fprintf(stderr, "WARN: 0x%x: Invalid bitmask fragment index: expected: " SIZE_T "; actual: %d!\n", offset, i,
-                header->file_fragment_index);
-      }
-
-      result.bitmask_blocks[i] = (ccos_bitmask_t*)header;
-    } else {
-      // previous block was the last bitnmask block
-      result.length = i;
+  size_t max_bitmask_blocks = ccos_get_max_bitmask_blocks(disk);
+  for (size_t i = 0; i < max_bitmask_blocks; i++) {
+    size_t sector = (size_t)bitmask_id + i;
+    if (sector > UINT16_MAX || sector >= block_count) {
       break;
+    }
+
+    ccos_block_header_t* header = (ccos_block_header_t*)ccos_disk_read(disk, (uint16_t)sector);
+    if (header == NULL || header->file_id != bitmask_id) {
+      break;
+    }
+
+    if (header->file_fragment_index != i) {
+      fprintf(stderr, "WARN: 0x%x: Invalid bitmask fragment index: expected: " SIZE_T "; actual: %d!\n",
+              (unsigned)(sector * block_size), i, header->file_fragment_index);
+    }
+
+    if (block_size == BS256_BLOCK_SIZE) {
+      result.content.bs256.blocks[result.length++] = (ccos_bitmask_t*)header;
+    } else {
+      result.content.bs512.blocks[result.length++] = (ccos_bitmask_t*)header;
     }
   }
 
@@ -246,13 +253,13 @@ static ccos_error_t validate_bitmask_list(ccos_disk_t* disk, const ccos_bitmask_
     return CCOS_ERANGE;
   }
 
-  if (bitmask_list->bitmask_blocks[0] == NULL ||
-      bitmask_list->bitmask_blocks[0]->allocated > block_count) {
+  if (ccos_get_bitmask_blocks(disk, bitmask_list)[0] == NULL ||
+      ccos_get_bitmask_blocks(disk, bitmask_list)[0]->allocated > block_count) {
     return CCOS_EINVAL;
   }
 
   for (size_t i = 1; i < bitmask_list->length; ++i) {
-    if (bitmask_list->bitmask_blocks[i] == NULL) {
+    if (ccos_get_bitmask_blocks(disk, bitmask_list)[i] == NULL) {
       return CCOS_EINVAL;
     }
   }
@@ -265,7 +272,7 @@ static int is_bitmask_block_allocated(ccos_disk_t* disk, const ccos_bitmask_list
   size_t bitmask_blocks = ccos_get_bitmask_sectors(disk);
   size_t bitmask_index = block / bitmask_blocks;
   size_t local_block = block - bitmask_index * bitmask_blocks;
-  uint8_t* bitmask_bytes = ccos_get_bitmask_bytes(bitmask_list->bitmask_blocks[bitmask_index]);
+  uint8_t* bitmask_bytes = ccos_get_bitmask_bytes(ccos_get_bitmask_blocks(disk, bitmask_list)[bitmask_index]);
 
   return (bitmask_bytes[local_block / 8] & (1u << (local_block % 8))) != 0;
 }
@@ -290,9 +297,9 @@ bool ccos_validate_disk_bitmap(ccos_disk_t* disk) {
   }
 
   bool valid = true;
-  uint16_t expected_allocated = bitmask_list.bitmask_blocks[0]->allocated;
+  uint16_t expected_allocated = ccos_get_bitmask_blocks(disk, &bitmask_list)[0]->allocated;
   for (size_t i = 0; i < bitmask_list.length; i++) {
-    ccos_bitmask_t* bitmask = bitmask_list.bitmask_blocks[i];
+    ccos_bitmask_t* bitmask = ccos_get_bitmask_blocks(disk, &bitmask_list)[i];
     uint16_t checksum = ccos_calc_bitmask_checksum(disk, bitmask);
     if (bitmask->checksum != checksum) {
       fprintf(stderr, "Warn: bitmask #" SIZE_T " checksum mismatch! Expected: 0x%x, got: 0x%x!\n", i,
@@ -358,7 +365,7 @@ void ccos_mark_sector(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list, uint
 
   size_t bitmask_index = block / bitmask_blocks;
   block = block - (bitmask_index * bitmask_blocks);
-  uint8_t* bytes = ccos_get_bitmask_bytes(bitmask_list->bitmask_blocks[bitmask_index]);
+  uint8_t* bytes = ccos_get_bitmask_bytes(ccos_get_bitmask_blocks(disk, bitmask_list)[bitmask_index]);
   uint8_t* byte = &bytes[block >> 3u];
   if (mode) {
     *byte = *byte | (1u << (block & 0b111u));
@@ -369,12 +376,12 @@ void ccos_mark_sector(ccos_disk_t* disk, ccos_bitmask_list_t* bitmask_list, uint
   for (size_t i = 0; i < bitmask_list->length; i++) {
     if (mode) {
       // all bitmasks should have same "allocated" value (?)
-      bitmask_list->bitmask_blocks[i]->allocated += 1;
+      ccos_get_bitmask_blocks(disk, bitmask_list)[i]->allocated += 1;
     } else {
-      bitmask_list->bitmask_blocks[i]->allocated -= 1;
+      ccos_get_bitmask_blocks(disk, bitmask_list)[i]->allocated -= 1;
     }
 
-    ccos_update_bitmask_checksum(disk, bitmask_list->bitmask_blocks[i]);
+    ccos_update_bitmask_checksum(disk, ccos_get_bitmask_blocks(disk, bitmask_list)[i]);
   }
 }
 

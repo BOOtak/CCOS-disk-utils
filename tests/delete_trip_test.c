@@ -62,7 +62,7 @@ static void assert_block_free_and_erased(ccos_disk_t* disk, uint16_t block) {
   size_t local_block = block - bitmask_index * bitmask_blocks;
   cr_assert_lt(bitmask_index, bitmask_list.length);
 
-  uint8_t* bitmask_bytes = ccos_get_bitmask_bytes(bitmask_list.bitmask_blocks[bitmask_index]);
+  uint8_t* bitmask_bytes = ccos_get_bitmask_bytes(ccos_get_bitmask_blocks(disk, &bitmask_list)[bitmask_index]);
   cr_assert_eq(bitmask_bytes[local_block / 8] & (1u << (local_block % 8)), 0,
                "Block 0x%x is still marked as allocated", block);
 }
